@@ -1,0 +1,23 @@
+# Media Files (Ignore content to prevent token waste)
+**/*.mp4
+**/*.mkv
+**/*.avi
+**/*.wmv
+**/*.mov
+**/*.iso
+**/*.zip
+**/*.rar
+**/*.7z
+**/*.jpg
+**/*.jpeg
+**/*.png
+**/*.gif
+
+# System Files
+**/.DS_Store
+**/._*
+
+# Hidden Directories (except relevant config)
+.git/
+.idea/
+.vscode/

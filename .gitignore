@@ -1,0 +1,41 @@
+# System Files
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+venv/
+.env
+
+# Torrent & Downloads
+*.part
+*.!qB
+*.crdownload
+*.torrent
+
+# Media Files (Exclude from version control if this becomes a repo)
+*.mp4
+*.mkv
+*.avi
+*.wmv
+*.mov
+*.flv
+*.iso
+*.img
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.webp
+
+# Archives
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
