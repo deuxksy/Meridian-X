@@ -1,39 +1,40 @@
-# Gemini Agent Context & Guidelines
+# Gemini 에이전트 컨텍스트 및 가이드라인
 
-## 1. Project Overview
-This environment is dedicated to managing downloaded torrent files and serving them via DLNA/Media Servers. The system automates file organization, ensures naming consistency, and optimizes the structure for streaming.
+## 1. 프로젝트 개요
+이 환경은 다운로드된 토렌트 파일을 관리하고 DLNA/미디어 서버를 통해 스트리밍하기 위한 전용 시스템입니다. 이 시스템은 파일 정리를 자동화하고, 이름의 일관성을 유지하며, 스트리밍을 위한 최적의 구조를 보장합니다.
 
-**Current Working Directory:** `/mnt/data2/torrent/downloads/complete`
+**현재 작업 디렉토리:** `/mnt/data2/torrent/downloads/complete`
 
-## 2. Directory Structure
-- **Content Folders (Managed):**
-  - `East/`: Asian media content.
-  - `West/`: Western media content.
-  - `FC2/`: FC2-PPV content.
-  - `Mini/`: Content filtered for "Mini/Petite" category.
-  - `U/`, `Only/`, `Molester/`, `POV/`: Specific genre categories.
-  - **Note:** These folders are "flattened" by the script (subdirectories removed, files moved to root).
+## 2. 디렉토리 구조
+- **관리 대상 폴더 (Content Folders):**
+  - `East/`: 아시아 미디어 콘텐츠.
+  - `West/`: 서양 미디어 콘텐츠.
+  - `FC2/`: FC2-PPV 콘텐츠.
+  - `Mini/`: "Mini/Petite" 카테고리로 필터링된 콘텐츠.
+  - `U/`, `Only/`, `Molester/`, `POV/`: 특정 장르 카테고리.
+  - **참고:** 이 폴더들은 스크립트에 의해 "평탄화(Flatten)" 됩니다 (하위 디렉토리 제거 및 파일 루트 이동).
 
-- **Excluded Folders:**
-  - `Movie/`: Contains Movies/TV Shows. Maintains subdirectory structure for media server scraping.
+- **제외 대상 폴더:**
+  - `Movie/`: 영화/TV 쇼를 포함합니다. 미디어 서버의 스크래핑(메타데이터 수집)을 위해 하위 디렉토리 구조를 그대로 유지합니다.
 
-## 3. Automation Scripts
-The system uses a single unified Python script for management.
+## 3. 자동화 스크립트
+이 시스템은 단일 통합 파이썬 스크립트를 사용하여 관리를 수행합니다.
 
 ### `organize_media.py`
-This master script performs the following actions:
-1.  **Clean:** Deletes junk files (`.txt`, `.url`, `.lnk`, etc.) and spam videos (`sample`, `trailer`).
-2.  **Flatten:** Moves video files from subdirectories to the category root and removes empty folders.
-3.  **Rename:** Removes spam prefixes (e.g., `hhd800.com@`) from filenames.
-4.  **Sort:** Automatically moves files to the `Mini` folder if they contain specific keywords (`tiny`, `petite`) or prefixes (`CAWD-`, `PIYO-`).
+이 마스터 스크립트는 다음 작업들을 수행합니다:
+1.  **청소 (Clean):** 정크 파일(`.txt`, `.url`, `.lnk` 등) 및 스팸 영상(`sample`, `trailer`)을 삭제합니다.
+2.  **평탄화 (Flatten):** 하위 디렉토리에 있는 영상 파일을 카테고리 루트로 이동시키고 빈 폴더를 제거합니다.
+3.  **이름 변경 (Rename):** 파일명에서 스팸 접두사(예: `hhd800.com@`)를 제거합니다.
+4.  **분류 (Sort):** 특정 키워드(`tiny`, `petite`)나 접두사(`CAWD-`, `PIYO-`)가 포함된 파일을 `Mini` 폴더로 자동 이동시킵니다.
+5.  **권한 설정 (Permission):** DLNA 호환성을 위해 디렉토리는 `755`, 파일은 `644`로 권한을 설정합니다.
 
-## 4. User-Defined Goals
-1.  **File Management:** Automated classification, deduplication, and cleanup.
-2.  **Streaming Optimization:** Configuration for DLNA/Plex/Jellyfin.
-3.  **Security:** Strict adherence to ignore files.
-4.  **Privacy:** Avoid leaking directory structures in public logs.
+## 4. 사용자 정의 목표
+1.  **파일 관리:** 분류, 중복 제거 및 청소의 자동화.
+2.  **스트리밍 최적화:** DLNA/Plex/Jellyfin을 위한 설정 및 권한 관리.
+3.  **보안:** 무시 파일(.gitignore 등) 규칙 엄수.
+4.  **프라이버시:** 공개 로그에 디렉토리 구조가 노출되지 않도록 주의.
 
-## 5. Operational Standards
-- **Scripts:** Use `organize_media.py`. Refactor as needed.
-- **Safety:** Do not delete large media files without explicit confirmation, unless they match "sample" keywords.
-- **Backups:** Regular backups of configuration and scripts are recommended.
+## 5. 운영 표준
+- **스크립트:** `organize_media.py`를 사용하며, 필요 시 리팩토링합니다.
+- **안전:** "sample" 키워드와 일치하지 않는 한, 사용자 확인 없이 대용량 미디어 파일을 삭제하지 않습니다.
+- **백업:** 설정 및 스크립트의 정기적인 백업을 권장합니다.

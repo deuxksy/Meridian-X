@@ -1,44 +1,44 @@
 # Meridian-X
-### *An Elegant Solution for the Distinguished Digital Librarian*
+### *품격 있는 디지털 수집가를 위한 우아한 솔루션*
 
-**Meridian-X** is a bespoke automation suite designed to maintain the impeccability of your private media collection. It ensures that your digital compendium remains organized, sanitized, and ready for immediate viewing, adhering to the highest standards of order.
+**Meridian-X**는 귀하의 소중한 프라이빗 미디어 컬렉션을 완벽한 상태로 유지하기 위해 설계된 맞춤형 자동화 스위트입니다. 귀하의 디지털 서고가 항상 정돈되고, 깨끗하며, 즉시 감상 가능한 상태를 유지하도록 돕습니다.
 
 ---
 
-## 🧐 Philosophy
-A gentleman's library should be pristine. **Meridian-X** tirelessly works behind the scenes to:
-- **Curate:** Automatically segregate content into appropriate regional classifications (Oriental, Occidental, and Niche Genres).
-- **Sanitize:** Discreetly remove unsightly advertisement tags, promotional debris, and unworthy file formats.
-- **Present:** Optimize file permissions (DLNA) to ensure seamless streaming to your private theater.
+## 🧐 철학 (Philosophy)
+신사의 서재는 언제나 정갈해야 합니다. **Meridian-X**는 보이지 않는 곳에서 다음과 같이 봉사합니다:
+- **큐레이션 (Curate):** 동양과 서양, 그리고 특별한 취향(Niche)에 맞춰 콘텐츠를 자동으로 분류하고 적절한 위치로 안내합니다.
+- **정화 (Sanitize):** 파일명에 붙은 보기 흉한 광고 문구, 홍보용 태그, 그리고 가치 없는 부산물들을 정중하게 제거합니다.
+- **준비 (Present):** 귀하의 개인 극장(DLNA 서버)에서 즉시 상영될 수 있도록 파일 권한을 최적화합니다.
 
-## 🎩 Features
+## 🎩 주요 기능 (Features)
 
-### 1. Regional & Genre Classification
-The system intelligently discerns and routes media into their designated quarters:
-- **The Eastern Wing (`East`):** For cinema of Asian origin.
-- **The Western Wing (`West`):** For cinema of Occidental origin.
-- **The Compact Collection (`Mini`):** Specialized sorting for specific tastes and petite file requirements.
-- **The FC2 Archives (`FC2`):** Handling specific PPV formats with care.
+### 1. 지역 및 장르별 분류
+시스템은 미디어의 기원을 식별하여 지정된 구역으로 정중히 모십니다:
+- **동양관 (`East`):** 아시아 기원의 시네마를 위한 공간.
+- **서양관 (`West`):** 서구권 시네마를 위한 공간.
+- **소형 컬렉션 (`Mini`):** 특별한 취향과 효율적인 사이즈를 위한 큐레이션.
+- **FC2 아카이브 (`FC2`):** 특수 포맷(PPV)을 위한 전용 보관소.
 
-### 2. The White Glove Treatment (Sanitization)
-Your files are treated with respect.
-- **Prefix Removal:** Unsightly commercial tags (e.g., `hhd800...`) are surgically removed.
-- **Debris Cleanup:** Non-media clutter (`.txt`, `.url`, `.html`) is promptly discarded.
-- **Spam Filtering:** Promotional trailers and samples are identified and removed, ensuring only the main feature remains.
+### 2. 화이트 글러브 서비스 (Sanitization)
+귀하의 파일은 존중받아 마땅합니다.
+- **태그 제거:** `hhd800...`과 같은 상스러운 광고 접두사를 수술하듯 정교하게 제거합니다.
+- **잔해 청소:** 감상에 방해되는 잡동사니 파일(`.txt`, `.url`, `.html`)을 즉시 폐기합니다.
+- **스팸 필터링:** 본편이 아닌 예고편이나 샘플 영상은 식별하여 정리합니다.
 
-### 3. Theatre-Ready Preparation
-- **Flattening:** Subdirectories are reorganized into a flat structure for ease of browsing.
-- **Permissions:** File attributes are automatically set (`chmod 755/644`) to ensure compatibility with your media server of choice (Plex, Jellyfin, MiniDLNA).
+### 3. 상영 준비 (Theatre-Ready)
+- **평탄화 (Flattening):** 복잡한 하위 폴더 구조를 평평하게 정리하여 탐색의 편의를 돕습니다.
+- **권한 설정:** Plex, Jellyfin, MiniDLNA 등 어떤 미디어 서버에서도 문제없이 재생되도록 파일 권한(`755/644`)을 조정합니다.
 
-## 🥂 Usage
+## 🥂 사용법 (Usage)
 
-To commence the curation process, simply invoke the steward:
+큐레이션을 시작하시려면, 그저 집사를 호출하십시오:
 
 ```bash
 python3 organize_media.py
 ```
 
-*Meridian-X will silently observe, organize, and report only when necessary.*
+*Meridian-X는 조용히 관찰하고, 정리하며, 오직 필요할 때만 보고할 것입니다.*
 
 ---
-*"Order is the sanity of the mind, the health of the body, the peace of the city."*
+*"질서는 정신의 건전함이자, 신체의 건강이며, 도시의 평화이다."*
