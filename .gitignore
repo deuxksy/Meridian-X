@@ -39,3 +39,4 @@ venv/
 *.7z
 *.tar
 *.gz
+.venv/
