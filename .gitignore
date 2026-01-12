@@ -41,3 +41,12 @@ venv/
 *.gz
 .venv/
 .tool-versions
+
+# Junk, Info & Ad Files
+*.nfo
+*.txt
+*.url
+*.lnk
+*.tmp
+*.dat
+*.html
