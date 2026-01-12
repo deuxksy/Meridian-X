@@ -21,3 +21,16 @@
 .git/
 .idea/
 .vscode/
+.venv/
+.python-version
+uv.lock
+.tool-versions
+
+# Junk, Info & Ad Files
+**/*.nfo
+**/*.txt
+**/*.url
+**/*.lnk
+**/*.tmp
+**/*.dat
+**/*.html
