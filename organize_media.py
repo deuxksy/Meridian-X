@@ -121,10 +121,13 @@ def clean_and_flatten(target_dir):
                 new_path = os.path.join(base_path, new_filename)
                 
                 if os.path.exists(new_path):
-                    # 타겟에 이미 파일이 있으면 (중복), 원본이 서브폴더에 있을 경우 삭제 고려 가능하나,
-                    # 안전을 위해 여기서는 건너뜀.
+                    # 타겟에 이미 파일이 있으면 (중복), 원본이 서브폴더에 있을 경우 삭제
                     if root != base_path:
-                        print(f"  [Skipped] {filename} (File exists in root)")
+                        try:
+                            os.remove(file_path)
+                            print(f"  [Deleted Duplicate] {filename} (File exists in root)")
+                        except Exception as e:
+                            print(f"  [Error Deleting Duplicate] {filename}: {e}")
                 else:
                     try:
                         shutil.move(file_path, new_path)
