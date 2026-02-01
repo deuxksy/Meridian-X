@@ -50,3 +50,13 @@ venv/
 *.tmp
 *.dat
 *.html
+
+# AI Agent Symbolic Links (auto-created from .ai/)
+.aiignore
+.claudeignore
+.cursorignore
+CLAUDE.md
+CURSOR.md
+ANTHROPIC.md
+OPENAI.md
+COPILOT.md
