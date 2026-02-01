@@ -1,3 +1,4 @@
+import argparse
 import os
 import shutil
 
@@ -9,19 +10,20 @@ import shutil
 TARGET_DIRS = [
     "East",
     "West",
-    "FC2",
-    "Mini",
-    "Only",
-    "Molester",
-    "POV",
 ]
 
 # 2. 특수 분류 규칙 (조건 만족 시 해당 폴더로 이동)
 SPECIAL_RULES = {
     "Mini": {
-        # 파일명(소문자)에 포함될 키워드
-        "keywords": ["tiny4k", "exxxtrasmall", "petite", "tiny", "pixie", "small"],
-        # 파일명(대문자)에 포함될 품번 접두사
+        "keywords": [
+            "tiny4k",
+            "exxxtrasmall",
+            "petite",
+            "tiny",
+            "pixie",
+            "small",
+            "perfectgirlfriend",
+        ],
         "prefixes": ["CAWD-", "PIYO-", "MUKC-"],
     },
     "Cum4k": {
@@ -34,6 +36,38 @@ SPECIAL_RULES = {
     },
     "Only": {
         "keywords": ["onlytarts", "onlyfans"],
+        "prefixes": [],
+    },
+    "FC2": {
+        "keywords": ["fc2-ppv", "fc2"],
+        "prefixes": ["FC2-PPV", "FC2"],
+    },
+    "POV": {
+        "keywords": ["pov"],
+        "prefixes": ["ILovePOV", "IntimatePOV", "academypov", "ilovepov"],
+    },
+    "Massage": {
+        "keywords": ["massagerooms", "massagesins", "massage"],
+        "prefixes": ["OREMO", "FSDSS"],
+    },
+    "Lesbian": {
+        "keywords": ["lesbian"],
+        "prefixes": ["BBAN"],
+    },
+    "Angels": {
+        "keywords": ["angelslove", "angels-everywhere"],
+        "prefixes": [],
+    },
+    "Tushy": {
+        "keywords": ["tushy"],
+        "prefixes": ["TUSHY"],
+    },
+    "Vixen": {
+        "keywords": ["vixen"],
+        "prefixes": ["VIXEN"],
+    },
+    "WoW": {
+        "keywords": ["wowgirls"],
         "prefixes": [],
     },
 }
@@ -63,59 +97,51 @@ VIDEO_EXTENSIONS = (".mp4", ".mkv", ".avi", ".wmv", ".mov", ".ts", ".m4v")
 DIR_PERMISSION = 0o755  # drwxr-xr-x
 FILE_PERMISSION = 0o644  # -rw-r--r--
 
-# 7. 서양 폴더 West 하위로 이동 대상
-WEST_FOLDERS = [
-    "Angels",
-    "Blacked",
-    "Cum4k",
-    "FTVGirls",
-    "FittingRoom",
-    "GoodMorningSex",
-    "Only",
-    "POV",
-    "Tushy",
-    "Vixen",
-    "Vogue",
-    "WoW",
-]
-
-# 8. Actor 폴더 구성
-ACTOR_FOLDERS = ["Dakota", "Kate", "Minamo", "Niko"]
 
 # ==========================================
 # FUNCTIONS
 # ==========================================
 
 
-def set_permissions(target_dir):
+def set_permissions(target_dir, dry_run=False):
     """
     DLNA 서버가 접근 가능하도록 디렉토리와 파일의 권한을 설정합니다.
     """
     if not os.path.exists(target_dir):
         return
 
-    print(f"Setting permissions for: {target_dir} ...")
+    if dry_run:
+        print(f"[Dry-run] Would set permissions for: {target_dir} ...")
+    else:
+        print(f"Setting permissions for: {target_dir} ...")
+
     for root, dirs, files in os.walk(target_dir):
         # 디렉토리 권한 설정
-        try:
-            os.chmod(root, DIR_PERMISSION)
-        except Exception as e:
-            print(f"  [Error chmod Dir] {root}: {e}")
+        if dry_run:
+            print(f"  [Dry-run] Would chmod dir: {root}")
+        else:
+            try:
+                os.chmod(root, DIR_PERMISSION)
+            except Exception as e:
+                print(f"  [Error chmod Dir] {root}: {e}")
 
         # 파일 권한 설정
         for f in files:
             file_path = os.path.join(root, f)
-            try:
-                os.chmod(file_path, FILE_PERMISSION)
-            except Exception as e:
-                print(f"  [Error chmod File] {file_path}: {e}")
+            if dry_run:
+                print(f"  [Dry-run] Would chmod file: {file_path}")
+            else:
+                try:
+                    os.chmod(file_path, FILE_PERMISSION)
+                except Exception as e:
+                    print(f"  [Error chmod File] {file_path}: {e}")
 
 
 def is_video(filename):
     return filename.lower().endswith(VIDEO_EXTENSIONS)
 
 
-def clean_and_flatten(target_dir):
+def clean_and_flatten(target_dir, dry_run=False):
     """
     1. 불필요한 파일 삭제
     2. 하위 폴더의 영상을 루트로 이동 (Flatten)
@@ -126,7 +152,10 @@ def clean_and_flatten(target_dir):
     if not os.path.exists(base_path):
         return
 
-    print(f"Processing directory: {target_dir} ...")
+    if dry_run:
+        print(f"[Dry-run] Would process directory: {target_dir} ...")
+    else:
+        print(f"Processing directory: {target_dir} ...")
 
     # Top-down=False로 설정하여 하위 디렉토리부터 처리 (빈 폴더 삭제 용이)
     for root, dirs, files in os.walk(base_path, topdown=False):
@@ -144,11 +173,14 @@ def clean_and_flatten(target_dir):
                 should_delete = True
 
             if should_delete:
-                try:
-                    os.remove(file_path)
-                    print(f"  [Deleted] {filename}")
-                except Exception as e:
-                    print(f"  [Error Deleting] {filename}: {e}")
+                if dry_run:
+                    print(f"  [Dry-run] Would delete: {filename}")
+                else:
+                    try:
+                        os.remove(file_path)
+                        print(f"  [Deleted] {filename}")
+                    except Exception as e:
+                        print(f"  [Error Deleting] {filename}: {e}")
                 continue
 
             # B. 영상 파일이 아니면 건너뜀 (이미지 등 남은 파일 보존)
@@ -169,40 +201,59 @@ def clean_and_flatten(target_dir):
                 if os.path.exists(new_path):
                     # 타겟에 이미 파일이 있으면 (중복), 원본이 서브폴더에 있을 경우 삭제
                     if root != base_path:
-                        try:
-                            os.remove(file_path)
+                        if dry_run:
                             print(
-                                f"  [Deleted Duplicate] {filename} (File exists in root)"
+                                f"  [Dry-run] Would delete duplicate: {filename} (File exists in root)"
                             )
-                        except Exception as e:
-                            print(f"  [Error Deleting Duplicate] {filename}: {e}")
+                        else:
+                            try:
+                                os.remove(file_path)
+                                print(
+                                    f"  [Deleted Duplicate] {filename} (File exists in root)"
+                                )
+                            except Exception as e:
+                                print(f"  [Error Deleting Duplicate] {filename}: {e}")
                 else:
-                    try:
-                        shutil.move(file_path, new_path)
-                        print(f"  [Moved/Renamed] {filename} -> {new_filename}")
-                    except Exception as e:
-                        print(f"  [Error Moving] {filename}: {e}")
+                    if dry_run:
+                        print(
+                            f"  [Dry-run] Would move/rename: {filename} -> {new_filename}"
+                        )
+                    else:
+                        try:
+                            shutil.move(file_path, new_path)
+                            print(f"  [Moved/Renamed] {filename} -> {new_filename}")
+                        except Exception as e:
+                            print(f"  [Error Moving] {filename}: {e}")
 
         # 빈 폴더 삭제 (루트 제외)
         if root != base_path:
             if not os.listdir(root):
-                try:
-                    os.rmdir(root)
-                    print(f"  [Removed Dir] {root}")
-                except Exception as e:
-                    print(f"  [Error Removing Dir] {root}: {e}")
+                if dry_run:
+                    print(f"  [Dry-run] Would remove directory: {root}")
+                else:
+                    try:
+                        os.rmdir(root)
+                        print(f"  [Removed Dir] {root}")
+                    except Exception as e:
+                        print(f"  [Error Removing Dir] {root}: {e}")
 
 
-def sort_specials():
+def sort_specials(dry_run=False):
     """
     설정된 규칙(SPECIAL_RULES)에 따라 파일을 특정 폴더(예: Mini)로 이동
     """
-    print("\nSorting special categories...")
+    if dry_run:
+        print("\n[Dry-run] Would sort special categories...")
+    else:
+        print("\nSorting special categories...")
 
     for target_cat, rules in SPECIAL_RULES.items():
         dest_dir = os.path.abspath(target_cat)
         if not os.path.exists(dest_dir):
-            os.makedirs(dest_dir)
+            if dry_run:
+                print(f"  [Dry-run] Would create directory: {dest_dir}")
+            else:
+                os.makedirs(dest_dir)
 
         # 모든 소스 폴더 검색
         for source_cat in TARGET_DIRS:
@@ -250,186 +301,78 @@ def sort_specials():
                             f"  [Skipped] {filename} (Already exists in {target_cat})"
                         )
                     else:
-                        try:
-                            shutil.move(old_path, new_path)
-                            print(f"  [Sorted to {target_cat}] {filename} ({reason})")
-                        except Exception as e:
-                            print(f"  [Error Sorting] {filename}: {e}")
-
-
-def move_folders_to_west():
-    """
-    서양 관련 폴더를 West 폴더 하위로 이동
-    """
-    print("\nMoving western folders to West/...")
-
-    west_dir = "West"
-
-    for folder in WEST_FOLDERS:
-        if os.path.exists(folder):
-            dest = os.path.join(west_dir, folder)
-            if not os.path.exists(dest):
-                shutil.move(folder, dest)
-                print(f"  [Moved] {folder} -> {west_dir}/")
-            else:
-                print(f"  [Skipped] {folder} already exists in {west_dir}/")
-
-
-def create_series_subfolders():
-    """
-    East 폴더의 파일을 시리즈별 하위 폴더로 이동
-    """
-    print("\nCreating series subfolders in East/...")
-
-    east_dir = "East"
-    series_folders = {
-        "SNOS-": "SNOS",
-        "SONE-": "SONE",
-    }
-
-    if not os.path.exists(east_dir):
-        return
-
-    # 하위 폴더 생성
-    for subfolder in series_folders.values():
-        sub_path = os.path.join(east_dir, subfolder)
-        if not os.path.exists(sub_path):
-            os.makedirs(sub_path)
-
-    # 파일 이동
-    for filename in os.listdir(east_dir):
-        filepath = os.path.join(east_dir, filename)
-        if os.path.isdir(filepath) or not is_video(filename):
-            continue
-
-        f_upper = filename.upper()
-        moved = False
-
-        # SNOS 시리즈
-        if f_upper.startswith("SNOS-"):
-            dest = os.path.join(east_dir, "SNOS", filename)
-            shutil.move(filepath, dest)
-            print(f"  [Moved] {filename} -> SNOS/")
-            moved = True
-
-        # SONE 시리즈
-        elif f_upper.startswith("SONE-"):
-            dest = os.path.join(east_dir, "SONE", filename)
-            shutil.move(filepath, dest)
-            print(f"  [Moved] {filename} -> SONE/")
-            moved = True
-
-
-def organize_actor_folders():
-    """
-    Actor 폴더 구성 (Dakota, Kate, Minamo, Niko)
-    """
-    print("\nOrganizing Actor/ folders...")
-
-    actor_dir = "Actor"
-    actor_subfolders = ["Dakota", "Kate", "Minamo", "Niko"]
-
-    if not os.path.exists(actor_dir):
-        os.makedirs(actor_dir)
-
-    # 하위 폴더 생성
-    for subfolder in actor_subfolders:
-        sub_path = os.path.join(actor_dir, subfolder)
-        if not os.path.exists(sub_path):
-            os.makedirs(sub_path)
-
-    # 루트 폴더에서 여배별 파일 이동
-    for filename in os.listdir("."):
-        filepath = os.path.join(".", filename)
-
-        # Dakota 파일
-        if "dakota" in filename.lower() and is_video(filename):
-            dest = os.path.join(actor_dir, "Dakota", filename)
-            if not os.path.exists(dest):
-                shutil.move(filepath, dest)
-                print(f"  [Moved] {filename} -> Actor/Dakota/")
-
-        # Kate/KateKuray 파일
-        elif (
-            "kate" in filename.lower()
-            and ("kuray" in filename.lower() or "katekuray" in filename.lower())
-            and is_video(filename)
-        ):
-            dest = os.path.join(actor_dir, "Kate", filename)
-            if not os.path.exists(dest):
-                shutil.move(filepath, dest)
-                print(f"  [Moved] {filename} -> Actor/Kate/")
-
-        # Minamo 파일
-        elif "minamo" in filename.lower() and is_video(filename):
-            dest = os.path.join(actor_dir, "Minamo", filename)
-            if not os.path.exists(dest):
-                shutil.move(filepath, dest)
-                print(f"  [Moved] {filename} -> Actor/Minamo/")
-
-        # Niko 파일 (파일명에 포함되어 있지 않으므로 수동 관리)
-        # 현재 Actor/Niko 폴더에 있는 JAV 시리즈 파일들은 그대로 유지
-
-
-def rename_actor_folders():
-    """
-    Actor 폴더의 하위 폴더 이름 변경
-    """
-    print("\nRenaming Actor/ folders...")
-
-    actor_dir = "Actor"
-
-    # KateKuray → Kate 변경
-    old_name = "KateKuray"
-    new_name = "Kate"
-
-    old_path = os.path.join(actor_dir, old_name)
-    new_path = os.path.join(actor_dir, new_name)
-
-    if os.path.exists(old_path) and not os.path.exists(new_path):
-        shutil.move(old_path, new_path)
-        print(f"  [Renamed] {old_name} -> {new_name}")
-    elif os.path.exists(old_path) and os.path.exists(new_path):
-        # 기존 Kate 폴더가 있으면 병합
-        for filename in os.listdir(old_path):
-            src = os.path.join(old_path, filename)
-            dst = os.path.join(new_path, filename)
-            if not os.path.exists(dst):
-                shutil.move(src, dst)
-        os.rmdir(old_path)
-        print(f"  [Merged] {old_name} -> {new_name}")
+                        if dry_run:
+                            print(
+                                f"  [Dry-run] Would sort to {target_cat}: {filename} ({reason})"
+                            )
+                        else:
+                            try:
+                                shutil.move(old_path, new_path)
+                                print(
+                                    f"  [Sorted to {target_cat}] {filename} ({reason})"
+                                )
+                            except Exception as e:
+                                print(f"  [Error Sorting] {filename}: {e}")
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Media Organizer - Clean, flatten, and organize media files"
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making any changes",
+    )
+    args = parser.parse_args()
+
+    dry_run = args.dry_run
+
     print("=== Media Organizer Started ===")
+    if dry_run:
+        print("[Dry-run mode enabled - no actual changes will be made]")
+        print()
 
     # 1. 각 폴더 청소 및 평탄화
     for d in TARGET_DIRS:
-        clean_and_flatten(d)
+        clean_and_flatten(d, dry_run=dry_run)
 
     # 2. 특수 카테고리(Mini 등) 분류
-    sort_specials()
+    sort_specials(dry_run=dry_run)
 
-    # 3. 서양 폴더 West 하위로 이동
-    move_folders_to_west()
-
-    # 4. East 시리즈별 하위 폴더 분리
-    create_series_subfolders()
-
-    # 5. Actor 폴더 구성
-    organize_actor_folders()
-
-    # 6. Actor 폴더 이름 변경 (KateKuray → Kate)
-    rename_actor_folders()
-
-    # 7. 권한 설정
-    print("\nApplying DLNA permissions...")
-    all_media_dirs = list(set(TARGET_DIRS + ["Movie", "Actor", "East", "West"]))
+    # 3. 권한 설정
+    if dry_run:
+        print("\n[Dry-run] Would apply DLNA permissions...")
+    else:
+        print("\nApplying DLNA permissions...")
+    all_media_dirs = TARGET_DIRS + [
+        d
+        for d in [
+            "Angels",
+            "Dakota",
+            "FC2",
+            "Kate",
+            "Lesbian",
+            "Massage",
+            "Only",
+            "POV",
+            "Tushy",
+            "Vixen",
+            "WoW",
+            "Cum4k",
+            "FTVGirls",
+        ]
+        if os.path.exists(d)
+    ]
     for d in all_media_dirs:
         if os.path.exists(d):
-            set_permissions(d)
+            set_permissions(d, dry_run=dry_run)
 
-    print("\n=== Organization Complete ===")
+    if dry_run:
+        print("\n=== Dry-run Complete ===")
+        print("[No changes were made. Run without --dry-run to apply changes.]")
+    else:
+        print("\n=== Organization Complete ===")
 
 
 if __name__ == "__main__":
