@@ -38,9 +38,9 @@ WORK_PATH에서 SOURCE_PATH로 우선순위별 분류합니다:
 - Dakota, Kate, Minamo, Niko
 
 **2차: 장르 (Genre)**
-- **Mini:** mini, tiny, petite, small 키워드 + CAWD-, PIYO-, MUKC- 접두사
+- **Petite:** mini, tiny, petite, small 키워드 + CAWD-, PIYO-, MUKC- 접두사
 - **Massage:** massage 키워드
-- **Molester:** NHDTC-, NHDTB- 접두사
+- **Special:** NHDTC-, NHDTB- 접두사
 
 **3차: 스튜디오 (Studio)**
 - Vixen, Tushy, WowGirls, UltraFilms, FC2
