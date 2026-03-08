@@ -32,6 +32,10 @@ GENRE_RULES = {
     "Massage": {
         "keywords": ["massage"],
         "prefixes": []
+    },
+    "Molester": {
+        "keywords": [],
+        "prefixes": ["NHDTC-", "NHDTB-"]
     }
 }
 
