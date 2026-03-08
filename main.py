@@ -25,7 +25,7 @@ ACTOR_FOLDERS = ["Dakota", "Kate", "Minamo", "Niko"]
 
 # 2차: 장르 (키워드 + 접두사)
 GENRE_RULES = {
-    "Petite": {
+    "Mini": {
         "keywords": ["mini", "tiny", "petite", "small"],
         "prefixes": ["CAWD-", "PIYO-", "MUKC-"]
     },
@@ -33,7 +33,7 @@ GENRE_RULES = {
         "keywords": ["massage"],
         "prefixes": []
     },
-    "Special": {
+    "Molester": {
         "keywords": [],
         "prefixes": ["NHDTC-", "NHDTB-"]
     }
