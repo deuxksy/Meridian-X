@@ -13,47 +13,47 @@
 
 ## 🎩 주요 기능 (Features)
 
-### 1. 불필요 파일 삭제
-감상에 방해되는 잡동사니를 즉시 폐기합니다.
-- **확장자 삭제:** `.txt`, `.url`, `.lnk`, `.tmp`, `.log`, `.dat`, `.html`, `.nfo`
-- **키워드 삭제:** sample, trailer, preview, promo 등 본편이 아닌 파일
-- **소용량 삭제:** 50MB 이하 영상 파일
+### 1. 불순물 제거 (Purify)
+감상의 품위를 해치는 불필요한 요소들을 정중히 배제합니다.
+- **확장자 정리:** `.txt`, `.url`, `.lnk`, `.tmp`, `.log`, `.dat`, `.html`, `.nfo`
+- **보조 자료 제외:** sample, trailer, preview, promo 등 본편 외 파일
+- **소형 파일 배제:** 50MB 이하 영상 파일
 
-### 2. 파일명 광고 문구 제거
-상스러운 광고 접두사를 수술하듯 정교하게 제거합니다.
-- **제거 대상:** `hhd800.com@` 등
+### 2. 파일명 정제 (Refine)
+파일명에 남은 불필요한 수식어를 우아하게 제거합니다.
+- **정제 대상:** `hhd800.com@` 등의 광고성 접두사
 
-### 3. 평탄화 (Flattening)
-복잡한 하위 폴더 구조를 평평하게 정리합니다.
+### 3. 구조 정돈 (Organize)
+복잡한 하위 폴더 구조를 깔끔하게 평준화합니다.
 - SOURCE_PATH 하위 폴더 → WORK_PATH 루트로 이동
-- 중복 파일 자동 삭제
+- 중복 파일은 자동으로 제거
 
-### 4. 빈 폴더 삭제
-모든 작업 완료 후 빈 폴더를 정리합니다.
+### 4. 여백 정리 (Cleanse)
+모든 정리 작업 완료 후 빈 공간을 깔끔하게 정돈합니다.
 
-### 5. 5단계 분류 체계
-WORK_PATH에서 SOURCE_PATH로 우선순위별 분류합니다:
+### 5. 우아한 분류 체계 (Elegant Classification)
+WORK_PATH에서 SOURCE_PATH로 품격 있게 분류합니다:
 
-**1차: 배우 (Actor)**
+**1계급: 배우 (Actor)**
 - Dakota, Kate, Minamo, Niko
 
-**2차: 장르 (Genre)**
+**2계급: 장르 (Genre)**
 - **Petite:** mini, tiny, petite, small 키워드 + CAWD-, PIYO-, MUKC- 접두사
 - **Massage:** massage 키워드
 - **Special:** NHDTC-, NHDTB- 접두사
 
-**3차: 스튜디오 (Studio)**
+**3계급: 스튜디오 (Studio)**
 - Vixen, Tushy, WowGirls, UltraFilms, FC2
 
-**4차: 지역 (Region - JPN)**
+**4계급: 동양 (Orient)**
 - JAV 패턴: 영문 3-5글자 + "-" + 숫자 3-5자리
 - 예: YUJ-057.mp4, HEYZO-3820.mp4
 
-**5차: 서양 (Region - West)**
+**5계급: 서양 (Occident)**
 - 위 규칙에 매칭되지 않은 나머지 영상 파일
 
-### 6. 권한 설정 (DLNA)
-Plex, Jellyfin, MiniDLNA 등 어떤 미디어 서버에서도 문제없이 재생되도록 조정합니다.
+### 6. 상영 준비 (Prepare for Exhibition)
+Plex, Jellyfin, MiniDLNA 등 어떤 미디어 서버에서도 원활한 상영을 위해 최적화합니다.
 - **디렉토리:** 755
 - **파일:** 644
 
