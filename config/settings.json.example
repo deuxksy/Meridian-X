@@ -1,0 +1,28 @@
+{
+  "onejav": {
+    "base_url": "https://onejav.com",
+    "rss_url": "https://onejav.com/feeds/"
+  },
+  "download": {
+    "watch_path": "/path/to/torrent/watch",
+    "history_file": "logs/downloads.txt",
+    "request_timeout": 30,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  },
+  "classify": {
+    "source_path": "/path/to/source",
+    "work_path": "/path/to/work",
+    "target_dirs": ["target1", "target2"],
+    "actor_folders": ["ActorA", "ActorB"],
+    "studio_folders": ["StudioX", "StudioY"],
+    "delete_keywords": ["sample", "trailer", "preview"],
+    "delete_extensions": [".txt", ".url", ".nfo"],
+    "video_extensions": [".mp4", ".mkv", ".avi"]
+  },
+  "genres": {
+    "Example": {
+      "keywords": ["keyword1", "keyword2"],
+      "prefixes": ["PRE-"]
+    }
+  }
+}

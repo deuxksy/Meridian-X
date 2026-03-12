@@ -1,3 +1,9 @@
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
 # System Files
 .DS_Store
 ._*
@@ -7,10 +13,49 @@ Desktop.ini
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.log
+*.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+eggs/
+.eggs/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.Python
 venv/
-.env
+.venv/
+ENV/
+env/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# Tool versions
+.tool-versions
+.python-version
+
+# Logs
+logs/
+*.log
 
 # Torrent & Downloads
 *.part
@@ -18,7 +63,7 @@ venv/
 *.crdownload
 *.torrent
 
-# Media Files (Exclude from version control if this becomes a repo)
+# Media Files
 *.mp4
 *.mkv
 *.avi
@@ -39,24 +84,12 @@ venv/
 *.7z
 *.tar
 *.gz
-.venv/
-.tool-versions
 
-# Junk, Info & Ad Files
+# Junk Files
 *.nfo
-*.txt
 *.url
 *.lnk
 *.tmp
 *.dat
 *.html
-
-# AI Agent Symbolic Links (auto-created from .ai/)
-.claudeignore
-.cursorignore
-CLAUDE.md
-CURSOR.md
-ANTHROPIC.md
-OPENAI.md
-COPILOT.md
-GEMINI.md
+config/settings.json
