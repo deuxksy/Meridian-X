@@ -3,6 +3,6 @@ revision = 3
 requires-python = ">=3.12.12"
 
 [[package]]
-name = "complete"
+name = "meridian-x"
 version = "0.1.0"
 source = { virtual = "." }

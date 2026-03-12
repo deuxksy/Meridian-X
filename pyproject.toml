@@ -1,7 +1,7 @@
 [project]
-name = "complete"
+name = "Meridian-X"
 version = "0.1.0"
-description = "Add your description here"
+description = "소중한 미디어 컬렉션을 완벽하게 관리하는 품격 있는 자동화 큐레이션 솔루션."
 readme = "README.md"
 requires-python = ">=3.12.12"
 dependencies = []
