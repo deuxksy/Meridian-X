@@ -80,17 +80,17 @@ def _save_downloaded_history(downloaded: Set[str]) -> None:
             f.write(f"{torrent_id}\n")
 
 
-def _extract_torrent_links(rss_content: str) -> List[dict]:
+def _extract_page_links(rss_content: str) -> List[dict]:
     """
-    RSS 피드에서 토렌트 링크를 추출합니다.
+    RSS 피드에서 페이지 링크를 추출합니다.
     """
     links = []
     
     # RSS에서 <item> 태그 찾기
     item_pattern = re.compile(
-        r"<item>.*?<title><!\[CDATA\[(.+?)\]\]></title>.*?"
+        r"<item>.*?<title>(?:<!\[CDATA\[)?(.+?)(?:\]\]>)?</title>.*?"
         r"<link>(.+?)</link>.*?"
-        r"<description><!\[CDATA\[(.+?)\]\]></description>.*?</item>",
+        r"<description>(?:<!\[CDATA\[)?(.+?)(?:\]\]>)?</description>.*?</item>",
         re.DOTALL
     )
     
@@ -99,21 +99,38 @@ def _extract_torrent_links(rss_content: str) -> List[dict]:
         link = match.group(2).strip()
         description = match.group(3).strip()
         
-        # 토렌트 ID 추출 (예: onejav.com_CARIB-030125-001.torrent)
-        id_match = re.search(r"/([A-Z]+-\d+[-\w]*)\.torrent$", link)
-        if id_match:
-            torrent_id = id_match.group(1)
-        else:
-            torrent_id = link.split("/")[-1].replace(".torrent", "")
+        # 토렌트 ID 추출 (예: 200GANA3353)
+        torrent_id = link.split("/")[-1].upper()
         
         links.append({
             "id": torrent_id,
             "title": title,
-            "link": link,
+            "page_url": link,
             "description": description
         })
     
     return links
+
+
+def _get_download_url(page_url: str) -> str | None:
+    """
+    페이지에서 실제 다운로드 URL을 추출합니다.
+    """
+    try:
+        headers = {"User-Agent": USER_AGENT}
+        response = requests.get(page_url, headers=headers, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        
+        # 다운로드 링크 패턴: /torrent/{ID}/download/{NUMBER}/onejav.com_{ID}.torrent
+        match = re.search(r'href="(/torrent/[^/]+/download/\d+/[^"]+\.torrent)"', response.text)
+        if match:
+            return urljoin(ONEJAV_BASE_URL, match.group(1))
+        
+        logger.warning(f"No download link found on {page_url}")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to fetch page {page_url}: {e}")
+        return None
 
 
 def _download_torrent(link: str, save_path: Path, dry_run: bool = False) -> bool:
@@ -164,17 +181,17 @@ def run(max_count: int = 30, favorite_url: str = None, dry_run: bool = False) ->
         logger.error(f"Failed to fetch RSS: {e}")
         return
     
-    # 2. 토렌트 링크 추출
-    torrent_links = _extract_torrent_links(rss_content)
-    logger.info(f"Found {len(torrent_links)} torrent links")
+    # 2. 페이지 링크 추출
+    page_links = _extract_page_links(rss_content)
+    logger.info(f"Found {len(page_links)} page links")
     
-    if not torrent_links:
-        logger.warning("No torrent links found")
+    if not page_links:
+        logger.warning("No page links found")
         return
     
     # 3. 이미 다운로드한 것 제외
     downloaded_history = _load_downloaded_history()
-    new_links = [t for t in torrent_links if t["id"] not in downloaded_history]
+    new_links = [t for t in page_links if t["id"] not in downloaded_history]
     logger.info(f"New torrents: {len(new_links)} (History: {len(downloaded_history)})")
     
     if not new_links:
@@ -183,7 +200,7 @@ def run(max_count: int = 30, favorite_url: str = None, dry_run: bool = False) ->
     
     # 4. 최대 개수 제한
     links_to_download = new_links[:max_count]
-    logger.info(f"Will download {len(links_to_download)} torrents")
+    logger.info(f"Will process {len(links_to_download)} torrents")
     
     # 5. 다운로드
     watch_path = Path(WATCH_PATH)
@@ -192,7 +209,7 @@ def run(max_count: int = 30, favorite_url: str = None, dry_run: bool = False) ->
     downloaded_count = 0
     for torrent in links_to_download:
         torrent_id = torrent["id"]
-        link = torrent["link"]
+        page_url = torrent["page_url"]
         
         # 로컬 파일명 생성
         filename = f"{torrent_id}.torrent"
@@ -203,12 +220,23 @@ def run(max_count: int = 30, favorite_url: str = None, dry_run: bool = False) ->
             downloaded_history.add(torrent_id)
             continue
         
-        if _download_torrent(link, save_path, dry_run=dry_run):
+        # 페이지에서 다운로드 URL 가져오기
+        if dry_run:
+            logger.info(f"  [Dry-run] Would process: {torrent_id} from {page_url}")
+            downloaded_history.add(torrent_id)
+            downloaded_count += 1
+            continue
+        
+        download_url = _get_download_url(page_url)
+        if not download_url:
+            logger.warning(f"  [Skip] {torrent_id} - No download URL")
+            continue
+        
+        if _download_torrent(download_url, save_path, dry_run=False):
             downloaded_history.add(torrent_id)
             downloaded_count += 1
     
     # 6. 히스토리 저장
-    if not dry_run:
-        _save_downloaded_history(downloaded_history)
+    _save_downloaded_history(downloaded_history)
     
     logger.info(f"=== Meridian-X Collect Completed ({downloaded_count} downloaded) ===")

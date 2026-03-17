@@ -48,6 +48,7 @@ STUDIO_FOLDERS: List[str] = CLASSIFY.get("studio_folders", [])
 DELETE_KEYWORDS: List[str] = CLASSIFY.get("delete_keywords", [])
 DELETE_EXTENSIONS: Tuple[str, ...] = tuple(CLASSIFY.get("delete_extensions", []))
 VIDEO_EXTENSIONS: Tuple[str, ...] = tuple(CLASSIFY.get("video_extensions", []))
+CLEAN_PREFIXES: List[str] = CLASSIFY.get("clean_prefixes", [])
 
 # Genre rules
 GENRE_RULES = CONFIG.get("genres", {})
@@ -152,8 +153,16 @@ def clean_and_flatten(target_dir: str, dry_run: bool = False) -> None:
             if not is_video(filename):
                 continue
 
-            # C. 파일 이동 (Flatten)
-            new_path = Path(WORK_PATH) / filename
+            # C. 파일명 광고 접두사 제거
+            new_filename = filename
+            for prefix in CLEAN_PREFIXES:
+                if new_filename.startswith(prefix):
+                    new_filename = new_filename.replace(prefix, "", 1)
+                    if dry_run:
+                        logger.info(f"  [Cleaned] {filename} -> {new_filename}")
+
+            # D. 파일 이동 (Flatten)
+            new_path = Path(WORK_PATH) / new_filename
 
             if new_path.exists():
                 if dry_run:
