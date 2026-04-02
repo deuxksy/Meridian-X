@@ -149,6 +149,9 @@ def _download_torrent(link: str, save_path: Path, dry_run: bool = False) -> bool
         with open(save_path, "wb") as f:
             f.write(response.content)
         
+        # 파일 권한 666으로 설정
+        save_path.chmod(0o666)
+        
         logger.info(f"  [Downloaded] {save_path.name}")
         return True
     except Exception as e:

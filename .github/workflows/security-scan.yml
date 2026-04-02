@@ -1,0 +1,140 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 9 * * 1'  # 매일 오전 9시 (KST)
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements pip-audit bandit
+      - name: Dependency Vulnerability Scan
+        run: |
+          pip-audit -r requirements --ignore-vulns --skip-editable . --progress-handler=pip_audit._cli.cli:displayProgressBar(progressHandler, outputHandler)
+      - name: Static Analysis (Bandit)
+        run: |
+          bandit -r src -ll
+      - name: Secret Scan (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: --verbose --repo-path=.
+      - name: Filesystem Scan (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'HIGH'
+          exit-code: 0
+      - name: Aggregate Results
+        run: |
+          echo "## Security Scan Summary"
+          echo "| Tool | Status | Findings |"
+          echo "|------|-------|------------|"
+
+          # Check if any scan failed
+          failed_tools=""
+          if [ -f "pip-audit-results.txt" ]; then
+            echo "pip-audit: FAILED"
+            cat "pip-audit-results.txt"
+            failed_tools="${failed_tools}pip-audit "
+          fi
+          if [ -f "bandit-results.txt" ]; then
+            echo "Bandit: FAILED"
+            cat "bandit-results.txt"
+            failed_tools="${failed_tools}bandit "
+          fi
+          if [ -f "gitleaks-results.txt" ]; then
+            echo "Gitleaks: FAILED"
+            cat "gitleaks-results.txt"
+            failed_tools="${failed_tools}gitleaks "
+          fi
+          if [ -f "trivy-results.sarif" ]; then
+            echo "Trivy: FAILED"
+            cat "trivy-results.sarif"
+            failed_tools="${failed_tools}trivy "
+          fi
+
+          if [ -n "$failed_tools" ]; then
+            echo "::error:: Some security scans failed"
+            echo "Failed tools: $failed_tools"
+          fi
+      - name: Create SAR Ball
+        run: |
+          # Combine all SAR results into single file
+          combined_sarif="combined.sarif"
+          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/SARIF/sarif-schema-2.1.0","runs":[]}' > "$combined_sarif"
+
+          sar_files=$(find . -name "*.sarif" 2>/dev/null)
+          if [ ${#sar_files[@]} -eq 0 ]; then
+            echo "No SAR files found, creating empty combined.sarif"
+            exit 0
+          fi
+
+          # Combine all SAR files
+          for sar_file in ${sar_files[@]}; do
+            if [ -f "$sar_file" ]; then
+              echo "Combining $sar_file ..."
+              cat "$sar_file" >> "$combined_sarif"
+            fi
+          fi
+
+          echo "SAR ball created: $combined_sarif"
+      - name: Upload SAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: SAR_BALL_RESULTS
+          path: combined.sarif
+          retention-days: 30
+      - name: PR Comment
+        uses: actions/github-script@v7
+        if: failure()
+        with:
+          script: |
+            const fs = require('fs');
+            const sarContent = fs.readFileSync('combined.sarif', 'utf8');
+            const sarData = JSON.parse(sarContent);
+            const output = `## Security Scan Summary\n\n`;
+            sarData.runs.forEach(run => {
+              const tool = run.tool.driver.name;
+              const results = run.results || [];
+              const summary = `**${tool}**: ${results.length} finding(s)`;
+              output += `- ${tool}: ${results.length} findings\n`;
+            });
+            core.setOutput(`::error:: ${summary}`);
+            core.setFailed('Security vulnerabilities found');
+          });
+      - name: Slack Alert
+        if: failure() && env.SLACK_WEBHOOK_URL && env.SLACK_CHANNEL_ID
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            -d "{
+              \"text": "🚨 Security vulnerabilities found in ${{ github.repository }}\nPlease review: security scan results in the GitHub Actions tab.",
+            }" \
+            ${{ secrets.SLACK_WEBHOOK_URL }} \
+            ${{ secrets.SLACK_CHANNEL_ID }}
+          echo "::warning:: Slack alert sent"
+        fi
+      - name: Fail on Critical
+        if: failure() && steps.*report.outputs.some(r.run['CRITICAL')
+        run: exit 1
