@@ -70,7 +70,7 @@ jobs:
           echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/SARIF/sarif-schema-2.1.0","runs":[]}' > "$combined_sarif"
 
           for sar_file in *.sarif; do
-            if [ -f "$sar_file" ]; then
+            if [ -f "$sar_file" ] && [ "$sar_file" != "$combined_sarif" ]; then
               echo "Combining $sar_file ..."
               cat "$sar_file" >> "$combined_sarif"
             fi
