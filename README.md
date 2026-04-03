@@ -1,4 +1,7 @@
 # Meridian-X
+
+[![Security Scan](https://github.com/deuxksy/Meridian-X/actions/workflows/security-scan.yml/badge.svg)](https://github.com/deuxksy/Meridian-X/actions/workflows/security-scan.yml)
+
 *품격 있는 디지털 수집가를 위한 우아한 솔루션*
 
 **Meridian-X**는 귀하의 소중한 프라이빗 미디어 컬렉션을 완벽한 상태로 유지하기 위해 설계된 맞춤형 자동화 스위트입니다. 귀하의 디지털 서고가 항상 정돈되고, 깨끗하며, 즉시 감상 가능한 상태를 유지하도록 돕습니다.
