@@ -42,7 +42,7 @@ CONFIG = _load_config()
 CLASSIFY = CONFIG.get("classify", {})
 SOURCE_PATH = CLASSIFY.get("source_path", "/mnt/data2/torrent/complete")
 WORK_PATH = CLASSIFY.get("work_path", "/mnt/data2/torrent/complete/tmp")
-TARGET_DIRS: List[str] = CLASSIFY.get("target_dirs", [])
+IGNORE_DIRS: List[str] = CLASSIFY.get("ignore_dirs", [])
 ACTOR_FOLDERS: List[str] = CLASSIFY.get("actor_folders", [])
 STUDIO_FOLDERS: List[str] = CLASSIFY.get("studio_folders", [])
 DELETE_KEYWORDS: List[str] = CLASSIFY.get("delete_keywords", [])
@@ -161,6 +161,13 @@ def clean_and_flatten(target_dir: str, dry_run: bool = False) -> None:
                     if dry_run:
                         logger.info(f"  [Cleaned] {filename} -> {new_filename}")
 
+            # 3자리 숫자 접두사 제거 (200GANA-3355 -> GANA-3355)
+            stripped = re.sub(r'^\d{3}', '', new_filename)
+            if stripped != new_filename:
+                if dry_run:
+                    logger.info(f"  [Cleaned] {new_filename} -> {stripped}")
+                new_filename = stripped
+
             # D. 파일 이동 (Flatten)
             new_path = Path(WORK_PATH) / new_filename
 
@@ -236,6 +243,8 @@ def sort_specials(dry_run: bool = False) -> None:
                 new_path = dest_dir / filename
                 if new_path.exists():
                     logger.info(f"  [Skipped] {filename} (Already exists in {folder})")
+                    if not dry_run:
+                        file_path.unlink(missing_ok=True)
                 else:
                     if dry_run:
                         logger.info(f"  [Dry-run] Would sort to {folder}: {filename} (Actor)")
@@ -247,7 +256,7 @@ def sort_specials(dry_run: bool = False) -> None:
                             logger.error(f"  [Error Sorting] {filename}: {e}")
                 matched = True
                 break
-        
+
         if matched:
             continue
 
@@ -255,7 +264,7 @@ def sort_specials(dry_run: bool = False) -> None:
         for folder, rules in GENRE_RULES.items():
             keyword_match = any(kw in f_lower for kw in rules["keywords"])
             prefix_match = any(f_lower.startswith(prefix.lower()) for prefix in rules["prefixes"])
-            
+
             if keyword_match or prefix_match:
                 dest_dir = Path(SOURCE_PATH) / folder
                 if not dest_dir.exists():
@@ -263,10 +272,12 @@ def sort_specials(dry_run: bool = False) -> None:
                         dest_dir.mkdir(parents=True)
                     else:
                         logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-                
+
                 new_path = dest_dir / filename
                 if new_path.exists():
                     logger.info(f"  [Skipped] {filename} (Already exists in {folder})")
+                    if not dry_run:
+                        file_path.unlink(missing_ok=True)
                 else:
                     if dry_run:
                         logger.info(f"  [Dry-run] Would sort to {folder}: {filename} (Genre)")
@@ -278,7 +289,7 @@ def sort_specials(dry_run: bool = False) -> None:
                             logger.error(f"  [Error Sorting] {filename}: {e}")
                 matched = True
                 break
-        
+
         if matched:
             continue
 
@@ -291,10 +302,12 @@ def sort_specials(dry_run: bool = False) -> None:
                         dest_dir.mkdir(parents=True)
                     else:
                         logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-                
+
                 new_path = dest_dir / filename
                 if new_path.exists():
                     logger.info(f"  [Skipped] {filename} (Already exists in {folder})")
+                    if not dry_run:
+                        file_path.unlink(missing_ok=True)
                 else:
                     if dry_run:
                         logger.info(f"  [Dry-run] Would sort to {folder}: {filename} (Studio)")
@@ -306,7 +319,7 @@ def sort_specials(dry_run: bool = False) -> None:
                             logger.error(f"  [Error Sorting] {filename}: {e}")
                 matched = True
                 break
-        
+
         if matched:
             continue
 
@@ -318,10 +331,12 @@ def sort_specials(dry_run: bool = False) -> None:
                     dest_dir.mkdir(parents=True)
                 else:
                     logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-            
+
             new_path = dest_dir / filename
             if new_path.exists():
                 logger.info(f"  [Skipped] {filename} (Already exists in JPN)")
+                if not dry_run:
+                    file_path.unlink(missing_ok=True)
             else:
                 if dry_run:
                     logger.info(f"  [Dry-run] Would sort to JPN: {filename}")
@@ -331,6 +346,30 @@ def sort_specials(dry_run: bool = False) -> None:
                         logger.info(f"  [Sorted to JPN] {filename}")
                     except Exception as e:
                         logger.error(f"  [Error Sorting] {filename}: {e}")
+            continue
+
+        # 5차: Fallback - 분류되지 않은 영상은 West로
+        dest_dir = Path(SOURCE_PATH) / "West"
+        if not dest_dir.exists():
+            if not dry_run:
+                dest_dir.mkdir(parents=True)
+            else:
+                logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
+
+        new_path = dest_dir / filename
+        if new_path.exists():
+            logger.info(f"  [Skipped] {filename} (Already exists in West)")
+            if not dry_run:
+                file_path.unlink(missing_ok=True)
+        else:
+            if dry_run:
+                logger.info(f"  [Dry-run] Would sort to West: {filename}")
+            else:
+                try:
+                    shutil.move(str(file_path), str(new_path))
+                    logger.info(f"  [Sorted to West] {filename}")
+                except Exception as e:
+                    logger.error(f"  [Error Sorting] {filename}: {e}")
 
 
 def run(dry_run: bool = False) -> None:
@@ -342,8 +381,15 @@ def run(dry_run: bool = False) -> None:
     logger.info(f"Source: {SOURCE_PATH}")
     logger.info(f"Work: {WORK_PATH}")
     logger.info(f"Genre rules: {len(GENRE_RULES)}")
-    
-    for target in TARGET_DIRS:
+    logger.info(f"Ignore dirs: {IGNORE_DIRS}")
+
+    source_path = Path(SOURCE_PATH)
+    all_dirs = sorted(d.name for d in source_path.iterdir() if d.is_dir())
+    target_dirs = [d for d in all_dirs if d not in IGNORE_DIRS]
+
+    logger.info(f"Flatten targets ({len(target_dirs)}): {target_dirs}")
+
+    for target in target_dirs:
         clean_and_flatten(target, dry_run=dry_run)
     
     sort_specials(dry_run=dry_run)
