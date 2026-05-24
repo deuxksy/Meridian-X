@@ -53,6 +53,12 @@ CLEAN_PREFIXES: List[str] = CLASSIFY.get("clean_prefixes", [])
 # Genre rules
 GENRE_RULES = CONFIG.get("genres", {})
 
+# JAV metadata classify rules
+JAV_CLASSIFY = CONFIG.get("jav_classify", {})
+JAV_RULES = JAV_CLASSIFY.get("rules", [])
+JAV_FALLBACK = JAV_CLASSIFY.get("fallback_folder", "JPN")
+JAV_CACHE_PATH = JAV_CLASSIFY.get("cache_path", "config/fanza_cache.json")
+
 # JAV pattern
 JPN_PATTERN: str = r"^[A-Z]{3,5}-\d{3,5}[-\.\s]"
 
@@ -204,10 +210,11 @@ def clean_and_flatten(target_dir: str, dry_run: bool = False) -> None:
                         logger.error(f"  [Error Removing Dir] {root}: {e}")
 
 
-def sort_specials(dry_run: bool = False) -> None:
+def sort_specials(dry_run: bool = False, jav_metadata: bool = False) -> None:
     """
     우선순위별 파일 분류 (WORK_PATH → SOURCE_PATH)
-    1차: 배우 > 2차: 장르 > 3차: 스튜디오
+    1차: 배우 > 2차: 장르 > 3차: 스튜디오 > 4차: JAV > 5차: Fallback
+    jav_metadata=True 시 4차 JAV 파일을 WORK_PATH에 남겨 sort_jav_by_metadata()에서 처리
     """
     if dry_run:
         logger.info("[Dry-run] Would sort by category...")
@@ -323,8 +330,10 @@ def sort_specials(dry_run: bool = False) -> None:
         if matched:
             continue
 
-        # 4차: JAV
+        # 4차: JAV (jav_metadata 활성화 시 sort_jav_by_metadata에서 처리)
         if re.match(JPN_PATTERN, filename):
+            if jav_metadata:
+                continue  # WORK_PATH에 남겨둠
             dest_dir = Path(SOURCE_PATH) / "JPN"
             if not dest_dir.exists():
                 if not dry_run:
@@ -372,12 +381,116 @@ def sort_specials(dry_run: bool = False) -> None:
                     logger.error(f"  [Error Sorting] {filename}: {e}")
 
 
-def run(dry_run: bool = False) -> None:
+# 매칭 필드 → 메타데이터 키 매핑
+_METADATA_KEYS = {"actress": "actresses", "maker": "makers", "genre": "genres"}
+
+
+def sort_jav_by_metadata(dry_run: bool = False) -> int:
+    """
+    FANZA API 메타데이터로 JAV 파일을 분류합니다.
+    WORK_PATH에서 JPN_PATTERN에 매칭되는 파일만 처리.
+    Returns: 분류된 파일 수
+    """
+    from .fanza import FanzaClient, extract_jav_code, load_cache, save_cache
+
+    api_id = os.environ.get("FANZA_API_ID")
+    affiliate_id = os.environ.get("FANZA_AFFILIATE_ID")
+    if not api_id or not affiliate_id:
+        logger.error("FANZA_API_ID or FANZA_AFFILIATE_ID not set in .env")
+        return 0
+
+    client = FanzaClient(api_id, affiliate_id)
+    cache = load_cache(JAV_CACHE_PATH)
+    client._cache = cache
+
+    work_path = Path(WORK_PATH)
+    if not work_path.exists():
+        return 0
+
+    jav_files = [
+        f for f in os.listdir(WORK_PATH)
+        if Path(WORK_PATH, f).is_file()
+        and re.match(JPN_PATTERN, f)
+        and is_video(f)
+    ]
+
+    if not jav_files:
+        logger.info("No JAV files to classify by metadata")
+        return 0
+
+    logger.info(f"JAV metadata classify: {len(jav_files)} files")
+
+    classified = 0
+    for filename in jav_files:
+        file_path = Path(WORK_PATH) / filename
+        jav_code = extract_jav_code(filename)
+
+        if not jav_code:
+            continue
+
+        metadata = client.fetch_metadata(jav_code)
+        if not metadata:
+            logger.info(f"  [No metadata] {filename} -> {JAV_FALLBACK}")
+            _move_jav(file_path, filename, JAV_FALLBACK, dry_run)
+            classified += 1
+            continue
+
+        # rules 순서대로 매칭
+        matched_folder = None
+        for rule in JAV_RULES:
+            match_field = rule["match"]
+            pattern = rule["pattern"]
+            target_folder = rule["folder"]
+            key = _METADATA_KEYS.get(match_field, match_field + "es")
+            values = metadata.get(key, [])
+            if any(pattern in v for v in values):
+                matched_folder = target_folder
+                logger.debug(f"  Matched {match_field} '{pattern}' in {values}")
+                break
+
+        if not matched_folder:
+            matched_folder = JAV_FALLBACK
+
+        _move_jav(file_path, filename, matched_folder, dry_run)
+        classified += 1
+
+    save_cache(JAV_CACHE_PATH, client._cache)
+    logger.info(f"JAV metadata classify complete: {classified} files")
+    return classified
+
+
+def _move_jav(file_path: Path, filename: str, folder: str, dry_run: bool) -> None:
+    """JAV 파일을 대상 폴더로 이동"""
+    dest_dir = Path(SOURCE_PATH) / folder
+    if not dest_dir.exists():
+        if dry_run:
+            logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
+        else:
+            dest_dir.mkdir(parents=True)
+
+    new_path = dest_dir / filename
+    if new_path.exists():
+        logger.info(f"  [Skipped] {filename} (Already exists in {folder})")
+        if not dry_run:
+            file_path.unlink(missing_ok=True)
+    else:
+        if dry_run:
+            logger.info(f"  [Dry-run] Would sort to {folder}: {filename} (JAV-Metadata)")
+        else:
+            try:
+                shutil.move(str(file_path), str(new_path))
+                logger.info(f"  [Sorted to {folder}] {filename} (JAV-Metadata)")
+            except Exception as e:
+                logger.error(f"  [Error Sorting] {filename}: {e}")
+
+
+def run(dry_run: bool = False, jav_metadata: bool = False) -> None:
     """
     메인 실행 함수
     """
     logger.info("=== Meridian-X Classify Started ===")
     logger.info(f"Dry-run: {dry_run}")
+    logger.info(f"JAV metadata: {jav_metadata}")
     logger.info(f"Source: {SOURCE_PATH}")
     logger.info(f"Work: {WORK_PATH}")
     logger.info(f"Genre rules: {len(GENRE_RULES)}")
@@ -391,7 +504,10 @@ def run(dry_run: bool = False) -> None:
 
     for target in target_dirs:
         clean_and_flatten(target, dry_run=dry_run)
-    
-    sort_specials(dry_run=dry_run)
-    
+
+    sort_specials(dry_run=dry_run, jav_metadata=jav_metadata)
+
+    if jav_metadata and JAV_CLASSIFY:
+        sort_jav_by_metadata(dry_run=dry_run)
+
     logger.info("=== Meridian-X Classify Completed ===")

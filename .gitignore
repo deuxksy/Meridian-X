@@ -93,3 +93,5 @@ logs/
 *.dat
 *.html
 config/settings.json
+
+.omc

@@ -76,6 +76,12 @@ Examples:
         default=None,
         help="OneJAV Favorite URL (없으면 RSS 전체 다운로드)"
     )
+
+    parser.add_argument(
+        "--jav-metadata",
+        action="store_true",
+        help="FANZA API로 JAV 메타데이터 기반 분류"
+    )
     
     args = parser.parse_args()
     
@@ -85,7 +91,7 @@ Examples:
     # 명령 실행
     if args.command == "classify":
         from .classify import run as classify_run
-        classify_run(dry_run=args.dry_run)
+        classify_run(dry_run=args.dry_run, jav_metadata=args.jav_metadata)
     
     elif args.command == "collect":
         from .collect import run as collect_run
