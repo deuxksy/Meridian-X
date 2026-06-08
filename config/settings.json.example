@@ -16,6 +16,7 @@
     "rpc_password": null,
     "download_dir": null,
     "timeout": 10,
+    "stop_after_download": true,
     "use_env_auth": true,
     "filters": {
       "exclude_extensions": [".html", ".url", ".txt", ".nfo"],

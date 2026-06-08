@@ -9,12 +9,14 @@ logger = logging.getLogger(__name__)
 class TransmissionClient:
     """Proxmox Transmission RPC 클라이언트"""
 
-    def __init__(self, rpc_url: str, user: str = None, password: str = None, timeout: int = 10):
+    def __init__(self, rpc_url: str, user: str = None, password: str = None,
+                 timeout: int = 10, stop_after_download: bool = False):
         """RPC 클라이언트 초기화"""
         self._rpc_url = rpc_url
         self._user = user
         self._password = password
         self._timeout = timeout
+        self._stop_after_download = stop_after_download
         self._session_id = None
         self._session = requests.Session()
 
@@ -48,11 +50,10 @@ class TransmissionClient:
         torrent_id = torrent_added["id"]
         torrent_name = torrent_added.get("name", "")
 
-        # labels 설정 (이름에서 메이커/배우 추출)
-        if labels is None and torrent_name:
-            labels = self._extract_labels_from_name(torrent_name)
-        if labels:
-            self._rpc_call("torrent-set", {"ids": [torrent_id], "labels": labels})
+        # labels + seed ratio 설정
+        set_args = self._build_torrent_set_args(torrent_id, torrent_name, labels)
+        if set_args:
+            self._rpc_call("torrent-set", set_args)
 
         # 파일 필터링
         if filters:
@@ -93,11 +94,10 @@ class TransmissionClient:
         torrent_id = torrent_added["id"]
         torrent_name = torrent_added.get("name", "")
 
-        # labels 설정
-        if labels is None and torrent_name:
-            labels = self._extract_labels_from_name(torrent_name)
-        if labels:
-            self._rpc_call("torrent-set", {"ids": [torrent_id], "labels": labels})
+        # labels + seed ratio 설정
+        set_args = self._build_torrent_set_args(torrent_id, torrent_name, labels)
+        if set_args:
+            self._rpc_call("torrent-set", set_args)
 
         # 파일 필터링
         if filters:
@@ -164,6 +164,25 @@ class TransmissionClient:
         except Exception as e:
             logger.error(f"Failed to label existing torrents: {e}")
             return 0
+
+    def _build_torrent_set_args(self, torrent_id: int, torrent_name: str, labels: list = None) -> dict | None:
+        """labels + seed ratio를 묶어서 torrent-set 인자 생성. 없으면 None."""
+        if labels is None and torrent_name:
+            labels = self._extract_labels_from_name(torrent_name)
+
+        args = {"ids": [torrent_id]}
+        has_args = False
+
+        if labels:
+            args["labels"] = labels
+            has_args = True
+
+        if self._stop_after_download:
+            args["seedRatioMode"] = 1  # per-torrent
+            args["seedRatioLimit"] = 0.0
+            has_args = True
+
+        return args if has_args else None
 
     @staticmethod
     def _extract_labels_from_name(name: str) -> list:
