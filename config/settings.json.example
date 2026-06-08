@@ -9,7 +9,12 @@
     "rpc_password": null,
     "download_dir": null,
     "timeout": 10,
-    "use_env_auth": true
+    "use_env_auth": true,
+    "filters": {
+      "exclude_extensions": [".html", ".url", ".txt", ".nfo"],
+      "exclude_keywords": ["sample", "trailer", "preview", "996gg"],
+      "min_file_size_mb": 100
+    }
   },
   "download": {
     "watch_path": "/path/to/torrent/watch",

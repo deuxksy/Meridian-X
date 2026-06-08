@@ -36,6 +36,7 @@ TRANSMISSION_RPC_USER = TRANSMISSION.get("rpc_user")
 TRANSMISSION_RPC_PASSWORD = TRANSMISSION.get("rpc_password")
 TRANSMISSION_DOWNLOAD_DIR = TRANSMISSION.get("download_dir")
 TRANSMISSION_TIMEOUT = TRANSMISSION.get("timeout", 30)
+TRANSMISSION_FILTERS = TRANSMISSION.get("filters", {})
 
 # Download settings
 WATCH_PATH = DOWNLOAD.get("watch_path", "/mnt/data1/torrent/downloads/watch")
@@ -52,6 +53,13 @@ USER_AGENT = DOWNLOAD.get(
 # ==========================================
 
 
+
+
+def _extract_tag(torrent_id: str) -> str:
+    """토렌트 ID에서 메이커 코드를 추출합니다 (예: SNOS155→SNOS, 200GANA3395→GANA, FC2PPV4910476→FC2)"""
+    stripped = re.sub(r'^\d+', '', torrent_id)
+    match = re.match(r'^([A-Z]+)(\d(?=[A-Z]))?', stripped)
+    return match.group(1) + (match.group(2) or '') if match else stripped
 
 
 def _get_download_url(page_url: str) -> str | None:
@@ -288,7 +296,7 @@ def run_transmission_rpc(max_count: int = 30, favorite_url: str = None, dry_run:
             continue
 
         # Transmission에 전송
-        if client.add_torrent(torrent_bytes, download_dir=TRANSMISSION_DOWNLOAD_DIR):
+        if client.add_torrent(torrent_bytes, download_dir=TRANSMISSION_DOWNLOAD_DIR, labels=[_extract_tag(torrent_id)], filters=TRANSMISSION_FILTERS):
             logger.info(f"  [Sent] {torrent_id}")
             downloaded_history.add(torrent_id)
             downloaded_count += 1
