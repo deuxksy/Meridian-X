@@ -37,13 +37,12 @@ class TransmissionClient:
         if arguments is None:
             arguments = {}
 
-        headers = {}
-        if self._session_id:
-            headers["X-Transmission-Session-Id"] = self._session_id
-
         auth = (self._user, self._password) if self._user and self._password else None
 
         for attempt in range(max_retries):
+            headers = {}
+            if self._session_id:
+                headers["X-Transmission-Session-Id"] = self._session_id
             try:
                 response = self._session.post(
                     self._rpc_url,
