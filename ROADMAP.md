@@ -11,25 +11,20 @@
 
 ## Next
 
-### Source 확장
+### Multi-Source Architecture (Codex Option 1: Source Functions)
 
-- [ ] **xxxclub.to** West RSS 수집 추가
-  - RSS 파싱 (xxxclub.to 피드 형식)
-  - 파일 추출 로직 (torrent magnet/direct link)
-  - Transmission RPC 전송 (기존 add_torrent 재사용)
-  - 설정에 multi-source 구조
-  - **Cloudflare 우회**: xxxclub.to는 CF 보호가 걸릴 수 있음
-    - 대응: cookie/token 유지, `cloudscraper`, fallback 처리
-  ```json
-  "sources": {
-    "onejav": { "rss_url": "...", "type": "jav" },
-    "xxxclub": { "rss_url": "...", "type": "west" }
-  }
-  ```
+- 설계 문서: `docs/superpowers/specs/2026-06-08-multi-source-architecture-design.md`
+- 검증: Codex gpt-5.5 + Gemini gemini-3.1-pro-preview 교차 검증 완료
+- [ ] `sources/` 패키지 생성: discover() + resolve() 함수 per source
+- [ ] `sources/onejav.py`: 기존 collect.py 로직 이관 (RSS → page → .torrent bytes)
+- [ ] `sources/xxxclub.py`: RSS → magnet link 직접 추출 (CF 우회 옵션)
+- [ ] `transmission.py`: add_magnet() 추가 (filename 방식)
+- [ ] `collect.py`: 오케스트레이터로 재작성 (source 루프)
+- [ ] `settings.json`: `sources` 딕셔너리 구조로 변경
+- [ ] CLI: `--source` 플래그 (all / onejav / xxxclub)
+- [ ] History: source prefix ID (`onejav:SNOS155`, `xxxclub:...`)
 
 ### Improvements
 
-- [ ] **FANZA 연동**: JAV 토렌트에 배우 이름 label (메이커 코드 → FANZA API → 배우)
-- [ ] **CLI source 선택**: `meridian transmission --source xxxclub`
+- [ ] **FANZA 연동**: JAV 토렌트에 배우 이름 label
 - [ ] **dry-run label/filter 미리보기**: 변경 전 어떤 label/filter 적용되는지 표시
-- [ ] **history per source**: 현재 단일 파일 → source별 분리
