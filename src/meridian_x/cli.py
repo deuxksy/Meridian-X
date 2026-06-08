@@ -43,19 +43,18 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  %(prog)s download              # 로컬 다운로드
+  %(prog)s download --dry-run    # 다운로드 미리보기
+  %(prog)s transmission           # Proxmox Transmission RPC 전송
+  %(prog)s transmission --dry-run  # 미리보기
   %(prog)s classify              # 미디어 파일 분류
   %(prog)s classify --dry-run    # 분류 미리보기
-  %(prog)s collect               # OneJAV RSS 전체 다운로드 (로컬)
-  %(prog)s collect --dry-run     # 다운로드 미리보기
-  %(prog)s collect --favorite URL  # Favorite 배우만 필터링 다운로드
-  %(prog)s download              # 로컬 다운로드 (collect와 동일)
-  %(prog)s transmission           # Transmission RPC로 전송
         """
     )
     
     parser.add_argument(
         "command",
-        choices=["classify", "collect", "download", "transmission"],
+        choices=["classify", "download", "transmission"],
         help="실행할 명령"
     )
     
@@ -85,14 +84,6 @@ Examples:
         help="FANZA API로 JAV 메타데이터 기반 분류"
     )
 
-    parser.add_argument(
-        "--backend",
-        type=str,
-        default="local",
-        choices=["local", "transmission"],
-        help="다운로드 방식 (기본: local - collect/download 명령용)"
-    )
-    
     args = parser.parse_args()
     
     # 로그 파일 위치 출력
@@ -117,15 +108,6 @@ Examples:
             max_count=args.max_downloads,
             favorite_url=args.favorite,
             dry_run=args.dry_run
-        )
-
-    elif args.command == "collect":
-        from .collect import run as collect_run
-        collect_run(
-            dry_run=args.dry_run,
-            max_count=args.max_downloads,
-            favorite_url=args.favorite,
-            use_transmission=(args.backend == "transmission")
         )
 
 

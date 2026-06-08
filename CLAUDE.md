@@ -11,11 +11,14 @@ cp config/settings.json.example config/settings.json  # 설정 파일 복사
 # .env 파일에 FANZA_API_ID, FANZA_AFFILIATE_ID 설정 (선택)
 
 # ========== Collect (다운로드) ==========
-uv run meridian collect                       # 로컬 다운로드 (기본)
-uv run meridian collect --backend transmission  # Proxmox Transmission RPC
-uv run meridian collect --backend transmission --dry-run  # 미리보기
-uv run meridian collect --max-downloads 50       # 최대 50개
-uv run meridian collect --favorite URL            # Favorite 필터링
+uv run meridian download                         # 로컬 다운로드
+uv run meridian download --dry-run               # 미리보기
+uv run meridian download --max-downloads 30       # 최대 30개
+uv run meridian download --favorite URL            # Favorite 필터링
+uv run meridian transmission                     # Proxmox Transmission RPC
+uv run meridian transmission --dry-run            # 미리보기
+uv run meridian transmission --max-downloads 30    # 최대 30개
+uv run meridian transmission --favorite URL         # Favorite 필터링
 
 # ========== Classify (분류) ==========
 uv run meridian classify                          # 분류 실행
@@ -47,7 +50,7 @@ src/meridian_x/
 ## Key Patterns
 
 - **Config 로딩**: `core.load_config()` 사용
-- **다운로드 백엔드**: `--backend` 옵션 (local/transmission)
+- **다운로드 백엔드**: `download`(로컬) / `transmission`(RPC) 명령어 분리
 - **Transmission RPC**: `transmission.py`의 `TransmissionClient` 사용
 - **분류 우선순위**: 배우 > 장르 > 스튜디오 > JAV 패턴 > West(fallback)
 - **JAV 패턴**: `^[A-Z]{3,5}-\d{3,5}` (예: SONE-446, ABC-001)
@@ -56,8 +59,8 @@ src/meridian_x/
 
 **항상 `--dry-run`으로 먼저 확인:**
 ```bash
-uv run meridian collect --dry-run          # 다운로드 미리보기
-uv run meridian collect --backend transmission --dry-run  # Transmission RPC 미리보기
+uv run meridian download --dry-run          # 다운로드 미리보기
+uv run meridian transmission --dry-run     # Transmission RPC 미리보기
 uv run meridian classify --dry-run        # 분류 미리보기
 uv run meridian classify --jav-metadata --dry-run  # JAV 메타데이터 분류 미리보기
 ```

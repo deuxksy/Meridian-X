@@ -300,18 +300,3 @@ def run_transmission_rpc(max_count: int = 30, favorite_url: str = None, dry_run:
 
     logger.info(f"=== Meridian-X Collect Completed ({downloaded_count} sent) ===")
 
-
-def run(max_count: int = 30, favorite_url: str = None, dry_run: bool = False, use_transmission: bool = False) -> None:
-    """
-    OneJAV RSS 피드를 수집하고 토렌트를 다운로드합니다.
-
-    Args:
-        max_count: 최대 다운로드 수 (기본 30개)
-        favorite_url: 즐겨찾기 배우 URL (옵션)
-        dry_run: 실제 다운로드 하지 않음
-        use_transmission: Transmission RPC 사용 (기본 False - 로컬 다운로드)
-    """
-    if use_transmission:
-        run_transmission_rpc(max_count=max_count, favorite_url=favorite_url, dry_run=dry_run)
-    else:
-        run_local_download(max_count=max_count, favorite_url=favorite_url, dry_run=dry_run)
