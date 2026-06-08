@@ -43,15 +43,6 @@ USER_AGENT = DOWNLOAD.get(
 # ==========================================
 
 
-def _extract_tag(torrent_id: str) -> str:
-    """토렌트 ID에서 메이커 코드를 추출합니다 (예: SNOS155→snos, 200GANA3395→gana, FC2PPV4910476→fc2)"""
-    stripped = re.sub(r'^\d+', '', torrent_id)
-    match = re.match(r'^([A-Z]+)(\d(?=[A-Z]))?', stripped)
-    if match:
-        return (match.group(1) + (match.group(2) or '')).lower()
-    return stripped.lower()
-
-
 def _get_download_url_bytes(page_url: str) -> bytes | None:
     """페이지에서 토렌트 파일 바이트를 가져옵니다."""
     try:
@@ -140,7 +131,7 @@ def run_transmission_rpc(max_count: int = 30, favorite_url: str = None, dry_run:
             logger.warning(f"  [Skip] {torrent_id} - Failed to get torrent bytes")
             continue
 
-        if client.add_torrent(torrent_bytes, download_dir=TRANSMISSION_DOWNLOAD_DIR, labels=[_extract_tag(torrent_id)], filters=TRANSMISSION_FILTERS):
+        if client.add_torrent(torrent_bytes, download_dir=TRANSMISSION_DOWNLOAD_DIR, filters=TRANSMISSION_FILTERS):
             logger.info(f"  [Sent] {torrent_id}")
             downloaded_history.add(torrent_id)
             downloaded_count += 1

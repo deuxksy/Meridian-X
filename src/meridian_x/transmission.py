@@ -46,8 +46,11 @@ class TransmissionClient:
             return False
 
         torrent_id = torrent_added["id"]
+        torrent_name = torrent_added.get("name", "")
 
-        # labels 설정
+        # labels 설정 (이름에서 메이커/배우 추출)
+        if labels is None and torrent_name:
+            labels = self._extract_labels_from_name(torrent_name)
         if labels:
             self._rpc_call("torrent-set", {"ids": [torrent_id], "labels": labels})
 
