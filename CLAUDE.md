@@ -10,15 +10,14 @@ uv sync                              # 의존성 설치
 cp config/settings.json.example config/settings.json  # 설정 파일 복사
 # .env 파일에 FANZA_API_ID, FANZA_AFFILIATE_ID 설정 (선택)
 
-# ========== Collect (다운로드) ==========
-uv run meridian download                         # 로컬 다운로드
-uv run meridian download --dry-run               # 미리보기
-uv run meridian download --max-downloads 30       # 최대 30개
-uv run meridian download --favorite URL            # Favorite 필터링
-uv run meridian transmission                     # Proxmox Transmission RPC
+# ========== Collect (Transmission RPC) ==========
+uv run meridian transmission                     # RSS → Transmission RPC 전송
 uv run meridian transmission --dry-run            # 미리보기
 uv run meridian transmission --max-downloads 30    # 최대 30개
 uv run meridian transmission --favorite URL         # Favorite 필터링
+
+# ========== Filter (기존 토렌트 필터링) ==========
+uv run meridian filter                          # 전체 토렌트 광고 파일 제외
 
 # ========== Classify (분류) ==========
 uv run meridian classify                          # 분류 실행
@@ -26,7 +25,7 @@ uv run meridian classify --dry-run                # 미리보기
 uv run meridian classify --jav-metadata            # FANZA 메타데이터 기반 분류
 
 # ========== Verification ==========
-uv run meridian collect --dry-run                # 항상 --dry-run으로 먼저 확인
+uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 확인
 ```
 
 ## Architecture
@@ -50,7 +49,7 @@ src/meridian_x/
 ## Key Patterns
 
 - **Config 로딩**: `core.load_config()` 사용
-- **다운로드 백엔드**: `download`(로컬) / `transmission`(RPC) 명령어 분리
+- **다운로드**: `transmission` 명령어 (RPC 전용, 로컬 다운로드 제거)
 - **Transmission RPC**: `transmission.py`의 `TransmissionClient` 사용 (paused 추가 → 파일 필터링 → labels → start)
 - **Labels**: 메이커 코드 자동 추출 (SNOS155→SNOS, 200GANA→GANA, FC2PPV→FC2)
 - **파일 필터**: 확장자/키워드/최소 크기로 광고 파일 자동 제외 (settings.json filters)
