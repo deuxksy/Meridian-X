@@ -23,11 +23,6 @@ class TransmissionClient:
         """토렌트 메타데이터(base64 인코딩)를 Transmission에 추가.
 
         paused로 추가 후 파일 필터링 → unwanted 설정 → 시작.
-        filters: {
-            "exclude_extensions": [".html", ".url", ".txt", ".nfo"],
-            "exclude_keywords": ["sample", "trailer", "preview"],
-            "min_file_size_mb": 100
-        }
         """
         base64_metainfo = base64.b64encode(metainfo).decode('utf-8')
         arguments = {"metainfo": base64_metainfo, "paused": True}
@@ -57,17 +52,43 @@ class TransmissionClient:
             self._rpc_call("torrent-set", {"ids": [torrent_id], "labels": labels})
 
         # 파일 필터링
-        unwanted = self._get_unwanted_files(torrent_id, filters) if filters else []
-        if unwanted:
-            logger.info(f"  [Filter] Excluding {len(unwanted)} files")
-            self._rpc_call("torrent-set", {"ids": [torrent_id], "files-unwanted": unwanted})
+        if filters:
+            unwanted = self._get_unwanted_files(torrent_id, filters)
+            if unwanted:
+                logger.info(f"  [Filter] Excluding {len(unwanted)} files")
+                self._rpc_call("torrent-set", {"ids": [torrent_id], "files-unwanted": unwanted})
 
         # 다운로드 시작
         self._rpc_call("torrent-start", {"ids": [torrent_id]})
         return True
 
+    def filter_existing(self, filters: dict) -> int:
+        """전체 토렌트에 파일 필터링 적용. 제외된 토렌트 수 반환."""
+        try:
+            response = self._rpc_call("torrent-get", {
+                "fields": ["id", "name", "files", "fileStats"]
+            })
+            if response.get("result") != "success":
+                return 0
+
+            torrents = response.get("arguments", {}).get("torrents", [])
+            filtered_count = 0
+
+            for t in torrents:
+                torrent_id = t["id"]
+                unwanted = self._filter_files(t["files"], filters)
+                if unwanted:
+                    logger.info(f"  [Filter] {t['name']}: excluding {len(unwanted)} files")
+                    self._rpc_call("torrent-set", {"ids": [torrent_id], "files-unwanted": unwanted})
+                    filtered_count += 1
+
+            return filtered_count
+        except Exception as e:
+            logger.error(f"Failed to filter existing torrents: {e}")
+            return 0
+
     def _get_unwanted_files(self, torrent_id: int, filters: dict) -> list:
-        """필터 규칙에 맞는 제외 파일 인덱스를 반환합니다."""
+        """단일 토렌트의 파일 목록 조회 후 제외 인덱스 반환."""
         try:
             response = self._rpc_call("torrent-get", {
                 "ids": [torrent_id],
@@ -80,36 +101,39 @@ class TransmissionClient:
             if not torrents:
                 return []
 
-            files = torrents[0].get("files", [])
-            exclude_ext = set(ext.lower() for ext in filters.get("exclude_extensions", []))
-            exclude_kw = [kw.lower() for kw in filters.get("exclude_keywords", [])]
-            min_size = filters.get("min_file_size_mb", 0) * 1024 * 1024
-
-            unwanted = []
-            for i, f in enumerate(files):
-                name = Path(f["name"]).name.lower()
-                length = f.get("length", 0)
-
-                if Path(name).suffix.lower() in exclude_ext:
-                    logger.debug(f"  [Filter] Exclude (ext): {f['name']}")
-                    unwanted.append(i)
-                    continue
-                if any(kw in name for kw in exclude_kw):
-                    logger.debug(f"  [Filter] Exclude (keyword): {f['name']}")
-                    unwanted.append(i)
-                    continue
-                if min_size > 0 and length < min_size:
-                    logger.debug(f"  [Filter] Exclude (size): {f['name']} ({length / 1024 / 1024:.1f}MB)")
-                    unwanted.append(i)
-                    continue
-
-            return unwanted
+            return self._filter_files(torrents[0]["files"], filters)
         except Exception as e:
             logger.warning(f"  [Filter] Failed to get file list: {e}")
             return []
 
+    def _filter_files(self, files: list, filters: dict) -> list:
+        """파일 목록에서 필터 규칙에 맞는 인덱스를 반환합니다."""
+        exclude_ext = set(ext.lower() for ext in filters.get("exclude_extensions", []))
+        exclude_kw = [kw.lower() for kw in filters.get("exclude_keywords", [])]
+        min_size = filters.get("min_file_size_mb", 0) * 1024 * 1024
+
+        unwanted = []
+        for i, f in enumerate(files):
+            name = Path(f["name"]).name.lower()
+            length = f.get("length", 0)
+
+            if Path(name).suffix.lower() in exclude_ext:
+                logger.debug(f"  [Filter] Exclude (ext): {f['name']}")
+                unwanted.append(i)
+                continue
+            if any(kw in name for kw in exclude_kw):
+                logger.debug(f"  [Filter] Exclude (keyword): {f['name']}")
+                unwanted.append(i)
+                continue
+            if min_size > 0 and length < min_size:
+                logger.debug(f"  [Filter] Exclude (size): {f['name']} ({length / 1024 / 1024:.1f}MB)")
+                unwanted.append(i)
+                continue
+
+        return unwanted
+
     def _rpc_call(self, method: str, arguments: dict = None, max_retries: int = 3) -> dict:
-        """RPC 요청 공통 메서드 (세션 ID 처리 + 버전 감지)"""
+        """RPC 요청 공통 메서드 (세션 ID 처리)"""
         if arguments is None:
             arguments = {}
 

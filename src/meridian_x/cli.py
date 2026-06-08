@@ -43,10 +43,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s download              # 로컬 다운로드
-  %(prog)s download --dry-run    # 다운로드 미리보기
   %(prog)s transmission           # Proxmox Transmission RPC 전송
   %(prog)s transmission --dry-run  # 미리보기
+  %(prog)s filter                 # 기존 토렌트 파일 필터링 (광고 제외)
   %(prog)s classify              # 미디어 파일 분류
   %(prog)s classify --dry-run    # 분류 미리보기
         """
@@ -54,7 +53,7 @@ Examples:
     
     parser.add_argument(
         "command",
-        choices=["classify", "download", "transmission"],
+        choices=["classify", "filter", "transmission"],
         help="실행할 명령"
     )
     
@@ -94,14 +93,6 @@ Examples:
         from .classify import run as classify_run
         classify_run(dry_run=args.dry_run, jav_metadata=args.jav_metadata)
 
-    elif args.command == "download":
-        from .collect import run_local_download
-        run_local_download(
-            max_count=args.max_downloads,
-            favorite_url=args.favorite,
-            dry_run=args.dry_run
-        )
-
     elif args.command == "transmission":
         from .collect import run_transmission_rpc
         run_transmission_rpc(
@@ -109,6 +100,28 @@ Examples:
             favorite_url=args.favorite,
             dry_run=args.dry_run
         )
+
+    elif args.command == "filter":
+        from .transmission import TransmissionClient
+        from .core import load_config
+        config = load_config()
+        tx_config = config.get("transmission", {})
+        if not tx_config.get("rpc_url"):
+            logger.error("transmission.rpc_url not configured")
+            return
+        filters = tx_config.get("filters", {})
+        client = TransmissionClient(
+            rpc_url=tx_config["rpc_url"],
+            user=tx_config.get("rpc_user"),
+            password=tx_config.get("rpc_password"),
+            timeout=tx_config.get("timeout", 10)
+        )
+        logger.info("=== Filter Existing Torrents ===")
+        if args.dry_run:
+            logger.info("[Dry-run] Would filter all torrents")
+        else:
+            count = client.filter_existing(filters)
+            logger.info(f"=== Filter Completed ({count} torrents filtered) ===")
 
 
 if __name__ == "__main__":
