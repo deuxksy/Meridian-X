@@ -46,6 +46,7 @@ Examples:
   %(prog)s transmission           # Proxmox Transmission RPC 전송
   %(prog)s transmission --dry-run  # 미리보기
   %(prog)s filter                 # 기존 토렌트 파일 필터링 (광고 제외)
+  %(prog)s label                  # 기존 토렌트에 메이커 코드 labels 설정
   %(prog)s classify              # 미디어 파일 분류
   %(prog)s classify --dry-run    # 분류 미리보기
         """
@@ -53,7 +54,7 @@ Examples:
     
     parser.add_argument(
         "command",
-        choices=["classify", "filter", "transmission"],
+        choices=["classify", "filter", "label", "transmission"],
         help="실행할 명령"
     )
     
@@ -122,6 +123,27 @@ Examples:
         else:
             count = client.filter_existing(filters)
             logger.info(f"=== Filter Completed ({count} torrents filtered) ===")
+
+    elif args.command == "label":
+        from .transmission import TransmissionClient
+        from .core import load_config
+        config = load_config()
+        tx_config = config.get("transmission", {})
+        if not tx_config.get("rpc_url"):
+            logger.error("transmission.rpc_url not configured")
+            return
+        client = TransmissionClient(
+            rpc_url=tx_config["rpc_url"],
+            user=tx_config.get("rpc_user"),
+            password=tx_config.get("rpc_password"),
+            timeout=tx_config.get("timeout", 10)
+        )
+        logger.info("=== Label Existing Torrents ===")
+        if args.dry_run:
+            logger.info("[Dry-run] Would label all torrents")
+        else:
+            count = client.label_existing()
+            logger.info(f"=== Label Completed ({count} torrents labeled) ===")
 
 
 if __name__ == "__main__":

@@ -87,6 +87,75 @@ class TransmissionClient:
             logger.error(f"Failed to filter existing torrents: {e}")
             return 0
 
+    def label_existing(self) -> int:
+        """전체 토렌트에 labels 설정 (메이커 + 배우 분리). 적용된 토렌트 수 반환."""
+        try:
+            response = self._rpc_call("torrent-get", {
+                "fields": ["id", "name", "labels"]
+            })
+            if response.get("result") != "success":
+                return 0
+
+            torrents = response.get("arguments", {}).get("torrents", [])
+            labeled_count = 0
+
+            for t in torrents:
+                torrent_id = t["id"]
+                name = t["name"]
+                current_labels = t.get("labels", [])
+
+                labels = self._extract_labels_from_name(name)
+                if not labels or labels == current_labels:
+                    continue
+
+                logger.info(f"  [Label] {name}: {labels}")
+                self._rpc_call("torrent-set", {"ids": [torrent_id], "labels": labels})
+                labeled_count += 1
+
+            return labeled_count
+        except Exception as e:
+            logger.error(f"Failed to label existing torrents: {e}")
+            return 0
+
+    @staticmethod
+    def _extract_labels_from_name(name: str) -> list:
+        """토렌트 이름에서 labels를 추출합니다.
+
+        West: ['vixen', 'lily love'] (스튜디오 + 배우)
+        JAV:  ['snos'] (메이커 코드만)
+        """
+        import re
+        # West 패턴 감지
+        west_match = re.match(
+            r'^([A-Za-z]+[0-9]*?)\.\d{2}(?:\.\d{2})?\.(.+?)\.XXX', name
+        )
+        if west_match:
+            studio = west_match.group(1).lower()
+            labels = [studio]
+
+            # 배우 이름 추출 (최대 2단어)
+            parts = west_match.group(2).split('.')
+            _title_words = {'and', 'or', 'the', 'her', 'his', 'with', 'for', 'in', 'on', 'to', 'of', 'a'}
+            actresses = []
+            for p in parts:
+                if (len(p) > 1 and p[0:1].isupper()
+                        and p.lower() not in _title_words
+                        and not p[0].isdigit()):
+                    actresses.append(p)
+                    if len(actresses) >= 2:
+                        break
+            if actresses:
+                labels.append(' '.join(actresses).lower())
+            return labels
+
+        # JAV 패턴: 메이커 코드
+        cleaned = re.sub(r'[-.\s]+', '', name).split('(')[0].rstrip('ch')
+        stripped = re.sub(r'^\d+', '', cleaned)
+        match = re.match(r'^([A-Z]+)(\d(?=[A-Z]))?', stripped)
+        if match:
+            return [(match.group(1) + (match.group(2) or '')).lower()]
+        return []
+
     def _get_unwanted_files(self, torrent_id: int, filters: dict) -> list:
         """단일 토렌트의 파일 목록 조회 후 제외 인덱스 반환."""
         try:

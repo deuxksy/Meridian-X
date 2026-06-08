@@ -44,10 +44,12 @@ USER_AGENT = DOWNLOAD.get(
 
 
 def _extract_tag(torrent_id: str) -> str:
-    """토렌트 ID에서 메이커 코드를 추출합니다 (예: SNOS155→SNOS, 200GANA3395→GANA, FC2PPV4910476→FC2)"""
+    """토렌트 ID에서 메이커 코드를 추출합니다 (예: SNOS155→snos, 200GANA3395→gana, FC2PPV4910476→fc2)"""
     stripped = re.sub(r'^\d+', '', torrent_id)
     match = re.match(r'^([A-Z]+)(\d(?=[A-Z]))?', stripped)
-    return match.group(1) + (match.group(2) or '') if match else stripped
+    if match:
+        return (match.group(1) + (match.group(2) or '')).lower()
+    return stripped.lower()
 
 
 def _get_download_url_bytes(page_url: str) -> bytes | None:
