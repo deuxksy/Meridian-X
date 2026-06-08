@@ -18,6 +18,8 @@
   - 파일 추출 로직 (torrent magnet/direct link)
   - Transmission RPC 전송 (기존 add_torrent 재사용)
   - 설정에 multi-source 구조
+  - **Cloudflare 우회**: xxxclub.to는 CF 보호가 걸릴 수 있음
+    - 대응: cookie/token 유지, `cloudscraper`, fallback 처리
   ```json
   "sources": {
     "onejav": { "rss_url": "...", "type": "jav" },
