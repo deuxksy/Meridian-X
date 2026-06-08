@@ -51,7 +51,9 @@ src/meridian_x/
 
 - **Config 로딩**: `core.load_config()` 사용
 - **다운로드 백엔드**: `download`(로컬) / `transmission`(RPC) 명령어 분리
-- **Transmission RPC**: `transmission.py`의 `TransmissionClient` 사용
+- **Transmission RPC**: `transmission.py`의 `TransmissionClient` 사용 (paused 추가 → 파일 필터링 → labels → start)
+- **Labels**: 메이커 코드 자동 추출 (SNOS155→SNOS, 200GANA→GANA, FC2PPV→FC2)
+- **파일 필터**: 확장자/키워드/최소 크기로 광고 파일 자동 제외 (settings.json filters)
 - **분류 우선순위**: 배우 > 장르 > 스튜디오 > JAV 패턴 > West(fallback)
 - **JAV 패턴**: `^[A-Z]{3,5}-\d{3,5}` (예: SONE-446, ABC-001)
 
