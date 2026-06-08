@@ -3,7 +3,6 @@ Meridian-X Classify Module
 미디어 파일 분류 및 정리
 """
 
-import json
 import logging
 import os
 import re
@@ -11,28 +10,16 @@ import shutil
 from pathlib import Path
 from typing import List, Dict, Tuple
 
+from .core import load_config
+
 logger = logging.getLogger(__name__)
 
 # ==========================================
 # LOAD CONFIGURATION
 # ==========================================
 
-def _load_config() -> Dict:
-    """
-    config/settings.json에서 설정을 로드합니다.
-    """
-    config_path = Path(__file__).parent.parent.parent / "config" / "settings.json"
-    
-    if not config_path.exists():
-        logger.error(f"Config not found: {config_path}")
-        raise FileNotFoundError(f"Config not found: {config_path}")
-    
-    with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
 # Load config
-CONFIG = _load_config()
+CONFIG = load_config()
 
 # ==========================================
 # CONFIGURATION

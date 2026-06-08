@@ -1,7 +1,15 @@
 {
-  "feed": {
-    "base_url": "https://example.com",
-    "rss_url": "https://example.com/feeds/"
+  "onejav": {
+    "base_url": "https://onejav.com",
+    "rss_url": "https://onejav.com/feeds/"
+  },
+  "transmission": {
+    "rpc_url": "https://heritage.bun-bull.ts.net/transmission/rpc",
+    "rpc_user": null,
+    "rpc_password": null,
+    "download_dir": null,
+    "timeout": 10,
+    "use_env_auth": true
   },
   "download": {
     "watch_path": "/path/to/torrent/watch",

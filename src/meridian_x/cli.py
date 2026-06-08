@@ -45,15 +45,17 @@ def main():
 Examples:
   %(prog)s classify              # 미디어 파일 분류
   %(prog)s classify --dry-run    # 분류 미리보기
-  %(prog)s collect               # OneJAV RSS 전체 다운로드
+  %(prog)s collect               # OneJAV RSS 전체 다운로드 (로컬)
   %(prog)s collect --dry-run     # 다운로드 미리보기
   %(prog)s collect --favorite URL  # Favorite 배우만 필터링 다운로드
+  %(prog)s download              # 로컬 다운로드 (collect와 동일)
+  %(prog)s transmission           # Transmission RPC로 전송
         """
     )
     
     parser.add_argument(
         "command",
-        choices=["classify", "collect"],
+        choices=["classify", "collect", "download", "transmission"],
         help="실행할 명령"
     )
     
@@ -82,6 +84,14 @@ Examples:
         action="store_true",
         help="FANZA API로 JAV 메타데이터 기반 분류"
     )
+
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default="local",
+        choices=["local", "transmission"],
+        help="다운로드 방식 (기본: local - collect/download 명령용)"
+    )
     
     args = parser.parse_args()
     
@@ -92,10 +102,31 @@ Examples:
     if args.command == "classify":
         from .classify import run as classify_run
         classify_run(dry_run=args.dry_run, jav_metadata=args.jav_metadata)
-    
+
+    elif args.command == "download":
+        from .collect import run_local_download
+        run_local_download(
+            max_count=args.max_downloads,
+            favorite_url=args.favorite,
+            dry_run=args.dry_run
+        )
+
+    elif args.command == "transmission":
+        from .collect import run_transmission_rpc
+        run_transmission_rpc(
+            max_count=args.max_downloads,
+            favorite_url=args.favorite,
+            dry_run=args.dry_run
+        )
+
     elif args.command == "collect":
         from .collect import run as collect_run
-        collect_run(dry_run=args.dry_run, max_count=args.max_downloads, favorite_url=args.favorite)
+        collect_run(
+            dry_run=args.dry_run,
+            max_count=args.max_downloads,
+            favorite_url=args.favorite,
+            use_transmission=(args.backend == "transmission")
+        )
 
 
 if __name__ == "__main__":
