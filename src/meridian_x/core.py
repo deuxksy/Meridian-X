@@ -29,13 +29,23 @@ def load_config() -> dict:
 def load_downloaded_history(history_file: str) -> Set[str]:
     """
     이미 다운로드한 토렌트 ID 목록을 로드합니다.
+    prefix 없는 기존 항목은 onejav: prefix 자동 추가 (migration).
     """
     history_path = Path(history_file)
     if not history_path.exists():
         return set()
 
     with open(history_path, "r", encoding="utf-8") as f:
-        return set(line.strip() for line in f if line.strip())
+        result = set()
+        for line in f:
+            item = line.strip()
+            if not item:
+                continue
+            # prefix 없는 기존 항목은 onejav: prefix 추가
+            if ":" not in item:
+                item = "onejav:" + item
+            result.add(item)
+        return result
 
 
 def save_downloaded_history(history_file: str, downloaded: Set[str]) -> None:

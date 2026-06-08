@@ -1,7 +1,14 @@
 {
-  "onejav": {
-    "base_url": "https://onejav.com",
-    "rss_url": "https://onejav.com/feeds/"
+  "sources": {
+    "onejav": {
+      "enabled": true,
+      "base_url": "https://onejav.com",
+      "rss_url": "https://onejav.com/feeds/"
+    },
+    "xxxclub": {
+      "enabled": true,
+      "rss_url": "https://xxxclub.to/feed/1080p.FullHD.xml"
+    }
   },
   "transmission": {
     "rpc_url": "https://heritage.bun-bull.ts.net/transmission/rpc",
@@ -16,8 +23,7 @@
       "min_file_size_mb": 100
     }
   },
-  "download": {
-    "watch_path": "/path/to/torrent/watch",
+  "collection": {
     "history_file": "logs/downloads.txt",
     "request_timeout": 30,
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"

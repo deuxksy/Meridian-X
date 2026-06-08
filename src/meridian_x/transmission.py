@@ -65,6 +65,51 @@ class TransmissionClient:
         self._rpc_call("torrent-start", {"ids": [torrent_id]})
         return True
 
+    def add_magnet(self, magnet_url: str, download_dir: str = None,
+                    labels: list = None, filters: dict = None) -> bool:
+        """magnet URI를 Transmission에 추가 (filename 방식).
+
+        add_torrent과 동일한 흐름: paused → labels → filter → start.
+        """
+        arguments = {"filename": magnet_url, "paused": True}
+        if download_dir:
+            arguments["download-dir"] = download_dir
+
+        response = self._rpc_call("torrent-add", arguments)
+        if response.get("result") != "success":
+            logger.error(f"RPC failed: {response}")
+            return False
+
+        result = response.get("arguments", {})
+
+        if "torrent-duplicate" in result:
+            logger.info("  [Duplicate]")
+            return True
+
+        torrent_added = result.get("torrent-added")
+        if not torrent_added:
+            return False
+
+        torrent_id = torrent_added["id"]
+        torrent_name = torrent_added.get("name", "")
+
+        # labels 설정
+        if labels is None and torrent_name:
+            labels = self._extract_labels_from_name(torrent_name)
+        if labels:
+            self._rpc_call("torrent-set", {"ids": [torrent_id], "labels": labels})
+
+        # 파일 필터링
+        if filters:
+            unwanted = self._get_unwanted_files(torrent_id, filters)
+            if unwanted:
+                logger.info(f"  [Filter] Excluding {len(unwanted)} files")
+                self._rpc_call("torrent-set", {"ids": [torrent_id], "files-unwanted": unwanted})
+
+        # 다운로드 시작
+        self._rpc_call("torrent-start", {"ids": [torrent_id]})
+        return True
+
     def filter_existing(self, filters: dict) -> int:
         """전체 토렌트에 파일 필터링 적용. 제외된 토렌트 수 반환."""
         try:

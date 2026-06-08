@@ -43,7 +43,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s transmission           # Proxmox Transmission RPC 전송
+  %(prog)s transmission           # 전체 source Transmission RPC 전송
+  %(prog)s transmission --source onejav  # OneJAV만
+  %(prog)s transmission --source xxxclub # XXXClub만
   %(prog)s transmission --dry-run  # 미리보기
   %(prog)s filter                 # 기존 토렌트 파일 필터링 (광고 제외)
   %(prog)s label                  # 기존 토렌트에 메이커 코드 labels 설정
@@ -79,6 +81,13 @@ Examples:
     )
 
     parser.add_argument(
+        "--source",
+        type=str,
+        default=None,
+        help="수집 source 지정 (onejav, xxxclub). 없으면 전체 실행"
+    )
+
+    parser.add_argument(
         "--jav-metadata",
         action="store_true",
         help="FANZA API로 JAV 메타데이터 기반 분류"
@@ -95,10 +104,10 @@ Examples:
         classify_run(dry_run=args.dry_run, jav_metadata=args.jav_metadata)
 
     elif args.command == "transmission":
-        from .collect import run_transmission_rpc
-        run_transmission_rpc(
+        from .collect import run_transmission
+        run_transmission(
             max_count=args.max_downloads,
-            favorite_url=args.favorite,
+            source=args.source,
             dry_run=args.dry_run
         )
 

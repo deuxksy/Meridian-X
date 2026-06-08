@@ -1,143 +1,143 @@
 """
 Meridian-X Collect Module
-OneJAV RSS 수집 → Transmission RPC 전송
+Multi-source RSS 수집 → Transmission RPC 전송
 """
-
 import logging
-import re
-from urllib.parse import urljoin
 
-import requests
-
-from .core import load_config, load_downloaded_history, save_downloaded_history, extract_page_links
+from .core import load_config, load_downloaded_history, save_downloaded_history
+from .sources import SOURCES
 from .transmission import TransmissionClient
 
 logger = logging.getLogger(__name__)
 
-# ==========================================
-# LOAD CONFIGURATION
-# ==========================================
 
-CONFIG = load_config()
-ONEJAV = CONFIG.get("onejav", {})
-TRANSMISSION = CONFIG.get("transmission", {})
-DOWNLOAD = CONFIG.get("download", {})
+def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = False) -> None:
+    """Multi-source RSS 수집 → Transmission RPC 전송."""
+    config = load_config()
+    sources_config = config.get("sources", {})
+    transmission_config = config.get("transmission", {})
+    collection_config = config.get("collection", config.get("download", {}))
 
-ONEJAV_BASE_URL = ONEJAV.get("base_url", "https://onejav.com")
-ONEJAV_RSS_URL = ONEJAV.get("rss_url", "https://onejav.com/feeds/")
-TRANSMISSION_RPC_URL = TRANSMISSION.get("rpc_url")
-TRANSMISSION_RPC_USER = TRANSMISSION.get("rpc_user")
-TRANSMISSION_RPC_PASSWORD = TRANSMISSION.get("rpc_password")
-TRANSMISSION_DOWNLOAD_DIR = TRANSMISSION.get("download_dir")
-TRANSMISSION_TIMEOUT = TRANSMISSION.get("timeout", 30)
-TRANSMISSION_FILTERS = TRANSMISSION.get("filters", {})
-DOWNLOADED_HISTORY_FILE = DOWNLOAD.get("history_file", "logs/downloads.txt")
-REQUEST_TIMEOUT = DOWNLOAD.get("request_timeout", 30)
-USER_AGENT = DOWNLOAD.get(
-    "user_agent",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-)
-
-# ==========================================
-# FUNCTIONS
-# ==========================================
-
-
-def _get_download_url_bytes(page_url: str) -> bytes | None:
-    """페이지에서 토렌트 파일 바이트를 가져옵니다."""
-    try:
-        headers = {"User-Agent": USER_AGENT}
-        response = requests.get(page_url, headers=headers, timeout=REQUEST_TIMEOUT)
-        response.raise_for_status()
-
-        match = re.search(r'href="(/torrent/[^/]+/download/\d+/[^"]+\.torrent)"', response.text)
-        if match:
-            download_url = urljoin(ONEJAV_BASE_URL, match.group(1))
-            torrent_response = requests.get(download_url, headers=headers, timeout=REQUEST_TIMEOUT)
-            torrent_response.raise_for_status()
-            return torrent_response.content
-
-        logger.warning(f"No download link found on {page_url}")
-        return None
-    except Exception as e:
-        logger.error(f"Failed to fetch torrent bytes from {page_url}: {e}")
-        return None
-
-
-def run_transmission_rpc(max_count: int = 30, favorite_url: str = None, dry_run: bool = False) -> None:
-    """RSS 수집 → Transmission RPC 전송 (paused + filter + labels + start)"""
-    logger.info("=== Meridian-X Collect Started (Transmission RPC) ===")
-    logger.info(f"Dry-run: {dry_run}")
-    logger.info(f"RSS URL: {ONEJAV_RSS_URL}")
-    logger.info(f"Transmission RPC URL: {TRANSMISSION_RPC_URL}")
-
-    if not TRANSMISSION_RPC_URL:
-        logger.error("Transmission RPC URL not configured")
+    if not transmission_config.get("rpc_url"):
+        logger.error("transmission.rpc_url not configured")
         return
 
-    # 1. RSS 피드 가져오기
-    try:
-        headers = {"User-Agent": USER_AGENT}
-        response = requests.get(ONEJAV_RSS_URL, headers=headers, timeout=REQUEST_TIMEOUT)
-        response.raise_for_status()
-        rss_content = response.text
-        logger.info(f"Fetched RSS feed ({len(rss_content)} bytes)")
-    except Exception as e:
-        logger.error(f"Failed to fetch RSS: {e}")
-        return
-
-    # 2. 페이지 링크 추출
-    page_links = extract_page_links(rss_content)
-    logger.info(f"Found {len(page_links)} page links")
-
-    if not page_links:
-        logger.warning("No page links found")
-        return
-
-    # 3. 이미 다운로드한 것 제외
-    downloaded_history = load_downloaded_history(DOWNLOADED_HISTORY_FILE)
-    new_links = [t for t in page_links if t["id"] not in downloaded_history]
-    logger.info(f"New torrents: {len(new_links)} (History: {len(downloaded_history)})")
-
-    if not new_links:
-        logger.info("No new torrents to download")
-        return
-
-    # 4. 최대 개수 제한
-    links_to_download = new_links[:max_count]
-    logger.info(f"Will process {len(links_to_download)} torrents")
-
-    # 5. Transmission 클라이언트 초기화
+    # Transmission 클라이언트
     client = TransmissionClient(
-        rpc_url=TRANSMISSION_RPC_URL,
-        user=TRANSMISSION_RPC_USER,
-        password=TRANSMISSION_RPC_PASSWORD,
-        timeout=TRANSMISSION_TIMEOUT
+        rpc_url=transmission_config["rpc_url"],
+        user=transmission_config.get("rpc_user"),
+        password=transmission_config.get("rpc_password"),
+        timeout=transmission_config.get("timeout", 10)
     )
+    filters = transmission_config.get("filters", {})
+    download_dir = transmission_config.get("download_dir")
+    history_file = collection_config.get("history_file", "logs/downloads.txt")
 
-    downloaded_count = 0
-    for torrent in links_to_download:
-        torrent_id = torrent["id"]
-        page_url = torrent["page_url"]
+    # 활성 source 결정
+    active_sources = {}
+    for name, src_config in sources_config.items():
+        if not src_config.get("enabled", True):
+            continue
+        if source and name != source:
+            continue
+        if name not in SOURCES:
+            logger.warning(f"Unknown source: {name}")
+            continue
+        active_sources[name] = src_config
 
-        if dry_run:
-            logger.info(f"  [Dry-run] Would process: {torrent_id} from {page_url}")
-            downloaded_history.add(torrent_id)
-            downloaded_count += 1
+    if not active_sources:
+        logger.error("No active sources")
+        return
+
+    logger.info("=== Meridian-X Collect Started ===")
+    logger.info(f"Sources: {list(active_sources.keys())}")
+
+    # history 로드
+    history = load_downloaded_history(history_file)
+
+    remaining = max_count
+    total_count = 0
+
+    for src_name, src_config in active_sources.items():
+        if remaining <= 0:
+            break
+
+        src_module = SOURCES[src_name]
+        logger.info(f"\n--- Source: {src_name} ---")
+
+        # 공통 설정과 source 설정 병합 (Codex 검증 반영)
+        effective_config = {**collection_config, **src_config}
+
+        try:
+            # discover
+            items = src_module.discover(effective_config)
+            logger.info(f"Found {len(items)} items")
+
+            if not items:
+                logger.info("No items found")
+                continue
+
+            # history 필터링
+            new_items = [i for i in items if i["id"] not in history]
+            src_history_count = len([h for h in history if h.startswith(src_name + ":")])
+            logger.info(f"New: {len(new_items)} (History: {src_history_count})")
+
+            if not new_items:
+                continue
+
+            # 전체 max_count 내에서 제한
+            to_process = new_items[:remaining]
+            logger.info(f"Will process {len(to_process)} items")
+
+            count = 0
+            for item in to_process:
+                item_id = item["id"]
+
+                if dry_run:
+                    logger.info(f"  [Dry-run] {item_id}: {item.get('title', '')}")
+                    history.add(item_id)
+                    count += 1
+                    continue
+
+                # resolve
+                try:
+                    payload = src_module.resolve(item, effective_config)
+                except Exception as e:
+                    logger.error(f"  [Resolve Error] {item_id}: {e}")
+                    continue
+
+                if not payload:
+                    logger.warning(f"  [Skip] {item_id} - resolve returned None")
+                    continue
+
+                # 전송
+                try:
+                    if payload["type"] == "metainfo":
+                        ok = client.add_torrent(payload["data"], download_dir=download_dir, filters=filters)
+                    elif payload["type"] == "magnet":
+                        ok = client.add_magnet(payload["data"], download_dir=download_dir, filters=filters)
+                    else:
+                        logger.warning(f"  [Skip] {item_id} - unknown payload type: {payload['type']}")
+                        continue
+
+                    if ok:
+                        logger.info(f"  [Sent] {item_id}")
+                        history.add(item_id)
+                        count += 1
+                    else:
+                        logger.warning(f"  [Failed] {item_id}")
+                except Exception as e:
+                    logger.error(f"  [RPC Error] {item_id}: {e}")
+
+            remaining -= count
+            total_count += count
+            logger.info(f"Source {src_name}: {count} sent")
+
+        except Exception as e:
+            # per-source exception boundary (Codex 검증 반영)
+            logger.error(f"Source {src_name} failed: {e}")
             continue
 
-        torrent_bytes = _get_download_url_bytes(page_url)
-        if not torrent_bytes:
-            logger.warning(f"  [Skip] {torrent_id} - Failed to get torrent bytes")
-            continue
-
-        if client.add_torrent(torrent_bytes, download_dir=TRANSMISSION_DOWNLOAD_DIR, filters=TRANSMISSION_FILTERS):
-            logger.info(f"  [Sent] {torrent_id}")
-            downloaded_history.add(torrent_id)
-            downloaded_count += 1
-        else:
-            logger.warning(f"  [Failed] {torrent_id} - Transmission RPC failed")
-
-    # 6. 히스토리 저장
-    save_downloaded_history(DOWNLOADED_HISTORY_FILE, downloaded_history)
-    logger.info(f"=== Meridian-X Collect Completed ({downloaded_count} sent) ===")
+    # history 저장
+    save_downloaded_history(history_file, history)
+    logger.info(f"=== Meridian-X Collect Completed ({total_count} total) ===")
