@@ -19,6 +19,9 @@ uv run meridian transmission --favorite URL         # Favorite 필터링
 # ========== Filter (기존 토렌트 필터링) ==========
 uv run meridian filter                          # 전체 토렌트 광고 파일 제외
 
+# ========== Label (기존 토렌트 라벨링) ==========
+uv run meridian label                           # 메이커/배우 labels 자동 설정
+
 # ========== Classify (분류) ==========
 uv run meridian classify                          # 분류 실행
 uv run meridian classify --dry-run                # 미리보기
@@ -32,10 +35,10 @@ uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 
 
 ```text
 src/meridian_x/
-├── cli.py            # CLI 진입점
+├── cli.py            # CLI 진입점 (classify, filter, label, transmission)
 ├── classify.py        # 파일 정제 + 우선순위 분류 (배우→장르→스튜디오→JAV→West)
-├── collect.py        # 로컬 다운로드 + Transmission RPC
-├── transmission.py    # Transmission RPC 클라이언트 (디스크 캐싱, rate limiting)
+├── collect.py        # OneJAV RSS 수집 → Transmission RPC 전송
+├── transmission.py    # Transmission RPC 클라이언트 (add/filter/label)
 ├── fanza.py          # FANZA API 클라이언트 (JAV 메타데이터 조회, 캐시)
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
 ```
@@ -49,33 +52,24 @@ src/meridian_x/
 ## Key Patterns
 
 - **Config 로딩**: `core.load_config()` 사용
-- **다운로드**: `transmission` 명령어 (RPC 전용, 로컬 다운로드 제거)
-- **Transmission RPC**: `transmission.py`의 `TransmissionClient` 사용 (paused 추가 → 파일 필터링 → labels → start)
-- **Labels**: 메이커 코드 자동 추출 (SNOS155→SNOS, 200GANA→GANA, FC2PPV→FC2)
-- **파일 필터**: 확장자/키워드/최소 크기로 광고 파일 자동 제외 (settings.json filters)
+- **Transmission RPC**: `transmission.py`의 `TransmissionClient` (paused 추가 → 파일 필터링 → labels → start)
+- **Labels**: torrent name에서 자동 추출 (소문자)
+  - JAV: 메이커 코드 (`SNOS-125` → `['snos']`, `FC2-PPV-4895410` → `['fc2']`)
+  - West: 스튜디오 + 배우 (`Vixen.16.09.06.Lily.Love...` → `['vixen', 'lily love']`)
+- **파일 필터**: 확장자/키워드/최소 크기로 광고 파일 자동 제외 (settings.json `filters`)
 - **분류 우선순위**: 배우 > 장르 > 스튜디오 > JAV 패턴 > West(fallback)
 - **JAV 패턴**: `^[A-Z]{3,5}-\d{3,5}` (예: SONE-446, ABC-001)
-
-## Testing
-
-**항상 `--dry-run`으로 먼저 확인:**
-```bash
-uv run meridian download --dry-run          # 다운로드 미리보기
-uv run meridian transmission --dry-run     # Transmission RPC 미리보기
-uv run meridian classify --dry-run        # 분류 미리보기
-uv run meridian classify --jav-metadata --dry-run  # JAV 메타데이터 분류 미리보기
-```
-
-**로그 확인:** `logs/YYMMDD/hhmmss.log`에서 상세 로그 확인
 
 ## Gotchas
 
 - `config/settings.json` 없으면 `FileNotFoundError` 발생. 최초 설정 시 example 복사 필수.
 - `fanza.py`는 `.env`의 API 자격증명 필요. 없으면 `--jav-metadata` 동작 안 함.
 - Transmission RPC 사용 시 `config/settings.json`에 `transmission.rpc_url` 설정 필수.
+- Transmission 409 응답 = CSRF 세션 ID 요구 (인증 에러 아님, 자동 처리됨).
+- `labels` 필드 (RPC spec) 미지원 빌드 → `labels` 사용 (linuxserver/transmission).
+- 토렌트 추가 흐름: `paused` → `torrent-set`(labels) → `torrent-set`(files-unwanted) → `torrent-start`.
+- Duplicate 토렌트는 filter/labels 적용 안 됨 (`torrent-added` 응답이 아니므로).
 
-## Tech Stack
+## Roadmap
 
-- Python 3.12+, hatchling build
-- 패키지 매니저: `uv`
-- 의존성: `requests`, `python-dotenv`
+향후 계획: [ROADMAP.md](ROADMAP.md)
