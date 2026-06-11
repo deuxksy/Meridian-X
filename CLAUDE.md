@@ -25,6 +25,9 @@ uv run meridian label                           # 메이커/배우 labels 자동
 # ========== Sync (Transmission → Jellyfin) ==========
 uv run meridian sync                            # Transmission labels → Jellyfin Tags 동기화
 
+# ========== Tidy (원격 파일 정리) ==========
+uv run meridian tidy                            # 정크삭제→Flatten→파일명정리→라이브러리갱신
+
 # ========== Classify (분류) ==========
 uv run meridian classify                          # 분류 실행
 uv run meridian classify --dry-run                # 미리보기
@@ -38,11 +41,12 @@ uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 
 
 ```text
 src/meridian_x/
-├── cli.py            # CLI 진입점 (classify, filter, label, sync, transmission)
+├── cli.py            # CLI 진입점 (classify, filter, label, sync, tidy, transmission)
 ├── classify.py        # 파일 정제 + 우선순위 분류 (배우→장르→스튜디오→JAV→West)
 ├── collect.py        # OneJAV RSS 수집 → Transmission RPC 전송
 ├── transmission.py    # Transmission RPC 클라이언트 (add/filter/label)
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
+├── tidy.py           # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
 ├── fanza.py          # FANZA API 클라이언트 (JAV 메타데이터 조회, 캐시)
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
 ```
