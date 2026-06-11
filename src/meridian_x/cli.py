@@ -49,6 +49,7 @@ Examples:
   %(prog)s transmission --dry-run  # 미리보기
   %(prog)s filter                 # 기존 토렌트 파일 필터링 (광고 제외)
   %(prog)s label                  # 기존 토렌트에 메이커 코드 labels 설정
+  %(prog)s sync                   # Transmission labels → Jellyfin Tags 동기화
   %(prog)s classify              # 미디어 파일 분류
   %(prog)s classify --dry-run    # 분류 미리보기
         """
@@ -56,7 +57,7 @@ Examples:
     
     parser.add_argument(
         "command",
-        choices=["classify", "filter", "label", "transmission"],
+        choices=["classify", "filter", "label", "sync", "transmission"],
         help="실행할 명령"
     )
     
@@ -110,6 +111,34 @@ Examples:
             source=args.source,
             dry_run=args.dry_run
         )
+
+    elif args.command == "sync":
+        from .core import load_config
+        from .transmission import TransmissionClient
+        from .jellyfin import JellyfinClient, sync_tags
+        config = load_config()
+        tx_config = config.get("transmission", {})
+        jf_config = config.get("jellyfin", {})
+        if not tx_config.get("rpc_url"):
+            logger.error("transmission.rpc_url not configured")
+            return
+        if not jf_config.get("url") or not jf_config.get("api_key"):
+            logger.error("jellyfin.url and jellyfin.api_key required in settings.json")
+            return
+        tx_client = TransmissionClient(
+            rpc_url=tx_config["rpc_url"],
+            user=tx_config.get("rpc_user"),
+            password=tx_config.get("rpc_password"),
+            timeout=tx_config.get("timeout", 10),
+        )
+        jf_client = JellyfinClient(
+            base_url=jf_config["url"],
+            api_key=jf_config["api_key"],
+            timeout=jf_config.get("timeout", 10),
+        )
+        logger.info("=== Sync Transmission → Jellyfin ===")
+        count = sync_tags(jf_client, tx_client)
+        logger.info(f"=== Sync Completed ({count} items updated) ===")
 
     elif args.command == "filter":
         from .transmission import TransmissionClient

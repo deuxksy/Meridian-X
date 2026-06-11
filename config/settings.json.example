@@ -24,6 +24,11 @@
       "min_file_size_mb": 100
     }
   },
+  "jellyfin": {
+    "url": "https://heritage.bun-bull.ts.net/jellyfin",
+    "api_key": null,
+    "timeout": 10
+  },
   "collection": {
     "history_file": "logs/downloads.txt",
     "request_timeout": 30,
