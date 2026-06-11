@@ -22,6 +22,9 @@ uv run meridian filter                          # 전체 토렌트 광고 파일
 # ========== Label (기존 토렌트 라벨링) ==========
 uv run meridian label                           # 메이커/배우 labels 자동 설정
 
+# ========== Sync (Transmission → Jellyfin) ==========
+uv run meridian sync                            # Transmission labels → Jellyfin Tags 동기화
+
 # ========== Classify (분류) ==========
 uv run meridian classify                          # 분류 실행
 uv run meridian classify --dry-run                # 미리보기
@@ -35,10 +38,11 @@ uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 
 
 ```text
 src/meridian_x/
-├── cli.py            # CLI 진입점 (classify, filter, label, transmission)
+├── cli.py            # CLI 진입점 (classify, filter, label, sync, transmission)
 ├── classify.py        # 파일 정제 + 우선순위 분류 (배우→장르→스튜디오→JAV→West)
 ├── collect.py        # OneJAV RSS 수집 → Transmission RPC 전송
 ├── transmission.py    # Transmission RPC 클라이언트 (add/filter/label)
+├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
 ├── fanza.py          # FANZA API 클라이언트 (JAV 메타데이터 조회, 캐시)
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
 ```
@@ -47,6 +51,7 @@ src/meridian_x/
 
 - `config/settings.json` — 메인 설정 (gitignored). `settings.json.example` 참고.
 - `.env` — FANZA API: `FANZA_API_ID`, `FANZA_AFFILIATE_ID`
+- `jellyfin.api_key` — Jellyfin API Key (settings.json에 직접 설정)
 - 로그: `logs/YYMMDD/hhmmss.log`
 
 ## Key Patterns
@@ -69,6 +74,9 @@ src/meridian_x/
 - `labels` 필드 (RPC spec) 미지원 빌드 → `labels` 사용 (linuxserver/transmission).
 - 토렌트 추가 흐름: `paused` → `torrent-set`(labels) → `torrent-set`(files-unwanted) → `torrent-start`.
 - Duplicate 토렌트는 filter/labels 적용 안 됨 (`torrent-added` 응답이 아니므로).
+- Jellyfin `POST /Items/{id}` 시 Fields 파라미터에 Genres, Studios 등 필수. 누락 시 .ToList()에서 ArgumentNullException 발생.
+- Jellyfin 204 응답은 body 없음. `_post()`에서 content 체크 필수.
+- heritage 서버: SSH `root@100.96.115.19` (Tailscale). Docker 마운트: `/mnt/data1/torrent/complete` → Jellyfin `/data2` (Torrent 라이브러리).
 
 ## Roadmap
 
