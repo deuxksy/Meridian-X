@@ -50,6 +50,7 @@ Examples:
   %(prog)s filter                 # 기존 토렌트 파일 필터링 (광고 제외)
   %(prog)s label                  # 기존 토렌트에 메이커 코드 labels 설정
   %(prog)s sync                   # Transmission labels → Jellyfin Tags 동기화
+  %(prog)s tidy                   # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
   %(prog)s classify              # 미디어 파일 분류
   %(prog)s classify --dry-run    # 분류 미리보기
         """
@@ -57,7 +58,7 @@ Examples:
     
     parser.add_argument(
         "command",
-        choices=["classify", "filter", "label", "sync", "transmission"],
+        choices=["classify", "filter", "label", "sync", "tidy", "transmission"],
         help="실행할 명령"
     )
     
@@ -139,6 +140,10 @@ Examples:
         logger.info("=== Sync Transmission → Jellyfin ===")
         count = sync_tags(jf_client, tx_client)
         logger.info(f"=== Sync Completed ({count} items updated) ===")
+
+    elif args.command == "tidy":
+        from .tidy import run as tidy_run
+        tidy_run(dry_run=args.dry_run)
 
     elif args.command == "filter":
         from .transmission import TransmissionClient

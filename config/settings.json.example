@@ -29,6 +29,12 @@
     "api_key": null,
     "timeout": 10
   },
+  "remote": {
+    "host": "100.96.115.19",
+    "user": "root",
+    "ssh_key": "~/.ssh/id_ed25519",
+    "path": "/mnt/data1/torrent/complete"
+  },
   "collection": {
     "history_file": "logs/downloads.txt",
     "request_timeout": 30,
