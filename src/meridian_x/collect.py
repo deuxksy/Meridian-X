@@ -96,7 +96,6 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
 
                 if dry_run:
                     logger.info(f"  [Dry-run] {item_id}: {item.get('title', '')}")
-                    history.add(item_id)
                     count += 1
                     continue
 
