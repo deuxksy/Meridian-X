@@ -13,8 +13,9 @@ cp config/settings.json.example config/settings.json  # 설정 파일 복사
 # ========== Collect (Transmission RPC) ==========
 uv run meridian transmission                     # RSS → Transmission RPC 전송
 uv run meridian transmission --dry-run            # 미리보기
-uv run meridian transmission --max-downloads 30    # 최대 30개
-uv run meridian transmission --favorite URL         # Favorite 필터링
+uv run meridian transmission --max-downloads 30    # 최대 30개 (전체 source 합산)
+uv run meridian transmission --source onejav       # onejav만
+uv run meridian transmission --source xxxclub      # xxxclub만
 
 # ========== Filter (기존 토렌트 필터링) ==========
 uv run meridian filter                          # 전체 토렌트 광고 파일 제외
@@ -43,7 +44,10 @@ uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 
 src/meridian_x/
 ├── cli.py            # CLI 진입점 (classify, filter, label, sync, tidy, transmission)
 ├── classify.py        # 파일 정제 + 우선순위 분류 (배우→장르→스튜디오→JAV→West)
-├── collect.py        # OneJAV RSS 수집 → Transmission RPC 전송
+├── collect.py        # Multi-source orchestrator (source 순회, history 관리)
+├── sources/          # Source 모듈 (discover + resolve 함수)
+│   ├── onejav.py     # OneJAV RSS → 페이지 방문 → .torrent 바이트
+│   └── xxxclub.py    # XXXClub RSS → magnet link 직접 추출
 ├── transmission.py    # Transmission RPC 클라이언트 (add/filter/label)
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
 ├── tidy.py           # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
@@ -66,6 +70,8 @@ src/meridian_x/
   - JAV: 메이커 코드 (`SNOS-125` → `['snos']`, `FC2-PPV-4895410` → `['fc2']`)
   - West: 스튜디오 + 배우 (`Vixen.16.09.06.Lily.Love...` → `['vixen', 'lily love']`)
 - **파일 필터**: 확장자/키워드/최소 크기로 광고 파일 자동 제외 (settings.json `filters`)
+- **Multi-source**: `sources/` 패키지의 각 모듈이 `discover()`+`resolve()` 제공. `collect.py`가 활성 source 순회.
+- **History ID**: `{source}:{id}` 형태 (`onejav:SNOS155`, `xxxclub:<infohash>`). prefix 없는 기존 항목은 `onejav:` 자동 부여(migration).
 - **분류 우선순위**: 배우 > 장르 > 스튜디오 > JAV 패턴 > West(fallback)
 - **JAV 패턴**: `^[A-Z]{3,5}-\d{3,5}` (예: SONE-446, ABC-001)
 

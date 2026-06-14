@@ -118,11 +118,12 @@ Meridian-X/
 ## 🎩 주요 기능 (Features)
 
 ### Collect (수집)
-RSS에서 최신 토렌트를 자동으로 수집합니다.
-- **RSS 수집:** 공개 RSS 피드 파싱
-- **Favorite 필터:** 선호 출연자만 골라서 다운로드
-- **다운로드 제한:** 최대 개수 설정으로 과도한 수집 방지
-- **히스토리 관리:** 중복 다운로드 방지
+Multi-source RSS 수집 → Transmission RPC 전송.
+- **Multi-source:** onejav(RSS → 페이지 방문 → `.torrent`), xxxclub(RSS → magnet 직접 전송)
+- **Selective download:** 광고 파일 자동 제외 (확장자/키워드/최소 크기 필터)
+- **자동 라벨링:** torrent name에서 메이커 코드/스튜디오/배우 추출
+- **Source 선택:** `--source`로 특정 source만 실행
+- **히스토리 관리:** `{source}:{id}` 형태로 중복 수집 방지
 
 ### Classify (분류)
 
@@ -175,11 +176,11 @@ cp config/settings.json.example config/settings.json
 # settings.json 편집...
 
 # ========== Collect (수집) ==========
-uv run meridian collect                          # RSS 전체 다운로드 (최대 30개)
-uv run meridian collect --dry-run                # 다운로드 미리보기
-uv run meridian collect --max-downloads 50       # 최대 50개 다운로드
-uv run meridian collect --favorite URL           # Favorite 출연자만 필터링
-uv run meridian collect --favorite URL --max-downloads 10  # 조합
+uv run meridian transmission --dry-run            # 항상 먼저 미리보기 (권장)
+uv run meridian transmission                      # 전체 source 수집 (최대 30개)
+uv run meridian transmission --source onejav      # onejav만
+uv run meridian transmission --source xxxclub     # xxxclub만
+uv run meridian transmission --max-downloads 50   # 최대 50개 (전체 source 합산)
 
 # ========== Classify (분류) ==========
 uv run meridian classify              # 분류 실행
@@ -190,12 +191,12 @@ uv run meridian classify --dry-run    # 미리보기
 
 ## 📋 명령어 옵션
 
-### collect
+### transmission
 | 옵션 | 설명 | 기본값 |
-|------|------|--------|
-| `--dry-run` | 실제 다운로드 없이 미리보기 | - |
-| `--max-downloads N` | 최대 다운로드 수 | 30 |
-| `--favorite URL` | Favorite URL (출연자 필터링) | - |
+| :--- | :--- | :--- |
+| `--dry-run` | 실제 전송 없이 수집 항목만 출력 | - |
+| `--source NAME` | 수집 source 지정 (onejav, xxxclub) | 전체 |
+| `--max-downloads N` | 최대 다운로드 수 (전체 source 합산) | 30 |
 
 ### classify
 | 옵션 | 설명 |
