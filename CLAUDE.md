@@ -85,7 +85,8 @@ src/meridian_x/
 - Duplicate 토렌트는 filter/labels 적용 안 됨 (`torrent-added` 응답이 아니므로).
 - Jellyfin `POST /Items/{id}` 시 Fields 파라미터에 Genres, Studios 등 필수. 누락 시 .ToList()에서 ArgumentNullException 발생.
 - Jellyfin 204 응답은 body 없음. `_post()`에서 content 체크 필수.
-- heritage 서버 (Proxmox VM 200): SSH `root@100.96.115.19` (Tailscale). walle = Proxmox 클러스터 호스트. 미디어 경로: `/mnt/data1/torrent/complete` (Jellyfin `/data2` 마운트).
+- heritage 서버 (Proxmox CT 200, **unprivileged LXC**, Debian 12): SSH `media@100.96.115.19` (Tailscale, UID 1000). walle = Proxmox 클러스터 호스트. 미디어 경로: `/mnt/data1/torrent/complete` (Transmission `/downloads/complete`, Jellyfin `/data2` 마운트).
+- heritage 권한 매핑 (핵심): unprivileged LXC + `/mnt/data1` raw bind mount (idmap 없음) → 컨테이너 root(0)=호스트 100000 매핑, UID 1000 파일 mv/rm 차단 (`Permission denied`). Transmission/Jellyfin 모두 `PUID=1000 PGID=1000`. **반드시 `media`(UID 1000) 계정으로 SSH** (settings.json `remote.user`). root SSH 사용 금지.
 - onejav Cloudflare 차단: girl IP가 반복 요청 시 rate 차단 (Connection reset). SSH 경유(heritage `curl -sL`)로 우회. `-L` 필수 (http→https redirect). RSS/페이지/.torrent 전부 heritage curl, 바이너리는 `base64` 경유.
 - 워크플로우: `tidy`(정리/flatten) → `classify`(분류). tidy가 폴더 flatten 후 classify가 파일을 배우/장르/스튜디오/JPN/West로 분류. 둘 다 SSH 기반 (로컬 실행 + 원격 조작).
 - classify는 tidy 실행 후 호출 권장 (flatten되지 않은 파일은 분류 안 됨).
