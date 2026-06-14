@@ -125,44 +125,25 @@ Multi-source RSS 수집 → Transmission RPC 전송.
 - **Source 선택:** `--source`로 특정 source만 실행
 - **히스토리 관리:** `{source}:{id}` 형태로 중복 수집 방지
 
-### Classify (분류)
+### Tidy (원격 정리)
+SSH 기반 원격 파일 정리 (heritage 서버). tidy → classify 워크플로우의 첫 단계.
+- **정크 삭제:** Jellyfin API로 키워드/확장자 기반 정크 파일 삭제
+- **Flatten:** 비디오 1개 폴더를 상위로 평준화
+- **파일명 정리:** 광고 접두사 제거 (`hhd800.com@` 등)
+- **라이브러리 갱신:** Jellyfin library refresh
 
-#### 1. 불순물 제거 (Purify)
-감상의 품위를 해치는 불필요한 요소들을 정중히 배제합니다.
-- **확장자 정리:** `.txt`, `.url`, `.lnk`, `.tmp`, `.log`, `.dat`, `.html`, `.nfo`
-- **보조 자료 제외:** sample, trailer, preview, promo 등 본편 외 파일
-- **소형 파일 배제:** 50MB 이하 영상 파일
+### Classify (원격 분류)
+tidy(flatten) 이후, flatten된 파일을 우선순위별로 분류. SSH 하이브리드 방식 (Python 매칭 로직 + SSH `mv`).
 
-#### 2. 파일명 정제 (Refine)
-파일명에 남은 불필요한 수식어를 우아하게 제거합니다.
-- **정제 대상:** `adsite.net@` 등의 광고성 접두사
+**분류 우선순위:**
+1. **배우 (Artist)** — `artist_folders` (파일명 포함 매칭)
+2. **스튜디오 (Studio)** — `studio_folders` (예: vixen, tiny4k, wowgirls, vivthomas)
+3. **장르 (Genre)** — `genres` 키워드/접두사 규칙
+4. **JPN** — JAV 패턴 `^[A-Z]{3,5}-\d{3,5}` (예: SONE-446, ABC-001)
+5. **FC2** — `FC2-PPV-*` 패턴
+6. **West** — 매칭되지 않은 나머지 영상 파일 (fallback)
 
-#### 3. 구조 정돈 (Organize)
-복잡한 하위 폴더 구조를 깔끔하게 평준화합니다.
-- SOURCE_PATH 하위 폴더 → WORK_PATH 루트로 이동
-- 중복 파일은 자동으로 제거
-
-#### 4. 여백 정리 (Cleanse)
-모든 정리 작업 완료 후 빈 공간을 깔끔하게 정돈합니다.
-
-#### 5. 우아한 분류 체계 (Elegant Classification)
-WORK_PATH에서 TARGET_PATH로 품격 있게 분류합니다:
-
-**1계급: 출연자 (Artist)**
-- settings.json의 `artist_folders`에 정의된 출연자
-
-**2계급: 장르 (Genre)**
-- settings.json의 `genres`에 정의된 키워드/접두사 규칙
-
-**3계급: 스튜디오 (Studio)**
-- settings.json의 `studio_folders`에 정의된 스튜디오
-
-**4계급: 동양 (Orient)**
-- 패턴: 영문 3-5글자 + "-" + 숫자 3-5자리
-- 예: ABC-001.mp4, XYZ-123.mp4
-
-**5계급: 서양 (Occident)**
-- 위 규칙에 매칭되지 않은 나머지 영상 파일
+> tidy(정리) → classify(분류) 순서로 실행. 중복 파일은 원본 삭제.
 
 ---
 
@@ -182,9 +163,12 @@ uv run meridian transmission --source onejav      # onejav만
 uv run meridian transmission --source xxxclub     # xxxclub만
 uv run meridian transmission --max-downloads 50   # 최대 50개 (전체 source 합산)
 
-# ========== Classify (분류) ==========
-uv run meridian classify              # 분류 실행
-uv run meridian classify --dry-run    # 미리보기
+# ========== Tidy (원격 정리) ==========
+uv run meridian tidy                  # 정크삭제→Flatten→파일명정리→갱신
+
+# ========== Classify (원격 분류, tidy 후 실행) ==========
+uv run meridian classify --dry-run    # 미리보기 (권장)
+uv run meridian classify              # SSH로 원격 파일 분류
 ```
 
 ---
@@ -199,9 +183,9 @@ uv run meridian classify --dry-run    # 미리보기
 | `--max-downloads N` | 최대 다운로드 수 (전체 source 합산) | 30 |
 
 ### classify
-| 옵션 | 설명 |
-|------|------|
-| `--dry-run` | 실제 변경 없이 미리보기 |
+| 옵션 | 설명 | 기본값 |
+| :--- | :--- | :--- |
+| `--dry-run` | 실제 이동 없이 분류 결과만 출력 | - |
 
 ---
 

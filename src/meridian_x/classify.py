@@ -1,500 +1,159 @@
 """
 Meridian-X Classify Module
-미디어 파일 분류 및 정리
+원격 파일 분류 (SSH 하이브리드): Python 매칭 로직 + SSH mv
+tidy(flatten/정제) 이후, flatten된 파일을 폴더로 분류.
 """
 
 import logging
-import os
 import re
-import shutil
-from pathlib import Path
-from typing import List, Dict, Tuple
+import subprocess
 
 from .core import load_config
 
 logger = logging.getLogger(__name__)
 
-# ==========================================
-# LOAD CONFIGURATION
-# ==========================================
-
-# Load config
-CONFIG = load_config()
-
-# ==========================================
-# CONFIGURATION
-# ==========================================
-
-# Classify settings
-CLASSIFY = CONFIG.get("classify", {})
-SOURCE_PATH = CLASSIFY.get("source_path", "/mnt/data2/torrent/complete")
-WORK_PATH = CLASSIFY.get("work_path", "/mnt/data2/torrent/complete/tmp")
-IGNORE_DIRS: List[str] = CLASSIFY.get("ignore_dirs", [])
-ACTOR_FOLDERS: List[str] = CLASSIFY.get("actor_folders", [])
-STUDIO_FOLDERS: List[str] = CLASSIFY.get("studio_folders", [])
-DELETE_KEYWORDS: List[str] = CLASSIFY.get("delete_keywords", [])
-DELETE_EXTENSIONS: Tuple[str, ...] = tuple(CLASSIFY.get("delete_extensions", []))
-VIDEO_EXTENSIONS: Tuple[str, ...] = tuple(CLASSIFY.get("video_extensions", []))
-CLEAN_PREFIXES: List[str] = CLASSIFY.get("clean_prefixes", [])
-
-# Genre rules
-GENRE_RULES = CONFIG.get("genres", {})
-
-# JAV metadata classify rules
-JAV_CLASSIFY = CONFIG.get("jav_classify", {})
-JAV_RULES = JAV_CLASSIFY.get("rules", [])
-JAV_FALLBACK = JAV_CLASSIFY.get("fallback_folder", "JPN")
-JAV_CACHE_PATH = JAV_CLASSIFY.get("cache_path", "config/fanza_cache.json")
-
-# JAV pattern
-JPN_PATTERN: str = r"^[A-Z]{3,5}-\d{3,5}[-\.\s]"
-
-# Permissions
-DIR_PERMISSION: int = 0o755
-FILE_PERMISSION: int = 0o644
+# JAV 패턴 (영문 3-5자리 + 숫자 3-5자리)
+JPN_PATTERN = r"^[A-Z]{3,5}-\d{3,5}[-\.\s]"
 
 
-# ==========================================
-# FUNCTIONS
-# ==========================================
+def _ssh(remote: dict, cmd: str) -> tuple[bool, str]:
+    """SSH 명령 실행. tidy.py와 동일 패턴."""
+    try:
+        result = subprocess.run(
+            [
+                "ssh", "-i", remote["ssh_key"],
+                "-o", "ConnectTimeout=5",
+                "-o", "StrictHostKeyChecking=no",
+                f'{remote["user"]}@{remote["host"]}',
+                cmd,
+            ],
+            capture_output=True, text=True, timeout=60,
+        )
+        return result.returncode == 0, result.stdout + result.stderr
+    except Exception as e:
+        return False, str(e)
 
 
-def set_permissions(target_dir: str, dry_run: bool = False) -> None:
+def _list_files(remote: dict, video_extensions: tuple) -> list[str]:
+    """원격 path 최상위 영상 파일 목록 (flatten된 상태 가정)."""
+    path = remote["path"]
+    ext_pattern = " -o ".join(
+        f'-iname "*{ext}"' for ext in video_extensions
+    )
+    cmd = f'find "{path}" -maxdepth 1 -type f \\( {ext_pattern} \\) -printf "%f\\n" | sort'
+    ok, output = _ssh(remote, cmd)
+    if not ok:
+        logger.error(f"파일 목록 조회 실패: {output[:200]}")
+        return []
+    return [f for f in output.splitlines() if f]
+
+
+def classify_filename(filename: str, config: dict) -> str:
     """
-    DLNA 서버가 접근 가능하도록 디렉토리와 파일의 권한을 설정합니다.
+    파일명 → 목적지 폴더 결정 (순수 Python 매칭, 테스트 가능).
+    우선순위: 배우 > 스튜디오 > 장르 > JPN > FC2 > West
     """
-    return  # 권한 변경 비활성화
-    if not os.path.exists(target_dir):
-        return
+    f_lower = filename.lower()
+    classify = config.get("classify", {})
+
+    # 1. 배우
+    for folder in classify.get("artist_folders", []):
+        if folder.lower() in f_lower:
+            return folder
+
+    # 2. 스튜디오
+    for folder in classify.get("studio_folders", []):
+        if folder.lower() in f_lower:
+            return folder
+
+    # 3. 장르 (genres 비어있으면 스킵)
+    for folder, rules in config.get("genres", {}).items():
+        keyword_match = any(kw in f_lower for kw in rules.get("keywords", []))
+        prefix_match = any(
+            f_lower.startswith(p.lower()) for p in rules.get("prefixes", [])
+        )
+        if keyword_match or prefix_match:
+            return folder
+
+    # 4. JAV 패턴 (원본 filename: 대문자 패턴)
+    if re.match(JPN_PATTERN, filename):
+        return "JPN"
+
+    # 5. FC2 패턴 (FC2-PPV-*)
+    if re.match(r"^FC2", filename, re.IGNORECASE):
+        return "FC2"
+
+    # 6. Fallback
+    return "West"
+
+
+def _move_file(remote: dict, filename: str, dest_folder: str, dry_run: bool) -> str:
+    """
+    SSH로 파일 이동. Returns: 'moved' | 'skip_dup' | 'error'.
+    중복 시 원본 삭제 (classify 일관성 유지).
+    """
+    path = remote["path"]
+    src = f"{path}/{filename}"
+    dest_dir = f"{path}/{dest_folder}"
+    dest = f"{dest_dir}/{filename}"
 
     if dry_run:
-        logger.info(f"[Dry-run] Would set permissions for: {target_dir} ...")
-    else:
-        logger.info(f"Setting permissions for: {target_dir} ...")
+        logger.info(f"  [Dry-run] {filename} -> {dest_folder}/")
+        return "moved"
 
-    for root, dirs, files in os.walk(target_dir):
-        if dry_run:
-            logger.debug(f"  [Dry-run] Would chmod dir: {root}")
-        else:
-            try:
-                os.chmod(root, DIR_PERMISSION)
-            except Exception as e:
-                logger.error(f"  [Error chmod Dir] {root}: {e}")
-
-        for f in files:
-            file_path = Path(root) / f
-            if dry_run:
-                logger.debug(f"  [Dry-run] Would chmod file: {file_path}")
-            else:
-                try:
-                    os.chmod(file_path, FILE_PERMISSION)
-                except Exception as e:
-                    logger.error(f"  [Error chmod File] {file_path}: {e}")
-
-
-def is_video(filename: str) -> bool:
-    return filename.lower().endswith(VIDEO_EXTENSIONS)
+    cmd = f'''
+mkdir -p "{dest_dir}"
+if [ -f "{dest}" ]; then
+    rm -f "{src}"
+    echo "SKIP_DUP"
+else
+    mv "{src}" "{dest}"
+    echo "MOVED"
+fi
+'''
+    ok, output = _ssh(remote, cmd)
+    if not ok:
+        logger.error(f"  [이동 실패] {filename}: {output[:200]}")
+        return "error"
+    if "SKIP_DUP" in output:
+        logger.info(f"  [중복 스킵] {filename} (이미 {dest_folder}에 존재, 원본 삭제)")
+        return "skip_dup"
+    logger.info(f"  [분류] {filename} -> {dest_folder}/")
+    return "moved"
 
 
-def clean_and_flatten(target_dir: str, dry_run: bool = False) -> None:
-    """
-    1. 불필요한 파일 삭제 (SOURCE_PATH)
-    2. 파일명 광고 문구 제거
-    3. 영상 파일을 WORK_PATH 루트로 이동 (Flatten)
-    4. 빈 폴더 삭제
-    """
-    source_dir = Path(SOURCE_PATH) / target_dir
-    if not source_dir.exists():
+def run(dry_run: bool = False) -> None:
+    """원격 파일 분류 메인 실행. tidy 실행 후 호출 권장."""
+    config = load_config()
+    remote = config.get("remote", {})
+    classify = config.get("classify", {})
+
+    if not remote.get("host"):
+        logger.error("remote.host not configured in settings.json")
         return
 
-    work_path = Path(WORK_PATH)
-    if not work_path.exists():
-        if dry_run:
-            logger.info(f"[Dry-run] Would create work directory: {WORK_PATH}")
-        else:
-            work_path.mkdir(parents=True)
-
-    if dry_run:
-        logger.info(f"[Dry-run] Would process directory: {target_dir} ...")
-    else:
-        logger.info(f"Processing directory: {target_dir} ...")
-
-    for root, dirs, files in os.walk(source_dir, topdown=False):
-        for filename in files:
-            file_path = Path(root) / filename
-            f_lower = filename.lower()
-
-            # A. 삭제 로직
-            should_delete = False
-            if any(f_lower.endswith(ext) for ext in DELETE_EXTENSIONS):
-                should_delete = True
-            elif any(kw in f_lower for kw in DELETE_KEYWORDS):
-                should_delete = True
-
-            if should_delete:
-                if dry_run:
-                    logger.info(f"  [Dry-run] Would delete: {filename}")
-                else:
-                    try:
-                        file_path.unlink()
-                        logger.info(f"  [Deleted] {filename}")
-                    except Exception as e:
-                        logger.error(f"  [Error Deleting] {filename}: {e}")
-                continue
-
-            # B. 영상 파일이 아니면 건너뜀
-            if not is_video(filename):
-                continue
-
-            # C. 파일명 광고 접두사 제거
-            new_filename = filename
-            for prefix in CLEAN_PREFIXES:
-                if new_filename.startswith(prefix):
-                    new_filename = new_filename.replace(prefix, "", 1)
-                    if dry_run:
-                        logger.info(f"  [Cleaned] {filename} -> {new_filename}")
-
-            # 3자리 숫자 접두사 제거 (200GANA-3355 -> GANA-3355)
-            stripped = re.sub(r'^\d{3}', '', new_filename)
-            if stripped != new_filename:
-                if dry_run:
-                    logger.info(f"  [Cleaned] {new_filename} -> {stripped}")
-                new_filename = stripped
-
-            # D. 파일 이동 (Flatten)
-            new_path = Path(WORK_PATH) / new_filename
-
-            if new_path.exists():
-                if dry_run:
-                    logger.info(f"  [Dry-run] Would delete duplicate: {filename}")
-                else:
-                    try:
-                        file_path.unlink()
-                        logger.info(f"  [Deleted Duplicate] {filename}")
-                    except Exception as e:
-                        logger.error(f"  [Error Deleting Duplicate] {filename}: {e}")
-            else:
-                if dry_run:
-                    logger.info(f"  [Dry-run] Would move to work path: {filename}")
-                else:
-                    try:
-                        shutil.move(str(file_path), str(new_path))
-                        logger.info(f"  [Moved to work path] {filename}")
-                    except Exception as e:
-                        logger.error(f"  [Error Moving] {filename}: {e}")
-
-        # 빈 폴더 삭제
-        root_path = Path(root)
-        if root_path != source_dir:
-            if not any(root_path.iterdir()):
-                if dry_run:
-                    logger.info(f"  [Dry-run] Would remove directory: {root}")
-                else:
-                    try:
-                        root_path.rmdir()
-                        logger.info(f"  [Removed Dir] {root}")
-                    except Exception as e:
-                        logger.error(f"  [Error Removing Dir] {root}: {e}")
-
-
-def sort_specials(dry_run: bool = False, jav_metadata: bool = False) -> None:
-    """
-    우선순위별 파일 분류 (WORK_PATH → SOURCE_PATH)
-    1차: 배우 > 2차: 장르 > 3차: 스튜디오 > 4차: JAV > 5차: Fallback
-    jav_metadata=True 시 4차 JAV 파일을 WORK_PATH에 남겨 sort_jav_by_metadata()에서 처리
-    """
-    if dry_run:
-        logger.info("[Dry-run] Would sort by category...")
-    else:
-        logger.info("Sorting by category...")
-
-    work_path = Path(WORK_PATH)
-    if not work_path.exists():
-        logger.warning(f"  [Warning] Work path does not exist: {WORK_PATH}")
+    video_extensions = tuple(classify.get("video_extensions", []))
+    if not video_extensions:
+        logger.error("classify.video_extensions not configured")
         return
 
-    files_to_process: List[str] = []
-    for filename in os.listdir(WORK_PATH):
-        file_path = Path(WORK_PATH) / filename
-        if file_path.is_file() and is_video(filename):
-            files_to_process.append(filename)
-
-    for filename in files_to_process:
-        f_lower = filename.lower()
-        file_path = Path(WORK_PATH) / filename
-        
-        # 1차: 배우
-        matched = False
-        for folder in ACTOR_FOLDERS:
-            if folder.lower() in f_lower:
-                dest_dir = Path(SOURCE_PATH) / folder
-                if not dest_dir.exists():
-                    if not dry_run:
-                        dest_dir.mkdir(parents=True)
-                    else:
-                        logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-                
-                new_path = dest_dir / filename
-                if new_path.exists():
-                    logger.info(f"  [Skipped] {filename} (Already exists in {folder})")
-                    if not dry_run:
-                        file_path.unlink(missing_ok=True)
-                else:
-                    if dry_run:
-                        logger.info(f"  [Dry-run] Would sort to {folder}: {filename} (Actor)")
-                    else:
-                        try:
-                            shutil.move(str(file_path), str(new_path))
-                            logger.info(f"  [Sorted to {folder}] {filename} (Actor)")
-                        except Exception as e:
-                            logger.error(f"  [Error Sorting] {filename}: {e}")
-                matched = True
-                break
-
-        if matched:
-            continue
-
-        # 2차: 장르
-        for folder, rules in GENRE_RULES.items():
-            keyword_match = any(kw in f_lower for kw in rules["keywords"])
-            prefix_match = any(f_lower.startswith(prefix.lower()) for prefix in rules["prefixes"])
-
-            if keyword_match or prefix_match:
-                dest_dir = Path(SOURCE_PATH) / folder
-                if not dest_dir.exists():
-                    if not dry_run:
-                        dest_dir.mkdir(parents=True)
-                    else:
-                        logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-
-                new_path = dest_dir / filename
-                if new_path.exists():
-                    logger.info(f"  [Skipped] {filename} (Already exists in {folder})")
-                    if not dry_run:
-                        file_path.unlink(missing_ok=True)
-                else:
-                    if dry_run:
-                        logger.info(f"  [Dry-run] Would sort to {folder}: {filename} (Genre)")
-                    else:
-                        try:
-                            shutil.move(str(file_path), str(new_path))
-                            logger.info(f"  [Sorted to {folder}] {filename} (Genre)")
-                        except Exception as e:
-                            logger.error(f"  [Error Sorting] {filename}: {e}")
-                matched = True
-                break
-
-        if matched:
-            continue
-
-        # 3차: 스튜디오
-        for folder in STUDIO_FOLDERS:
-            if folder.lower() in f_lower:
-                dest_dir = Path(SOURCE_PATH) / folder
-                if not dest_dir.exists():
-                    if not dry_run:
-                        dest_dir.mkdir(parents=True)
-                    else:
-                        logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-
-                new_path = dest_dir / filename
-                if new_path.exists():
-                    logger.info(f"  [Skipped] {filename} (Already exists in {folder})")
-                    if not dry_run:
-                        file_path.unlink(missing_ok=True)
-                else:
-                    if dry_run:
-                        logger.info(f"  [Dry-run] Would sort to {folder}: {filename} (Studio)")
-                    else:
-                        try:
-                            shutil.move(str(file_path), str(new_path))
-                            logger.info(f"  [Sorted to {folder}] {filename} (Studio)")
-                        except Exception as e:
-                            logger.error(f"  [Error Sorting] {filename}: {e}")
-                matched = True
-                break
-
-        if matched:
-            continue
-
-        # 4차: JAV (jav_metadata 활성화 시 sort_jav_by_metadata에서 처리)
-        if re.match(JPN_PATTERN, filename):
-            if jav_metadata:
-                continue  # WORK_PATH에 남겨둠
-            dest_dir = Path(SOURCE_PATH) / "JPN"
-            if not dest_dir.exists():
-                if not dry_run:
-                    dest_dir.mkdir(parents=True)
-                else:
-                    logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-
-            new_path = dest_dir / filename
-            if new_path.exists():
-                logger.info(f"  [Skipped] {filename} (Already exists in JPN)")
-                if not dry_run:
-                    file_path.unlink(missing_ok=True)
-            else:
-                if dry_run:
-                    logger.info(f"  [Dry-run] Would sort to JPN: {filename}")
-                else:
-                    try:
-                        shutil.move(str(file_path), str(new_path))
-                        logger.info(f"  [Sorted to JPN] {filename}")
-                    except Exception as e:
-                        logger.error(f"  [Error Sorting] {filename}: {e}")
-            continue
-
-        # 5차: Fallback - 분류되지 않은 영상은 West로
-        dest_dir = Path(SOURCE_PATH) / "West"
-        if not dest_dir.exists():
-            if not dry_run:
-                dest_dir.mkdir(parents=True)
-            else:
-                logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-
-        new_path = dest_dir / filename
-        if new_path.exists():
-            logger.info(f"  [Skipped] {filename} (Already exists in West)")
-            if not dry_run:
-                file_path.unlink(missing_ok=True)
-        else:
-            if dry_run:
-                logger.info(f"  [Dry-run] Would sort to West: {filename}")
-            else:
-                try:
-                    shutil.move(str(file_path), str(new_path))
-                    logger.info(f"  [Sorted to West] {filename}")
-                except Exception as e:
-                    logger.error(f"  [Error Sorting] {filename}: {e}")
-
-
-# 매칭 필드 → 메타데이터 키 매핑
-_METADATA_KEYS = {"actress": "actresses", "maker": "makers", "genre": "genres"}
-
-
-def sort_jav_by_metadata(dry_run: bool = False) -> int:
-    """
-    FANZA API 메타데이터로 JAV 파일을 분류합니다.
-    WORK_PATH에서 JPN_PATTERN에 매칭되는 파일만 처리.
-    Returns: 분류된 파일 수
-    """
-    from .fanza import FanzaClient, extract_jav_code, load_cache, save_cache
-
-    api_id = os.environ.get("FANZA_API_ID")
-    affiliate_id = os.environ.get("FANZA_AFFILIATE_ID")
-    if not api_id or not affiliate_id:
-        logger.error("FANZA_API_ID or FANZA_AFFILIATE_ID not set in .env")
-        return 0
-
-    client = FanzaClient(api_id, affiliate_id)
-    cache = load_cache(JAV_CACHE_PATH)
-    client._cache = cache
-
-    work_path = Path(WORK_PATH)
-    if not work_path.exists():
-        return 0
-
-    jav_files = [
-        f for f in os.listdir(WORK_PATH)
-        if Path(WORK_PATH, f).is_file()
-        and re.match(JPN_PATTERN, f)
-        and is_video(f)
-    ]
-
-    if not jav_files:
-        logger.info("No JAV files to classify by metadata")
-        return 0
-
-    logger.info(f"JAV metadata classify: {len(jav_files)} files")
-
-    classified = 0
-    for filename in jav_files:
-        file_path = Path(WORK_PATH) / filename
-        jav_code = extract_jav_code(filename)
-
-        if not jav_code:
-            continue
-
-        metadata = client.fetch_metadata(jav_code)
-        if not metadata:
-            logger.info(f"  [No metadata] {filename} -> {JAV_FALLBACK}")
-            _move_jav(file_path, filename, JAV_FALLBACK, dry_run)
-            classified += 1
-            continue
-
-        # rules 순서대로 매칭
-        matched_folder = None
-        for rule in JAV_RULES:
-            match_field = rule["match"]
-            pattern = rule["pattern"]
-            target_folder = rule["folder"]
-            key = _METADATA_KEYS.get(match_field, match_field + "es")
-            values = metadata.get(key, [])
-            if any(pattern in v for v in values):
-                matched_folder = target_folder
-                logger.debug(f"  Matched {match_field} '{pattern}' in {values}")
-                break
-
-        if not matched_folder:
-            matched_folder = JAV_FALLBACK
-
-        _move_jav(file_path, filename, matched_folder, dry_run)
-        classified += 1
-
-    save_cache(JAV_CACHE_PATH, client._cache)
-    logger.info(f"JAV metadata classify complete: {classified} files")
-    return classified
-
-
-def _move_jav(file_path: Path, filename: str, folder: str, dry_run: bool) -> None:
-    """JAV 파일을 대상 폴더로 이동"""
-    dest_dir = Path(SOURCE_PATH) / folder
-    if not dest_dir.exists():
-        if dry_run:
-            logger.info(f"  [Dry-run] Would create directory: {dest_dir}")
-        else:
-            dest_dir.mkdir(parents=True)
-
-    new_path = dest_dir / filename
-    if new_path.exists():
-        logger.info(f"  [Skipped] {filename} (Already exists in {folder})")
-        if not dry_run:
-            file_path.unlink(missing_ok=True)
-    else:
-        if dry_run:
-            logger.info(f"  [Dry-run] Would sort to {folder}: {filename} (JAV-Metadata)")
-        else:
-            try:
-                shutil.move(str(file_path), str(new_path))
-                logger.info(f"  [Sorted to {folder}] {filename} (JAV-Metadata)")
-            except Exception as e:
-                logger.error(f"  [Error Sorting] {filename}: {e}")
-
-
-def run(dry_run: bool = False, jav_metadata: bool = False) -> None:
-    """
-    메인 실행 함수
-    """
-    logger.info("=== Meridian-X Classify Started ===")
+    logger.info("=== Meridian-X Classify Started (Remote SSH) ===")
     logger.info(f"Dry-run: {dry_run}")
-    logger.info(f"JAV metadata: {jav_metadata}")
-    logger.info(f"Source: {SOURCE_PATH}")
-    logger.info(f"Work: {WORK_PATH}")
-    logger.info(f"Genre rules: {len(GENRE_RULES)}")
-    logger.info(f"Ignore dirs: {IGNORE_DIRS}")
 
-    source_path = Path(SOURCE_PATH)
-    all_dirs = sorted(d.name for d in source_path.iterdir() if d.is_dir())
-    target_dirs = [d for d in all_dirs if d not in IGNORE_DIRS]
+    files = _list_files(remote, video_extensions)
+    if not files:
+        logger.info("분류할 파일 없음 (tidy 실행 후 시도 권장)")
+        logger.info("=== Classify Completed ===")
+        return
 
-    logger.info(f"Flatten targets ({len(target_dirs)}): {target_dirs}")
+    logger.info(f"대상 파일: {len(files)}개")
 
-    for target in target_dirs:
-        clean_and_flatten(target, dry_run=dry_run)
+    counts = {}
+    for filename in files:
+        dest = classify_filename(filename, config)
+        result = _move_file(remote, filename, dest, dry_run)
+        if result == "moved":
+            counts[dest] = counts.get(dest, 0) + 1
 
-    sort_specials(dry_run=dry_run, jav_metadata=jav_metadata)
-
-    if jav_metadata and JAV_CLASSIFY:
-        sort_jav_by_metadata(dry_run=dry_run)
-
-    logger.info("=== Meridian-X Classify Completed ===")
+    summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "없음"
+    logger.info(f"=== Classify Completed ({summary}) ===")

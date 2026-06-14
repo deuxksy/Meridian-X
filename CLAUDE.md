@@ -29,10 +29,9 @@ uv run meridian sync                            # Transmission labels → Jellyf
 # ========== Tidy (원격 파일 정리) ==========
 uv run meridian tidy                            # 정크삭제→Flatten→파일명정리→라이브러리갱신
 
-# ========== Classify (분류) ==========
-uv run meridian classify                          # 분류 실행
-uv run meridian classify --dry-run                # 미리보기
-uv run meridian classify --jav-metadata            # FANZA 메타데이터 기반 분류
+# ========== Classify (원격 분류, tidy 후 실행) ==========
+uv run meridian classify --dry-run                # 미리보기 (항상 먼저)
+uv run meridian classify                          # SSH로 원격 파일 분류
 
 # ========== Verification ==========
 uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 확인
@@ -43,7 +42,7 @@ uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 
 ```text
 src/meridian_x/
 ├── cli.py            # CLI 진입점 (classify, filter, label, sync, tidy, transmission)
-├── classify.py        # 파일 정제 + 우선순위 분류 (배우→장르→스튜디오→JAV→West)
+├── classify.py        # 원격 파일 분류 (SSH 하이브리드: Python 매칭 + mv)
 ├── collect.py        # Multi-source orchestrator (source 순회, history 관리)
 ├── sources/          # Source 모듈 (discover + resolve 함수)
 │   ├── onejav.py     # OneJAV RSS → 페이지 방문 → .torrent 바이트
@@ -51,7 +50,7 @@ src/meridian_x/
 ├── transmission.py    # Transmission RPC 클라이언트 (add/filter/label)
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
 ├── tidy.py           # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
-├── fanza.py          # FANZA API 클라이언트 (JAV 메타데이터 조회, 캐시)
+├── fanza.py          # FANZA API 클라이언트 (JAV 메타데이터 조회, 보존됨/classify 미사용)
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
 ```
 
@@ -72,13 +71,13 @@ src/meridian_x/
 - **파일 필터**: 확장자/키워드/최소 크기로 광고 파일 자동 제외 (settings.json `filters`)
 - **Multi-source**: `sources/` 패키지의 각 모듈이 `discover()`+`resolve()` 제공. `collect.py`가 활성 source 순회.
 - **History ID**: `{source}:{id}` 형태 (`onejav:SNOS155`, `xxxclub:<infohash>`). prefix 없는 기존 항목은 `onejav:` 자동 부여(migration).
-- **분류 우선순위**: 배우 > 장르 > 스튜디오 > JAV 패턴 > West(fallback)
-- **JAV 패턴**: `^[A-Z]{3,5}-\d{3,5}` (예: SONE-446, ABC-001)
+- **분류 우선순위** (classify): 배우(`artist_folders`) > 스튜디오(`studio_folders`) > 장르(`genres`) > JAV 패턴(`JPN/`) > FC2(`FC2/`) > West(fallback). tidy(flatten) 후 실행.
+- **JAV 패턴**: `^[A-Z]{3,5}-\d{3,5}[-\.\s]` (예: SONE-446, ABC-001) → `JPN/`
+- **FC2 패턴**: `^FC2` (예: FC2-PPV-4914752) → `FC2/`
 
 ## Gotchas
 
 - `config/settings.json` 없으면 `FileNotFoundError` 발생. 최초 설정 시 example 복사 필수.
-- `fanza.py`는 `.env`의 API 자격증명 필요. 없으면 `--jav-metadata` 동작 안 함.
 - Transmission RPC 사용 시 `config/settings.json`에 `transmission.rpc_url` 설정 필수.
 - Transmission 409 응답 = CSRF 세션 ID 요구 (인증 에러 아님, 자동 처리됨).
 - `labels` 필드 (RPC spec) 미지원 빌드 → `labels` 사용 (linuxserver/transmission).
@@ -86,7 +85,9 @@ src/meridian_x/
 - Duplicate 토렌트는 filter/labels 적용 안 됨 (`torrent-added` 응답이 아니므로).
 - Jellyfin `POST /Items/{id}` 시 Fields 파라미터에 Genres, Studios 등 필수. 누락 시 .ToList()에서 ArgumentNullException 발생.
 - Jellyfin 204 응답은 body 없음. `_post()`에서 content 체크 필수.
-- heritage 서버: SSH `root@100.96.115.19` (Tailscale). Docker 마운트: `/mnt/data1/torrent/complete` → Jellyfin `/data2` (Torrent 라이브러리).
+- heritage 서버 (Proxmox VM 200): SSH `root@100.96.115.19` (Tailscale). walle = Proxmox 클러스터 호스트. 미디어 경로: `/mnt/data1/torrent/complete` (Jellyfin `/data2` 마운트).
+- 워크플로우: `tidy`(정리/flatten) → `classify`(분류). tidy가 폴더 flatten 후 classify가 파일을 배우/장르/스튜디오/JPN/West로 분류. 둘 다 SSH 기반 (로컬 실행 + 원격 조작).
+- classify는 tidy 실행 후 호출 권장 (flatten되지 않은 파일은 분류 안 됨).
 
 ## Roadmap
 

@@ -89,12 +89,6 @@ Examples:
         help="수집 source 지정 (onejav, xxxclub). 없으면 전체 실행"
     )
 
-    parser.add_argument(
-        "--jav-metadata",
-        action="store_true",
-        help="FANZA API로 JAV 메타데이터 기반 분류"
-    )
-
     args = parser.parse_args()
     
     # 로그 파일 위치 출력
@@ -103,7 +97,7 @@ Examples:
     # 명령 실행
     if args.command == "classify":
         from .classify import run as classify_run
-        classify_run(dry_run=args.dry_run, jav_metadata=args.jav_metadata)
+        classify_run(dry_run=args.dry_run)
 
     elif args.command == "transmission":
         from .collect import run_transmission
