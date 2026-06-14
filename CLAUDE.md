@@ -45,7 +45,7 @@ src/meridian_x/
 ├── classify.py        # 원격 파일 분류 (SSH 하이브리드: Python 매칭 + mv)
 ├── collect.py        # Multi-source orchestrator (source 순회, history 관리)
 ├── sources/          # Source 모듈 (discover + resolve 함수)
-│   ├── onejav.py     # OneJAV RSS → 페이지 방문 → .torrent 바이트
+│   ├── onejav.py     # OneJAV SSH 경유 (Cloudflare 우회): RSS → 페이지 → .torrent
 │   └── xxxclub.py    # XXXClub RSS → magnet link 직접 추출
 ├── transmission.py    # Transmission RPC 클라이언트 (add/filter/label)
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
@@ -86,6 +86,7 @@ src/meridian_x/
 - Jellyfin `POST /Items/{id}` 시 Fields 파라미터에 Genres, Studios 등 필수. 누락 시 .ToList()에서 ArgumentNullException 발생.
 - Jellyfin 204 응답은 body 없음. `_post()`에서 content 체크 필수.
 - heritage 서버 (Proxmox VM 200): SSH `root@100.96.115.19` (Tailscale). walle = Proxmox 클러스터 호스트. 미디어 경로: `/mnt/data1/torrent/complete` (Jellyfin `/data2` 마운트).
+- onejav Cloudflare 차단: girl IP가 반복 요청 시 rate 차단 (Connection reset). SSH 경유(heritage `curl -sL`)로 우회. `-L` 필수 (http→https redirect). RSS/페이지/.torrent 전부 heritage curl, 바이너리는 `base64` 경유.
 - 워크플로우: `tidy`(정리/flatten) → `classify`(분류). tidy가 폴더 flatten 후 classify가 파일을 배우/장르/스튜디오/JPN/West로 분류. 둘 다 SSH 기반 (로컬 실행 + 원격 조작).
 - classify는 tidy 실행 후 호출 권장 (flatten되지 않은 파일은 분류 안 됨).
 
