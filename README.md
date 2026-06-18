@@ -152,7 +152,8 @@ tidy(flatten) 이후, flatten된 파일을 우선순위별로 분류. SSH 하이
 큐레이션을 시작하시려면, 그저 집사를 호출하십시오:
 
 ```bash
-# 설정 파일 복사
+# ========== Setup (초기 설정) ==========
+uv sync                                    # 의존성 설치
 cp config/settings.json.example config/settings.json
 # settings.json 편집...
 
@@ -163,12 +164,21 @@ uv run meridian transmission --source onejav      # onejav만
 uv run meridian transmission --source xxxclub     # xxxclub만
 uv run meridian transmission --max-downloads 50   # 최대 50개 (전체 source 합산)
 
+# ========== Filter (기존 토렌트 필터링) ==========
+uv run meridian filter                  # 기존 토렌트 광고 파일 일괄 제외
+
+# ========== Label (기존 토렌트 라벨링) ==========
+uv run meridian label                   # 메이커 코드/스튜디오/배우 labels 자동 설정
+
+# ========== Sync (Transmission → Jellyfin) ==========
+uv run meridian sync                    # Transmission labels → Jellyfin Tags 동기화
+
 # ========== Tidy (원격 정리) ==========
-uv run meridian tidy                  # 정크삭제→Flatten→파일명정리→갱신
+uv run meridian tidy                    # 정크삭제→Flatten→파일명정리→갱신
 
 # ========== Classify (원격 분류, tidy 후 실행) ==========
-uv run meridian classify --dry-run    # 미리보기 (권장)
-uv run meridian classify              # SSH로 원격 파일 분류
+uv run meridian classify --dry-run      # 미리보기 (권장)
+uv run meridian classify                # SSH로 원격 파일 분류
 ```
 
 ---
@@ -182,10 +192,18 @@ uv run meridian classify              # SSH로 원격 파일 분류
 | `--source NAME` | 수집 source 지정 (onejav, xxxclub) | 전체 |
 | `--max-downloads N` | 최대 다운로드 수 (전체 source 합산) | 30 |
 
-### classify
+### filter / label
+| 옵션 | 설명 | 비고 |
+| :--- | :--- | :--- |
+| `--dry-run` | 실제 변경 없이 요약만 출력 | 영향받는 항목은 나열하지 않음 |
+
+### tidy / classify
 | 옵션 | 설명 | 기본값 |
 | :--- | :--- | :--- |
-| `--dry-run` | 실제 이동 없이 분류 결과만 출력 | - |
+| `--dry-run` | 실제 이동/변경 없이 결과만 출력 | - |
+
+### sync
+옵션 없음. 실행 즉시 Transmission labels → Jellyfin Tags 동기화 (`--dry-run` 미지원).
 
 ---
 

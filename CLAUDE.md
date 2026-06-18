@@ -83,6 +83,8 @@ src/meridian_x/
 - `labels` 필드 (RPC spec) 미지원 빌드 → `labels` 사용 (linuxserver/transmission).
 - 토렌트 추가 흐름: `paused` → `torrent-set`(labels) → `torrent-set`(files-unwanted) → `torrent-start`.
 - Duplicate 토렌트는 filter/labels 적용 안 됨 (`torrent-added` 응답이 아니므로).
+- `filter`/`label --dry-run`은 대상 항목을 나열하지 않고 "Would filter/label all torrents"만 출력. 영향받는 항목 사전 확인 불가.
+- 모든 명령은 import 시점에 `logs/YYMMDD/hhmmss.log`를 자동 생성 (`--dry-run` 포함).
 - Jellyfin `POST /Items/{id}` 시 Fields 파라미터에 Genres, Studios 등 필수. 누락 시 .ToList()에서 ArgumentNullException 발생.
 - Jellyfin 204 응답은 body 없음. `_post()`에서 content 체크 필수.
 - heritage 서버 (Proxmox CT 200, **unprivileged LXC**, Debian 12): SSH `media@100.96.115.19` (Tailscale, UID 1000). walle = Proxmox 클러스터 호스트. 미디어 경로: `/mnt/data1/torrent/complete` (Transmission `/downloads/complete`, Jellyfin `/data2` 마운트).
