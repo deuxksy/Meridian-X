@@ -53,12 +53,14 @@ Examples:
   %(prog)s tidy                   # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
   %(prog)s classify              # 미디어 파일 분류
   %(prog)s classify --dry-run    # 분류 미리보기
+  %(prog)s pipeline              # filter → label → sync → tidy → classify 한 번에
+  %(prog)s pipeline --dry-run    # 미리보기
         """
     )
     
     parser.add_argument(
         "command",
-        choices=["classify", "filter", "label", "sync", "tidy", "transmission"],
+        choices=["classify", "filter", "label", "pipeline", "sync", "tidy", "transmission"],
         help="실행할 명령"
     )
     
@@ -134,6 +136,73 @@ Examples:
         logger.info("=== Sync Transmission → Jellyfin ===")
         count = sync_tags(jf_client, tx_client)
         logger.info(f"=== Sync Completed ({count} items updated) ===")
+
+    elif args.command == "pipeline":
+        from .core import load_config
+        from .transmission import TransmissionClient
+        from .jellyfin import JellyfinClient, sync_tags
+        from .tidy import run as tidy_run
+        from .classify import run as classify_run
+
+        config = load_config()
+        tx_config = config.get("transmission", {})
+        jf_config = config.get("jellyfin", {})
+        filters = tx_config.get("filters", {})
+
+        if not tx_config.get("rpc_url"):
+            logger.error("transmission.rpc_url not configured")
+            return
+        if not jf_config.get("url") or not jf_config.get("api_key"):
+            logger.error("jellyfin.url and jellyfin.api_key required in settings.json")
+            return
+
+        tx_client = TransmissionClient(
+            rpc_url=tx_config["rpc_url"],
+            user=tx_config.get("rpc_user"),
+            password=tx_config.get("rpc_password"),
+            timeout=tx_config.get("timeout", 10),
+        )
+        jf_client = JellyfinClient(
+            base_url=jf_config["url"],
+            api_key=jf_config["api_key"],
+            timeout=jf_config.get("timeout", 10),
+        )
+
+        logger.info("=== Pipeline Started: filter → label → sync → tidy → classify ===")
+
+        # 1. filter (광고 파일 제외)
+        logger.info("[1/5] Filter")
+        if args.dry_run:
+            logger.info("[Dry-run] Would filter all torrents")
+        else:
+            n = tx_client.filter_existing(filters)
+            logger.info(f"  Filtered: {n} torrents")
+
+        # 2. label (메이커/배우 labels)
+        logger.info("[2/5] Label")
+        if args.dry_run:
+            logger.info("[Dry-run] Would label all torrents")
+        else:
+            n = tx_client.label_existing()
+            logger.info(f"  Labeled: {n} torrents")
+
+        # 3. sync (Transmission labels → Jellyfin Tags)
+        logger.info("[3/5] Sync Transmission → Jellyfin")
+        if args.dry_run:
+            logger.info("[Dry-run] Would sync tags")
+        else:
+            n = sync_tags(jf_client, tx_client)
+            logger.info(f"  Synced: {n} items")
+
+        # 4. tidy (정크삭제 → Flatten → 파일명정리 → 라이브러리갱신)
+        logger.info("[4/5] Tidy")
+        tidy_run(dry_run=args.dry_run)
+
+        # 5. classify (배우/스튜디오/장르/JPN/FC2/West 분류)
+        logger.info("[5/5] Classify")
+        classify_run(dry_run=args.dry_run)
+
+        logger.info("=== Pipeline Completed ===")
 
     elif args.command == "tidy":
         from .tidy import run as tidy_run
