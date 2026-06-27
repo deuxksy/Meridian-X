@@ -8,10 +8,19 @@ version = "0.3.0"
 description = "소중한 미디어 컬렉션을 완벽하게 관리하는 품격 있는 자동화 큐레이션 솔루션."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["requests", "python-dotenv"]
+dependencies = [
+    "requests",
+    "python-dotenv",
+    "transmission-rpc>=7.0.11,<8",
+]
 
 [project.scripts]
 meridian = "meridian_x.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/meridian_x"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

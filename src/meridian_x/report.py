@@ -106,10 +106,7 @@ def disk_status(remote: dict) -> None:
 
 def transmission_status(client) -> None:
     """Transmission 토렌트 상태 집계."""
-    resp = client._rpc_call("torrent-get", {
-        "fields": ["status", "rateDownload", "rateUpload", "uploadRatio"]
-    })
-    torrents = resp.get("arguments", {}).get("torrents", [])
+    torrents = client.get_torrents_status()
     total = len(torrents)
 
     counts = Counter(TR_STATUS.get(t.get("status"), "unknown") for t in torrents)

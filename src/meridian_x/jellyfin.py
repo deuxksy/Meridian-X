@@ -119,17 +119,7 @@ def sync_tags(jellyfin: JellyfinClient, transmission_client) -> int:
     Returns: 업데이트된 아이템 수
 """
     # 1. Transmission: 완료된 토렌트 + labels
-    resp = transmission_client._rpc_call("torrent-get", {
-        "fields": ["id", "name", "labels", "percentDone", "status"]
-    })
-    torrents = resp.get("arguments", {}).get("torrents", [])
-
-    # labels 있는 완료 토렌트만 필터
-    labeled = {
-        t["name"]: t["labels"]
-        for t in torrents
-        if t.get("labels") and t["percentDone"] >= 1.0
-    }
+    labeled = transmission_client.get_labeled_completed()
     logger.info(f"[Sync] Transmission: {len(labeled)} labeled completed torrents")
 
     if not labeled:

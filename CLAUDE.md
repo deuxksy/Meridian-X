@@ -55,7 +55,7 @@ src/meridian_x/
 ├── sources/          # Source 모듈 (discover + resolve 함수)
 │   ├── onejav.py     # OneJAV SSH 경유 (Cloudflare 우회): RSS → 페이지 → .torrent
 │   └── xxxclub.py    # XXXClub RSS → magnet link 직접 추출
-├── transmission.py    # Transmission RPC 클라이언트 (add/filter/label)
+├── transmission.py    # Transmission RPC 클라이언트 (transmission-rpc 기반, add/filter/label)
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
 ├── tidy.py           # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
 ├── report.py         # disk 사용량 + Transmission 상태 리포트 (읽기 전용)
@@ -73,7 +73,7 @@ src/meridian_x/
 ## Key Patterns
 
 - **Config 로딩**: `core.load_config()` 사용
-- **Transmission RPC**: `transmission.py`의 `TransmissionClient` (paused 추가 → 파일 필터링 → labels → start)
+- **Transmission RPC**: `transmission.py`의 `TransmissionClient` (transmission-rpc 기반. `add_torrent`/`add_magnet` 한 호출로 paused → labels/seedRatio/files-unwanted → start 통합)
 - **Labels**: torrent name에서 자동 추출 (소문자)
   - JAV: 메이커 코드 (`SNOS-125` → `['snos']`, `FC2-PPV-4895410` → `['fc2']`)
   - West: 스튜디오 + 배우 (`Vixen.16.09.06.Lily.Love...` → `['vixen', 'lily love']`)
@@ -88,10 +88,11 @@ src/meridian_x/
 
 - `config/settings.json` 없으면 `FileNotFoundError` 발생. 최초 설정 시 example 복사 필수.
 - Transmission RPC 사용 시 `config/settings.json`에 `transmission.rpc_url` 설정 필수.
-- Transmission 409 응답 = CSRF 세션 ID 요구 (인증 에러 아님, 자동 처리됨).
+- Transmission 409 응답 = CSRF 세션 ID 요구 (인증 에러 아님). transmission-rpc가 자동 처리.
 - `labels` 필드 (RPC spec) 미지원 빌드 → `labels` 사용 (linuxserver/transmission).
-- 토렌트 추가 흐름: `paused` → `torrent-set`(labels) → `torrent-set`(files-unwanted) → `torrent-start`.
-- Duplicate 토렌트는 filter/labels 적용 안 됨 (`torrent-added` 응답이 아니므로).
+- 토렌트 추가 흐름: lib `add_torrent`(paused) → `change_torrent`(labels/seedRatio/files-unwanted) → `start_torrent`.
+- magnet 추가 시 lib는 paused를 무시할 수 있음 (메타데이터 다운로드 필요). labels/filter는 동일 적용.
+- Duplicate 토렌트는 transmission-rpc가 Torrent 객체로 반환 (별도 감지 불가). labels/filter는 idempotent하여 동일 적용 (기존 "적용 안 됨" 동작에서 변경).
 - `filter`/`label --dry-run`은 대상 항목을 나열하지 않고 "Would filter/label all torrents"만 출력. 영향받는 항목 사전 확인 불가.
 - 모든 명령은 import 시점에 `logs/YYMMDD/hhmmss.log`를 자동 생성 (`--dry-run` 포함).
 - Jellyfin `POST /Items/{id}` 시 Fields 파라미터에 Genres, Studios 등 필수. 누락 시 .ToList()에서 ArgumentNullException 발생.
