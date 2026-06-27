@@ -260,3 +260,18 @@ def run(dry_run: bool = False) -> None:
 
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "없음"
     logger.info(f"=== Classify Completed ({summary}) ===")
+
+    # Jellyfin 라이브러리 갱신 (파일 이동 후, dry-run 아닐 때만)
+    if not dry_run:
+        jf_config = config.get("jellyfin", {})
+        if jf_config.get("url") and jf_config.get("api_key"):
+            from .jellyfin import JellyfinClient
+            logger.info("=== Jellyfin Library Refresh ===")
+            try:
+                jf = JellyfinClient(jf_config["url"], jf_config["api_key"], jf_config.get("timeout", 10))
+                jf.refresh_library()
+                logger.info("  라이브러리 갱신 요청 완료")
+            except Exception as e:
+                logger.error(f"  Jellyfin 갱신 실패: {e}")
+        else:
+            logger.warning("jellyfin.url/api_key 미설정, 라이브러리 갱신 스킵")
