@@ -43,6 +43,7 @@ uv run meridian report                          # disk 사용량 + Transmission 
 
 # ========== Verification ==========
 uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 확인
+uv run pytest tests/ -v                         # 도메인 로직 회귀 테스트 (RPC 없이)
 ```
 
 ## Architecture
@@ -63,8 +64,14 @@ src/meridian_x/
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
 ```
 
+```text
+tests/
+└── test_transmission.py  # TransmissionClient 도메인 로직 회귀 테스트 (RPC 없이)
+```
+
 ## Configuration
 
+- 핵심 의존성 (`pyproject.toml`): `requests`, `transmission-rpc` (Transmission RPC), `python-dotenv`. dev: `pytest`.
 - `config/settings.json` — 메인 설정 (gitignored). `settings.json.example` 참고.
 - `.env` — FANZA API: `FANZA_API_ID`, `FANZA_AFFILIATE_ID`
 - `jellyfin.api_key` — Jellyfin API Key (settings.json에 직접 설정)
