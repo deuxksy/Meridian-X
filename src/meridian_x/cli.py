@@ -55,12 +55,13 @@ Examples:
   %(prog)s classify --dry-run    # 분류 미리보기
   %(prog)s pipeline              # filter → label → sync → tidy → classify 한 번에
   %(prog)s pipeline --dry-run    # 미리보기
+  %(prog)s report                # disk 사용량 + Transmission 상태 리포트
         """
     )
     
     parser.add_argument(
         "command",
-        choices=["classify", "filter", "label", "pipeline", "sync", "tidy", "transmission"],
+        choices=["classify", "filter", "label", "pipeline", "report", "sync", "tidy", "transmission"],
         help="실행할 명령"
     )
     
@@ -203,6 +204,10 @@ Examples:
         classify_run(dry_run=args.dry_run)
 
         logger.info("=== Pipeline Completed ===")
+
+    elif args.command == "report":
+        from .report import run as report_run
+        report_run()
 
     elif args.command == "tidy":
         from .tidy import run as tidy_run

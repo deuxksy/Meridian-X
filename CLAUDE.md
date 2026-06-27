@@ -37,6 +37,9 @@ uv run meridian classify                          # SSH로 원격 파일 분류
 uv run meridian pipeline --dry-run              # 미리보기 (항상 먼저)
 uv run meridian pipeline                        # filter → label → sync → tidy → classify
 
+# ========== Report (상태 조회, 읽기 전용) ==========
+uv run meridian report                          # disk 사용량 + Transmission 토렌트 상태
+
 # ========== Verification ==========
 uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 확인
 ```
@@ -45,7 +48,7 @@ uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 
 
 ```text
 src/meridian_x/
-├── cli.py            # CLI 진입점 (classify, filter, label, pipeline, sync, tidy, transmission)
+├── cli.py            # CLI 진입점 (classify, filter, label, pipeline, report, sync, tidy, transmission)
 ├── classify.py        # 원격 파일 분류 (SSH 하이브리드: Python 매칭 + mv)
 ├── collect.py        # Multi-source orchestrator (source 순회, history 관리)
 ├── sources/          # Source 모듈 (discover + resolve 함수)
@@ -54,6 +57,7 @@ src/meridian_x/
 ├── transmission.py    # Transmission RPC 클라이언트 (add/filter/label)
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
 ├── tidy.py           # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
+├── report.py         # disk 사용량 + Transmission 상태 리포트 (읽기 전용)
 ├── fanza.py          # FANZA API 클라이언트 (JAV 메타데이터 조회, 보존됨/classify 미사용)
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
 ```
