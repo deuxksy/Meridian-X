@@ -95,3 +95,6 @@ logs/
 config/settings.json
 
 .omc
+
+# Code analysis tools
+.understand-anything/
