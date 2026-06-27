@@ -194,10 +194,10 @@ echo "DELETED=$((nfo_before - nfo_after))"
     return deleted
 
 
-def run(dry_run: bool = False) -> None:
+def run(dry_run: bool = False, refresh: bool = True) -> None:
     """Tidy 메인 실행."""
     from .core import load_config
-    from .jellyfin import JellyfinClient
+    from .jellyfin import refresh_from_config
 
     config = load_config()
     classify = config.get("classify", {})
@@ -244,8 +244,10 @@ def run(dry_run: bool = False) -> None:
     renamed = clean_filenames(remote, clean_prefixes)
 
     # 5. Jellyfin library refresh
-    logger.info("[Step 5/5] Jellyfin 라이브러리 갱신")
-    jf = JellyfinClient(jf_config["url"], jf_config["api_key"], jf_config.get("timeout", 10))
-    jf.refresh_library()
+    if refresh:
+        logger.info("[Step 5/5] Jellyfin 라이브러리 갱신")
+        refresh_from_config(config)
+    else:
+        logger.info("[Step 5/5] Jellyfin 갱신 스킵 (refresh=False)")
 
     logger.info(f"=== Tidy Completed: 삭제 {jf_deleted}, Flatten {flattened}, 정리 {renamed}, 정크 {junk_deleted} ===")

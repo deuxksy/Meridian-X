@@ -168,3 +168,13 @@ def sync_tags(jellyfin: JellyfinClient, transmission_client) -> int:
 
     logger.info(f"[Sync] Completed: {updated} items updated")
     return updated
+
+
+def refresh_from_config(config: dict) -> bool:
+    """config에서 jellyfin 설정 읽어 라이브러리 갱신. url/api_key 없으면 스킵 후 False."""
+    jf = config.get("jellyfin", {})
+    if not jf.get("url") or not jf.get("api_key"):
+        logger.warning("[Jellyfin] url/api_key 미설정, 라이브러리 갱신 스킵")
+        return False
+    client = JellyfinClient(jf["url"], jf["api_key"], jf.get("timeout", 10))
+    return client.refresh_library()

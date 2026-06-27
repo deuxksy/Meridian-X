@@ -35,7 +35,8 @@ uv run meridian classify                          # SSH 원격 분류 → Jellyf
 
 # ========== Pipeline (한 번에 실행, transmission 제외) ==========
 uv run meridian pipeline --dry-run              # 미리보기 (항상 먼저)
-uv run meridian pipeline                        # filter → label → sync → tidy → classify
+uv run meridian pipeline                        # filter → label → sync → tidy → classify → Jellyfin 갱신
+uv run meridian pipeline --no-refresh           # Jellyfin 라이브러리 갱신 스킵
 
 # ========== Report (상태 조회, 읽기 전용) ==========
 uv run meridian report                          # disk 사용량 + Transmission 토렌트 상태

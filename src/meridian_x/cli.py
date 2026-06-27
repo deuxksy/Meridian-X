@@ -70,6 +70,12 @@ Examples:
         action="store_true",
         help="실제 변경 없이 미리보기"
     )
+
+    parser.add_argument(
+        "--no-refresh",
+        action="store_true",
+        help="Jellyfin 라이브러리 갱신 스킵 (pipeline 전용)"
+    )
     
     parser.add_argument(
         "--max-downloads",
@@ -195,13 +201,23 @@ Examples:
             n = sync_tags(jf_client, tx_client)
             logger.info(f"  Synced: {n} items")
 
-        # 4. tidy (정크삭제 → Flatten → 파일명정리 → 라이브러리갱신)
+        # 4. tidy (정크삭제 → Flatten → 파일명정리; refresh는 pipeline 마지막에 일괄)
         logger.info("[4/5] Tidy")
-        tidy_run(dry_run=args.dry_run)
+        tidy_run(dry_run=args.dry_run, refresh=False)
 
         # 5. classify (배우/스튜디오/장르/JPN/FC2/West 분류)
         logger.info("[5/5] Classify")
-        classify_run(dry_run=args.dry_run)
+        classify_run(dry_run=args.dry_run, refresh=False)
+
+        # 6. Jellyfin 라이브러리 갱신 (tidy+classify 변경 사항을 한 번에 반영)
+        if args.dry_run:
+            logger.info("[6/6] Jellyfin 갱신: [Dry-run] Would refresh")
+        elif args.no_refresh:
+            logger.info("[6/6] Jellyfin 갱신 스킵 (--no-refresh)")
+        else:
+            from .jellyfin import refresh_from_config
+            logger.info("[6/6] Jellyfin Library Refresh")
+            refresh_from_config(config)
 
         logger.info("=== Pipeline Completed ===")
 
