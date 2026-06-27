@@ -12,8 +12,8 @@ from .core import load_config
 
 logger = logging.getLogger(__name__)
 
-# JAV 패턴 (메이커 코드 3-6자리 알파벳/숫자 + 숫자). 숫자 시작(348NTR) 지원
-JPN_PATTERN = r"^[A-Z0-9]{3,6}-\d{2,5}[-\.\s]"
+# JAV 패턴 (메이커 코드 3-7자리 알파벳/숫자 + 숫자). 숫자 시작(348NTR), 7자리 시리즈(200GANA/300MIUM) 지원
+JPN_PATTERN = r"^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]"
 
 
 def _ssh(remote: dict, cmd: str) -> tuple[bool, str]:

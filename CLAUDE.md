@@ -72,7 +72,7 @@ src/meridian_x/
 - **Multi-source**: `sources/` 패키지의 각 모듈이 `discover()`+`resolve()` 제공. `collect.py`가 활성 source 순회.
 - **History ID**: `{source}:{id}` 형태 (`onejav:SNOS155`, `xxxclub:<infohash>`). prefix 없는 기존 항목은 `onejav:` 자동 부여(migration).
 - **분류 우선순위** (classify): 배우(`artist_folders`) > 스튜디오(`studio_folders`) > 장르(`genres`) > JAV 패턴(`JPN/`) > FC2(`FC2/`) > West(fallback). tidy(flatten) 후 실행.
-- **JAV 패턴**: `^[A-Z]{3,5}-\d{3,5}[-\.\s]` (예: SONE-446, ABC-001) → `JPN/`
+- **JAV 패턴**: `^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]` (예: SONE-446, 200GANA-3399, 300MIUM-1383) → `JPN/`
 - **FC2 패턴**: `^FC2` (예: FC2-PPV-4914752) → `FC2/`
 
 ## Gotchas
