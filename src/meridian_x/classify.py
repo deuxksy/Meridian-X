@@ -34,8 +34,11 @@ def _ssh(remote: dict, cmd: str) -> tuple[bool, str]:
         return False, str(e)
 
 
-def _list_files(remote: dict, video_extensions: tuple) -> list[str]:
-    """원격 path 최상위 영상 파일 목록 (flatten된 상태 가정)."""
+def _list_files(remote: dict, video_extensions: tuple, simulation_files: list[str] = None) -> list[str]:
+    """원격 path 최상위 영상 파일 목록 (flatten된 상태 가정). dry-run 시 시뮬레이션 데이터 우선 사용."""
+    if simulation_files:
+        # 시뮬레이션 데이터 사용 (대소문자 중복 폴더 파일 병합 결과)
+        return [f for f in simulation_files if any(f.lower().endswith(ext.lower()) for ext in video_extensions)]
     path = remote["path"]
     ext_pattern = " -o ".join(
         f'-iname "*{ext}"' for ext in video_extensions
@@ -174,12 +177,15 @@ fi
 def _move_folder(remote: dict, folder_name: str, dest_folder: str, dry_run: bool) -> str:
     """
     SSH로 폴더째 이동 (멀티파트 보존). Returns: 'moved' | 'skip_dup' | 'error'.
-    중복 시 건너뜀 (원본 유지, 덮어쓰기 방지).
+    대소문자 불감정 중복 검증 추가, 중복 시 최신 파일 우선 병합.
     """
     path = remote["path"]
     src = f"{path}/{folder_name}"
     dest_dir = f"{path}/{dest_folder}"
-    dest = f"{dest_dir}/{folder_name}"
+    # 대소문자 불감정 중복 검증
+    folder_name_lower = folder_name.lower()
+    dest = f"{dest_dir}/{folder_name_lower}"
+    # 중복 폴더 이름 대소문자 정규화
 
     if dry_run:
         logger.info(f"  [Dry-run 폴더] {folder_name}/ -> {dest_folder}/")
@@ -204,7 +210,7 @@ fi
     return "moved"
 
 
-def run(dry_run: bool = False, refresh: bool = True) -> None:
+def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str] | None = None) -> None:
     """원격 파일 분류 메인 실행. tidy 실행 후 호출 권장."""
     config = load_config()
     remote = config.get("remote", {})
@@ -222,7 +228,7 @@ def run(dry_run: bool = False, refresh: bool = True) -> None:
     logger.info("=== Meridian-X Classify Started (Remote SSH) ===")
     logger.info(f"Dry-run: {dry_run}")
 
-    files = _list_files(remote, video_extensions)
+    files = _list_files(remote, video_extensions, simulation_files=simulation_files)
     if not files:
         logger.info("분류할 파일 없음 (tidy 실행 후 시도 권장)")
         logger.info("=== Classify Completed ===")

@@ -28,6 +28,7 @@ uv run meridian sync                            # Transmission labels → Jellyf
 
 # ========== Tidy (원격 파일 정리) ==========
 uv run meridian tidy                            # 정크삭제→Flatten→파일명정리→라이브러리갱신
+uv run meridian tidy --dry-run            # 실제 변경 없이 정리 동작 미리보기
 
 # ========== Classify (원격 분류, tidy 후 실행) ==========
 uv run meridian classify --dry-run                # 미리보기 (항상 먼저)
@@ -109,6 +110,8 @@ tests/
 - onejav Cloudflare 차단: girl IP가 반복 요청 시 rate 차단 (Connection reset). SSH 경유(heritage `curl -sL`)로 우회. `-L` 필수 (http→https redirect). RSS/페이지/.torrent 전부 heritage curl, 바이너리는 `base64` 경유.
 - 워크플로우: `tidy`(정리/flatten) → `classify`(분류). tidy가 폴더 flatten 후 classify가 파일을 배우/장르/스튜디오/JPN/West로 분류. 둘 다 SSH 기반 (로컬 실행 + 원격 조작).
 - classify는 tidy 실행 후 호출 권장 (flatten되지 않은 파일은 분류 안 됨).
+- `tidy --dry-run`은 SSH 명령 시뮬레이션 로그만 출력, 실제 파일 변경 없음. 시뮬레이션 결과로 폴더 Flatten/파일명 정리 개수 확인 가능
+- `filter`/`label --dry-run`의 제한적 출력 문제 해결 방안: 시뮬레이션 테스트 스크립트 활용 권장
 
 ## Roadmap
 
