@@ -211,13 +211,18 @@ Examples:
 
         # 6. Jellyfin 라이브러리 갱신 (tidy+classify 변경 사항을 한 번에 반영)
         if args.dry_run:
-            logger.info("[6/6] Jellyfin 갱신: [Dry-run] Would refresh")
+            logger.info("[6/7] Jellyfin 갱신: [Dry-run] Would refresh")
         elif args.no_refresh:
-            logger.info("[6/6] Jellyfin 갱신 스킵 (--no-refresh)")
+            logger.info("[6/7] Jellyfin 갱신 스킵 (--no-refresh)")
         else:
             from .jellyfin import refresh_from_config
-            logger.info("[6/6] Jellyfin Library Refresh")
+            logger.info("[6/7] Jellyfin Library Refresh")
             refresh_from_config(config)
+
+        # 7. Report (전체 상태 리포트 출력)
+        logger.info("[7/7] System Report")
+        from .report import run as report_run
+        report_run()
 
         logger.info("=== Pipeline Completed ===")
 

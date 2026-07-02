@@ -92,7 +92,7 @@ logs/
 *.tmp
 *.dat
 *.html
-config/settings.json
+#config/settings.json
 
 .omc
 

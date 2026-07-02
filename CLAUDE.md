@@ -4,6 +4,9 @@
 
 ## Commands
 
+### Pipeline Report 추가 설명
+- pipeline 명령 마지막 단계에 자동 실행되는 report는 디스크 사용량, Transmission 토렌트 상태를 출력
+
 ```bash
 # ========== Setup (초기 설정) ==========
 uv sync                              # 의존성 설치
@@ -36,7 +39,7 @@ uv run meridian classify                          # SSH 원격 분류 → Jellyf
 
 # ========== Pipeline (한 번에 실행, transmission 제외) ==========
 uv run meridian pipeline --dry-run              # 미리보기 (항상 먼저)
-uv run meridian pipeline                        # filter → label → sync → tidy → classify → Jellyfin 갱신
+uv run meridian pipeline                        # filter → label → sync → tidy → classify → Jellyfin 갱신 → report
 uv run meridian pipeline --no-refresh           # Jellyfin 라이브러리 갱신 스킵
 
 # ========== Report (상태 조회, 읽기 전용) ==========
