@@ -98,3 +98,5 @@ logs/
 
 # Code analysis tools
 .understand-anything/
+
+config/settings.json
