@@ -79,7 +79,8 @@ def delete_junk_jellyfin(jf_config: dict, filters: dict, dry_run: bool = False) 
 
 
 def flatten_folders(remote: dict, exclude_folders: list = None, min_size_mb: int = 0, dry_run: bool = False) -> int:
-    """SSH로 비디오 1개 폴더를 상위로 이동하고 폴더 삭제. classify 분류 폴더 제외, min_size 미만 광고 mp4는 영상 카운트에서 제외."""
+    """SSH로 비디오 1개 폴더를 상위로 이동하고 폴더 삭제. classify 분류 폴더 제외, min_size 미만 광고 mp4는 영상 카운트에서 제외.
+    flatten 후 0바이트 stub 파일과 빈 폴더(실패 다운로드 잔해)도 함께 정리."""
     path = remote["path"]
     exclude_args = ""
     if exclude_folders:
@@ -117,6 +118,14 @@ find . -maxdepth 1 -type d -not -name "." -not -name ".." {exclude_args} | sort 
         fi
     fi
 done
+# 실패 다운로드 잔해 정리: 분류 폴더가 아닌 각 폴더에서 0바이트 stub 파일과 빈 폴더(재귀) 삭제
+cleaned_before=$(find . -maxdepth 1 -mindepth 1 -type d {exclude_args} | wc -l)
+find . -maxdepth 1 -mindepth 1 -type d {exclude_args} | while read dir; do
+    find "$dir" -type f -size 0 -delete 2>/dev/null
+    find "$dir" -type d -empty -delete 2>/dev/null
+done
+cleaned_after=$(find . -maxdepth 1 -mindepth 1 -type d {exclude_args} | wc -l)
+echo "FOLDERS_CLEANED=$((cleaned_before - cleaned_after))"
 '''
     ok, output = _ssh(remote, cmd, dry_run=dry_run)
     if not ok:
@@ -129,6 +138,12 @@ done
 
     count = output.count("FLATTEN ")
     logger.info(f"[Tidy-2] Flatten: {count}개 폴더")
+
+    cleaned = 0
+    for line in output.splitlines():
+        if line.startswith("FOLDERS_CLEANED="):
+            cleaned = int(line.split("=")[1])
+    logger.info(f"[Tidy-2] 잔해 폴더 정리: {cleaned}개")
     return count
 
 
