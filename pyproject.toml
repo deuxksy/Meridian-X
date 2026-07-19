@@ -12,6 +12,7 @@ dependencies = [
     "requests",
     "python-dotenv",
     "transmission-rpc>=7.0.11,<8",
+    "playwright>=1.40",
 ]
 
 [project.scripts]
