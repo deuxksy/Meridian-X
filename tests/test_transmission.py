@@ -85,3 +85,48 @@ class TestFilterFiles:
     def test_empty_filters_excludes_nothing(self):
         files = [_file("ad.html", 1000), _file("main.mp4", 500_000_000)]
         assert _client()._filter_files(files, {}) == []
+
+
+class TestStopAfterDownloadExisting:
+    """stop_after_download_existing: seed ratio 0 소급 적용 로직.
+
+    RPC 호출 대신 change_torrent 호출을 추적하여 적용 대상/중복 skip 검증.
+    """
+
+    def _client_with_torrents(self, torrents):
+        """get_torrents/change_torrent을 mock한 클라이언트."""
+        c = _client()
+        c._client = SimpleNamespace(
+            get_torrents=lambda arguments=None: torrents,
+            change_torrent=lambda tid, **kw: calls.append((tid, kw)),
+        )
+        calls = []
+        return c, calls
+
+    def test_applies_to_unconfigured_torrent(self):
+        torrents = [SimpleNamespace(id=1, name="A", seed_ratio_mode=0, seed_ratio_limit=2.0)]
+        c, calls = self._client_with_torrents(torrents)
+        assert c.stop_after_download_existing() == 1
+        assert calls == [(1, {"seed_ratio_mode": 1, "seed_ratio_limit": 0.0})]
+
+    def test_skips_already_configured(self):
+        torrents = [SimpleNamespace(id=1, name="A", seed_ratio_mode=1, seed_ratio_limit=0.0)]
+        c, calls = self._client_with_torrents(torrents)
+        assert c.stop_after_download_existing() == 0
+        assert calls == []
+
+    def test_mixed_torrents(self):
+        torrents = [
+            SimpleNamespace(id=1, name="A", seed_ratio_mode=1, seed_ratio_limit=0.0),
+            SimpleNamespace(id=2, name="B", seed_ratio_mode=0, seed_ratio_limit=-1),
+            SimpleNamespace(id=3, name="C", seed_ratio_mode=1, seed_ratio_limit=2.0),
+        ]
+        c, calls = self._client_with_torrents(torrents)
+        assert c.stop_after_download_existing() == 2
+        assert [tid for tid, _ in calls] == [2, 3]
+
+    def test_dry_run_counts_without_applying(self):
+        torrents = [SimpleNamespace(id=1, name="A", seed_ratio_mode=0, seed_ratio_limit=2.0)]
+        c, calls = self._client_with_torrents(torrents)
+        assert c.stop_after_download_existing(dry_run=True) == 1
+        assert calls == []

@@ -114,6 +114,32 @@ class TransmissionClient:
             logger.error(f"Failed to filter existing torrents: {e}")
             return 0
 
+    def stop_after_download_existing(self, dry_run: bool = False) -> int:
+        """전체 토렌트에 다운로드 완료 후 자동 정지(seed ratio 0) 설정.
+
+        수동 추가 토렌트 포함 기존 토렌트에 stop_after_download를 소급 적용.
+        이미 설정된 토렌트는 skip (idempotent). 적용된(또는 미적용) 토렌트 수 반환.
+        """
+        try:
+            torrents = self._client.get_torrents(
+                arguments=["id", "name", "seedRatioMode", "seedRatioLimit"]
+            )
+            stopped_count = 0
+            for t in torrents:
+                if getattr(t, "seed_ratio_mode", None) == 1 \
+                        and getattr(t, "seed_ratio_limit", None) == 0.0:
+                    continue
+                if not dry_run:
+                    self._client.change_torrent(
+                        t.id, seed_ratio_mode=1, seed_ratio_limit=0.0
+                    )
+                logger.info(f"  [Stop] {t.name}")
+                stopped_count += 1
+            return stopped_count
+        except Exception as e:
+            logger.error(f"Failed to set stop-after-download: {e}")
+            return 0
+
     def label_existing(self) -> int:
         """전체 토렌트에 labels 설정 (메이커 + 배우 분리). 적용된 토렌트 수 반환."""
         try:

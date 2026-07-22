@@ -155,6 +155,7 @@ Examples:
         tx_config = config.get("transmission", {})
         jf_config = config.get("jellyfin", {})
         filters = tx_config.get("filters", {})
+        stop_after = tx_config.get("stop_after_download", False)
 
         if not tx_config.get("rpc_url"):
             logger.error("transmission.rpc_url not configured")
@@ -168,6 +169,7 @@ Examples:
             user=tx_config.get("rpc_user"),
             password=tx_config.get("rpc_password"),
             timeout=tx_config.get("timeout", 10),
+            stop_after_download=stop_after,
         )
         jf_client = JellyfinClient(
             base_url=jf_config["url"],
@@ -175,52 +177,63 @@ Examples:
             timeout=jf_config.get("timeout", 10),
         )
 
-        logger.info("=== Pipeline Started: filter → label → sync → tidy → classify ===")
+        logger.info("=== Pipeline Started: stop → filter → label → sync → tidy → classify ===")
 
-        # 1. filter (광고 파일 제외)
-        logger.info("[1/5] Filter")
+        # 1. stop (수동 추가 포함 기존 토렌트에 다운로드 완료 후 자동 정지 적용)
+        logger.info("[1/6] Stop After Download")
+        if not stop_after:
+            logger.info("  Skipped (transmission.stop_after_download is false)")
+        else:
+            n = tx_client.stop_after_download_existing(dry_run=args.dry_run)
+            if args.dry_run:
+                logger.info(f"  [Dry-run] Would set stop on {n} torrents")
+            else:
+                logger.info(f"  Stop set: {n} torrents")
+
+        # 2. filter (광고 파일 제외)
+        logger.info("[2/6] Filter")
         if args.dry_run:
             logger.info("[Dry-run] Would filter all torrents")
         else:
             n = tx_client.filter_existing(filters)
             logger.info(f"  Filtered: {n} torrents")
 
-        # 2. label (메이커/배우 labels)
-        logger.info("[2/5] Label")
+        # 3. label (메이커/배우 labels)
+        logger.info("[3/6] Label")
         if args.dry_run:
             logger.info("[Dry-run] Would label all torrents")
         else:
             n = tx_client.label_existing()
             logger.info(f"  Labeled: {n} torrents")
 
-        # 3. sync (Transmission labels → Jellyfin Tags)
-        logger.info("[3/5] Sync Transmission → Jellyfin")
+        # 4. sync (Transmission labels → Jellyfin Tags)
+        logger.info("[4/6] Sync Transmission → Jellyfin")
         if args.dry_run:
             logger.info("[Dry-run] Would sync tags")
         else:
             n = sync_tags(jf_client, tx_client)
             logger.info(f"  Synced: {n} items")
 
-        # 4. tidy (정크삭제 → Flatten → 파일명정리; refresh는 pipeline 마지막에 일괄)
-        logger.info("[4/5] Tidy")
+        # 5. tidy (정크삭제 → Flatten → 파일명정리; refresh는 pipeline 마지막에 일괄)
+        logger.info("[5/6] Tidy")
         tidy_run(dry_run=args.dry_run, refresh=False)
 
-        # 5. classify (배우/스튜디오/장르/JPN/FC2/West 분류)
-        logger.info("[5/5] Classify")
+        # 6. classify (배우/스튜디오/장르/JPN/FC2/West 분류)
+        logger.info("[6/6] Classify")
         classify_run(dry_run=args.dry_run, refresh=False)
 
-        # 6. Jellyfin 라이브러리 갱신 (tidy+classify 변경 사항을 한 번에 반영)
+        # 7. Jellyfin 라이브러리 갱신 (tidy+classify 변경 사항을 한 번에 반영)
         if args.dry_run:
-            logger.info("[6/7] Jellyfin 갱신: [Dry-run] Would refresh")
+            logger.info("[7/8] Jellyfin 갱신: [Dry-run] Would refresh")
         elif args.no_refresh:
-            logger.info("[6/7] Jellyfin 갱신 스킵 (--no-refresh)")
+            logger.info("[7/8] Jellyfin 갱신 스킵 (--no-refresh)")
         else:
             from .jellyfin import refresh_from_config
-            logger.info("[6/7] Jellyfin Library Refresh")
+            logger.info("[7/8] Jellyfin Library Refresh")
             refresh_from_config(config)
 
-        # 7. Report (전체 상태 리포트 출력)
-        logger.info("[7/7] System Report")
+        # 8. Report (전체 상태 리포트 출력)
+        logger.info("[8/8] System Report")
         from .report import run as report_run
         report_run()
 
