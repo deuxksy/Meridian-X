@@ -39,7 +39,7 @@ uv run meridian classify                          # SSH 원격 분류 → Jellyf
 
 # ========== Pipeline (한 번에 실행, transmission 제외) ==========
 uv run meridian pipeline --dry-run              # 미리보기 (항상 먼저)
-uv run meridian pipeline                        # filter → label → sync → tidy → classify → Jellyfin 갱신 → report
+uv run meridian pipeline                        # stop → filter → label → sync → tidy → classify → Jellyfin 갱신 → report
 uv run meridian pipeline --no-refresh           # Jellyfin 라이브러리 갱신 스킵
 
 # ========== Report (상태 조회, 읽기 전용) ==========
@@ -70,15 +70,20 @@ src/meridian_x/
 
 ```text
 tests/
-└── test_transmission.py  # TransmissionClient 도메인 로직 회귀 테스트 (RPC 없이)
+├── test_transmission.py            # TransmissionClient 도메인 로직 회귀 테스트 (RPC 없이)
+└── test_simulation_classify.py     # classify/tidy 시뮬레이션 테스트
 ```
 
 ## Configuration
 
 - 핵심 의존성 (`pyproject.toml`): `requests`, `transmission-rpc` (Transmission RPC), `python-dotenv`. dev: `pytest`.
+- `playwright>=1.40`은 `pyproject.toml`에 잔존하나 사용 중단 (onejav SSH 경유 전환, 커밋 933ea24). 제거 후보.
 - `config/settings.json` — 메인 설정 (gitignored). `settings.json.example` 참고.
 - `.env` — FANZA API: `FANZA_API_ID`, `FANZA_AFFILIATE_ID`
 - `jellyfin.api_key` — Jellyfin API Key (settings.json에 직접 설정)
+- `transmission.stop_after_download` — 기존 토렌트 다운로드 완료 후 자동 정지 (pipeline `stop` 단계 활성화)
+- `transmission.use_env_auth` — RPC 인증을 환경변수 기반으로 수행
+- `sources.onejav.remote.ssh_alias` — onejav Cloudflare 우회용 SSH alias (예: `lt`)
 - 로그: `logs/YYMMDD/hhmmss.log`
 
 ## Key Patterns
@@ -110,7 +115,7 @@ tests/
 - Jellyfin 204 응답은 body 없음. `_post()`에서 content 체크 필수.
 - heritage 서버 (Proxmox CT 200, **unprivileged LXC**, Debian 12): SSH `media@100.96.115.19` (Tailscale, UID 1000). walle = Proxmox 클러스터 호스트. 미디어 경로: `/mnt/data1/torrent/complete` (Transmission `/downloads/complete`, Jellyfin `/data2` 마운트).
 - heritage 권한 매핑 (핵심): unprivileged LXC + `/mnt/data1` raw bind mount (idmap 없음) → 컨테이너 root(0)=호스트 100000 매핑, UID 1000 파일 mv/rm 차단 (`Permission denied`). Transmission/Jellyfin 모두 `PUID=1000 PGID=1000`. **반드시 `media`(UID 1000) 계정으로 SSH** (settings.json `remote.user`). root SSH 사용 금지.
-- onejav Cloudflare 차단: girl IP가 반복 요청 시 rate 차단 (Connection reset). SSH 경유(heritage `curl -sL`)로 우회. `-L` 필수 (http→https redirect). RSS/페이지/.torrent 전부 heritage curl, 바이너리는 `base64` 경유.
+- onejav Cloudflare 차단: 로컬 IP 반복 요청 시 rate 차단 (Connection reset). `sources.onejav.remote.ssh_alias`(예: `lt`) 경유 SSH로 우회해 `curl -sL` 실행. `-L` 필수 (http→https redirect). RSS/페이지/.torrent 전부 원격 curl, 바이너리는 `base64` 경유. IPv4 강제.
 - 워크플로우: `tidy`(정리/flatten) → `classify`(분류). tidy가 폴더 flatten 후 classify가 파일을 배우/장르/스튜디오/JPN/West로 분류. 둘 다 SSH 기반 (로컬 실행 + 원격 조작).
 - classify는 tidy 실행 후 호출 권장 (flatten되지 않은 파일은 분류 안 됨).
 - `tidy --dry-run`은 SSH 명령 시뮬레이션 로그만 출력, 실제 파일 변경 없음. 시뮬레이션 결과로 폴더 Flatten/파일명 정리 개수 확인 가능
