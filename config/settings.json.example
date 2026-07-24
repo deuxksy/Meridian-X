@@ -3,7 +3,10 @@
     "onejav": {
       "enabled": true,
       "base_url": "https://onejav.com",
-      "rss_url": "https://onejav.com/feeds/"
+      "rss_url": "https://onejav.com/feeds/",
+      "remote": {
+        "ssh_alias": "lt"
+      }
     },
     "xxxclub": {
       "enabled": true,
