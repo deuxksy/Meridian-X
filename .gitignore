@@ -99,4 +99,11 @@ logs/
 # Code analysis tools
 .understand-anything/
 
+# Operational state (OMC variant)
+.omx/
+
+# npm stubs (Python 프로젝트, 미사용)
+package.json
+package-lock.json
+
 config/settings.json
