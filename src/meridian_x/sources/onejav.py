@@ -7,10 +7,43 @@ remote.ssh_alias("lt") 사용 → IPv4 강제(curl -4)
 import base64
 import logging
 import re
+import shlex
 import subprocess
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 logger = logging.getLogger(__name__)
+
+ALLOWED_HOSTS = {"onejav.com", "www.onejav.com"}
+
+
+def _validate_url(url: str) -> bool:
+    """URL scheme과 hostname 검증
+    - hostname 사용: 소문자 정규화 + port/userinfo 제거가 보장
+    - scheme.lower() 비교: 대소문자 구분 없음
+    """
+    try:
+        parsed = urlparse(url)
+        return bool(
+            parsed.scheme and
+            parsed.scheme.lower() in ("http", "https") and
+            parsed.hostname and
+            parsed.hostname in ALLOWED_HOSTS
+        )
+    except Exception:
+        return False
+
+
+def _safe_timeout(config: dict) -> int:
+    """timeout 설정을 안전한 int로 변환
+    - 실패 시 기본값 30 + WARNING
+    - 음수/0 방지: max(1, timeout)
+    """
+    try:
+        timeout = int(config.get("request_timeout", 30))
+        return max(1, timeout)
+    except (ValueError, TypeError):
+        logger.warning("Invalid request_timeout, using default 30")
+        return 30
 
 
 def _ssh(remote: dict, cmd: str, timeout: int = 60) -> tuple[bool, str]:
@@ -51,14 +84,21 @@ def _onejav_remote(config: dict) -> dict:
 def discover(config: dict) -> list[dict]:
     """OneJAV RSS에서 수집 항목 반환. lt SSH 경유 (curl -4 강제)."""
     rss_url = config.get("rss_url", "https://onejav.com/feeds/")
-    timeout = config.get("request_timeout", 30)
+    timeout = _safe_timeout(config)
     remote = _onejav_remote(config)
 
     if not remote.get("ssh_alias") and not remote.get("host"):
         logger.error("onejav remote not configured (ssh_alias or host/user/ssh_key)")
         return []
 
-    ok, output = _ssh(remote, f'curl -4 -sL --max-time {timeout} "{rss_url}"', timeout + 10)
+    if not _validate_url(rss_url):
+        logger.error(f"Invalid RSS URL (allowlist check failed): {rss_url[:100]}")
+        return []
+    ok, output = _ssh(
+        remote,
+        f"curl -4 -sL --max-time {timeout} --proto =http,https --proto-redir =http,https {shlex.quote(rss_url)}",
+        timeout + 10,
+    )
     if not ok or not output:
         logger.error(f"OneJAV RSS fetch failed: {output[:200]}")
         return []
@@ -70,7 +110,7 @@ def resolve(item: dict, config: dict) -> dict | None:
     """페이지에서 .torrent 바이트를 가져와 metainfo payload 반환. lt SSH 경유 (curl -4 강제)."""
     page_url = item["page_url"]
     base_url = config.get("base_url", "https://onejav.com")
-    timeout = config.get("request_timeout", 30)
+    timeout = _safe_timeout(config)
     remote = _onejav_remote(config)
 
     if not remote.get("ssh_alias") and not remote.get("host"):
@@ -78,9 +118,16 @@ def resolve(item: dict, config: dict) -> dict | None:
         return None
 
     # 페이지 fetch
-    ok, html = _ssh(remote, f'curl -4 -sL --max-time {timeout} "{page_url}"', timeout + 10)
+    if not _validate_url(page_url):
+        logger.warning(f"URL validation failed, skipping: {page_url[:100]}")
+        return None
+    ok, html = _ssh(
+        remote,
+        f"curl -4 -sL --max-time {timeout} --proto =http,https --proto-redir =http,https {shlex.quote(page_url)}",
+        timeout + 10,
+    )
     if not ok or not html:
-        logger.error(f"OneJAV page fetch failed for {page_url}: {html[:200]}")
+        logger.error(f"OneJAV page fetch failed: {html[:200]}")
         return None
 
     match = re.search(r'href="(/torrent/[^/]+/download/\d+/[^"]+\.torrent)"', html)
@@ -89,10 +136,15 @@ def resolve(item: dict, config: dict) -> dict | None:
         return None
 
     download_url = urljoin(base_url, match.group(1))
+    if not _validate_url(download_url):
+        logger.warning(f"Download URL validation failed, skipping: {download_url[:100]}")
+        return None
     # 바이너리는 base64 경유 (터미널 인코딩 이슈 방지)
-    ok, b64 = _ssh(remote, f'curl -4 -sL --max-time {timeout} "{download_url}" | base64', timeout + 10)
+    # download_url만 quote, base64는 쉘 빌트인이므로 quote 불필요
+    curl_cmd = f"curl -4 -sL --max-time {timeout} --proto =http,https --proto-redir =http,https {shlex.quote(download_url)}"
+    ok, b64 = _ssh(remote, f"{curl_cmd} | base64", timeout + 10)
     if not ok or not b64:
-        logger.error(f"OneJAV torrent download failed: {b64[:200]}")
+        logger.error(f"OneJAV torrent download failed: {b64[:200] if b64 else 'empty output'}")
         return None
 
     try:
