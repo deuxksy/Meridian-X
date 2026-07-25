@@ -6,6 +6,7 @@ tidy(flatten/정제) 이후, flatten된 파일을 폴더로 분류.
 
 import logging
 import re
+import shlex
 import subprocess
 
 from .core import load_config
@@ -143,7 +144,8 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
 
 def _move_file(remote: dict, filename: str, dest_folder: str, dry_run: bool) -> str:
     """
-    SSH로 파일 이동. Returns: 'moved' | 'skip_dup' | 'error'.
+    SSH로 파일 이동 (bash -c 방식으로 쉘 인젝션 방지).
+    Returns: 'moved' | 'skip_dup' | 'error'.
     중복 시 원본 삭제 (classify 일관성 유지).
     """
     path = remote["path"]
@@ -155,15 +157,32 @@ def _move_file(remote: dict, filename: str, dest_folder: str, dry_run: bool) -> 
         logger.info(f"  [Dry-run] {filename} -> {dest_folder}/")
         return "moved"
 
-    cmd = f'''
-mkdir -p "{dest_dir}" || {{ echo "MKDIR_FAIL"; exit; }}
-if [ -f "{dest}" ]; then
-    rm -f "{src}" && echo "SKIP_DUP" || echo "RM_FAIL"
+    # 스크립트 템플릿: 데이터는 "$1", "$2", "$3"로 참조
+    # bash -c 'script' _ <arg1> <arg2> <arg3> 방식 사용
+    script = '''
+mkdir -p "$1" || { echo "MKDIR_FAIL"; exit 1; }
+if [ -f "$2" ]; then
+    rm -f "$3" && echo "SKIP_DUP" || echo "RM_FAIL"
 else
-    mv "{src}" "{dest}" && echo "MOVED" || echo "MV_FAIL"
+    mv "$3" "$2" && echo "MOVED" || echo "MV_FAIL"
 fi
 '''
-    ok, output = _ssh(remote, cmd)
+
+    # bash -c 'script' _ arg1 arg2 arg3 형태로 조합
+    # _ 는 $0 (스크립트 이름)으로 사용되지 않음
+    cmd_parts = [
+        "bash", "-c",
+        script,
+        "_",           # $0
+        dest_dir,      # $1
+        dest,          # $2
+        src,           # $3
+    ]
+
+    # 각 부분을 shlex.quote로 감싸고 공백으로 join
+    full_cmd = " ".join(shlex.quote(p) for p in cmd_parts)
+
+    ok, output = _ssh(remote, full_cmd)
     if not ok or "FAIL" in output:
         logger.error(f"  [이동 실패] {filename}: {output[:200]}")
         return "error"
@@ -176,7 +195,7 @@ fi
 
 def _move_folder(remote: dict, folder_name: str, dest_folder: str, dry_run: bool) -> str:
     """
-    SSH로 폴더째 이동 (멀티파트 보존). Returns: 'moved' | 'skip_dup' | 'error'.
+    SSH로 폴더째 이동 (멀티파트 보존). bash -c 방식으로 쉘 인젝션 방지.
     대소문자 불감정 중복 검증 추가, 중복 시 최신 파일 우선 병합.
     """
     path = remote["path"]
@@ -185,21 +204,33 @@ def _move_folder(remote: dict, folder_name: str, dest_folder: str, dry_run: bool
     # 대소문자 불감정 중복 검증
     folder_name_lower = folder_name.lower()
     dest = f"{dest_dir}/{folder_name_lower}"
-    # 중복 폴더 이름 대소문자 정규화
 
     if dry_run:
         logger.info(f"  [Dry-run 폴더] {folder_name}/ -> {dest_folder}/")
         return "moved"
 
-    cmd = f'''
-mkdir -p "{dest_dir}"
-if [ -d "{dest}" ]; then
+    # bash -c 'script' _ arg1 arg2 arg3 방식
+    script = '''
+mkdir -p "$1"
+if [ -d "$2" ]; then
     echo "SKIP_DUP"
 else
-    mv "{src}" "{dest}" && echo "MOVED" || echo "MV_FAIL"
+    mv "$3" "$2" && echo "MOVED" || echo "MV_FAIL"
 fi
 '''
-    ok, output = _ssh(remote, cmd)
+
+    cmd_parts = [
+        "bash", "-c",
+        script,
+        "_",             # $0
+        dest_dir,        # $1
+        dest,            # $2
+        src,             # $3
+    ]
+
+    full_cmd = " ".join(shlex.quote(p) for p in cmd_parts)
+
+    ok, output = _ssh(remote, full_cmd)
     if not ok or "FAIL" in output:
         logger.error(f"  [폴더 이동 실패] {folder_name}: {output[:200]}")
         return "error"
