@@ -63,22 +63,28 @@ def _list_folders(remote: dict, exclude: set) -> list[str]:
     return [f for f in output.splitlines() if f and f.lower() not in exclude_lower]
 
 
+def _normalize_name(name: str) -> str:
+    """파일명/폴더명 및 검색 키워드의 구분 기호(점, 밑줄, 하이픈, 공백)를 제거하고 소문자로 변환."""
+    return re.sub(r'[\._\-\s]+', '', name).lower()
+
+
 def classify_filename(filename: str, config: dict) -> str:
     """
     파일명 → 목적지 폴더 결정 (순수 Python 매칭, 테스트 가능).
     우선순위: 배우 > 스튜디오 > 장르 > JPN > FC2 > West
     """
     f_lower = filename.lower()
+    f_norm = _normalize_name(filename)
     classify = config.get("classify", {})
 
     # 1. 배우
     for folder in classify.get("artist_folders", []):
-        if folder.lower() in f_lower:
+        if _normalize_name(folder) in f_norm:
             return folder
 
     # 2. 스튜디오
     for folder in classify.get("studio_folders", []):
-        if folder.lower() in f_lower:
+        if _normalize_name(folder) in f_norm:
             return folder
 
     # 3. 장르 (genres 비어있으면 스킵)
@@ -109,16 +115,17 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
     멀티파트 폴더(FC2-PPV-*, SONE-446 등) 통째로 분류.
     """
     f_lower = folder_name.lower()
+    f_norm = _normalize_name(folder_name)
     classify = config.get("classify", {})
 
     # 1. 배우
     for folder in classify.get("artist_folders", []):
-        if folder.lower() in f_lower:
+        if _normalize_name(folder) in f_norm:
             return folder
 
     # 2. 스튜디오
     for folder in classify.get("studio_folders", []):
-        if folder.lower() in f_lower:
+        if _normalize_name(folder) in f_norm:
             return folder
 
     # 3. 장르
@@ -139,6 +146,7 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
         return "JPN"
 
     return None
+
 
 
 def _move_file(remote: dict, filename: str, dest_folder: str, dry_run: bool) -> str:
