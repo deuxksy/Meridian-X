@@ -48,3 +48,15 @@ def test_exxxtrasmall_studio_classification():
     assert classify_filename(filename, config) == "ExxxtraSmall"
 
 
+def test_japanese_artists_classification():
+    config = load_config("config/settings.json")
+    artists = [
+        "MINAMO", "Rena Miyashita", "Rima Arai", "Umi Yatsugake",
+        "佐野葉月", "博多彩葉", "川越にこ", "日向由奈", "白花にあ", "雛形みくる"
+    ]
+    for artist in artists:
+        assert artist in config.get("classify", {}).get("artist_folders", [])
+    assert classify_filename("MINAMO_special_01.mp4", config) == "Actors/MINAMO"
+
+
+
