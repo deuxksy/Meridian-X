@@ -1,58 +1,62 @@
 import logging
 import re
-import time
-import requests
+import subprocess
 from bs4 import BeautifulSoup
+
+from .core import load_config
 
 logger = logging.getLogger(__name__)
 
-_session = requests.Session()
-_session.headers.update({
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept-Language": "en-US,en;q=0.9,ja;q=0.8",
-})
+
+def _ssh_curl(url: str, config: dict) -> str | None:
+    """SSH 경유 (lt SSH alias 또는 default remote)로 OneJAV URL curl 조회 (Cloudflare 우회)."""
+    remote = config.get("sources", {}).get("onejav", {}).get("remote") or config.get("remote", {})
+    ssh_alias = remote.get("ssh_alias", "lt")
+    
+    if ssh_alias:
+        args = ["ssh", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no", ssh_alias, f'curl -sL "{url}"']
+    elif remote.get("host"):
+        args = ["ssh", "-i", remote["ssh_key"], "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no", f'{remote["user"]}@{remote["host"]}', f'curl -sL "{url}"']
+    else:
+        return None
+
+    try:
+        res = subprocess.run(args, capture_output=True, text=True, timeout=15)
+        if res.returncode == 0 and res.stdout:
+            return res.stdout
+    except Exception as e:
+        logger.debug(f"SSH curl failed for {url}: {e}")
+    return None
+
 
 def extract_jav_code(filename: str) -> str | None:
     """Extract JAV code pattern from filename."""
     match = re.search(r"([A-Z0-9]{3,7}-\d{2,5})", filename, re.IGNORECASE)
     return match.group(1).upper() if match else None
 
-def lookup_jav_actresses(code: str) -> list[str]:
-    """Fetch actress names for a given JAV code from OneJAV and fallback search endpoints."""
+
+def lookup_jav_actresses(code: str, config: dict | None = None) -> list[str]:
+    """Fetch actress names for a given JAV code via SSH curl from OneJAV (Cloudflare bypass)."""
+    if config is None:
+        try:
+            config = load_config()
+        except Exception:
+            config = {}
+
     code = code.upper()
-    actresses = set()
-
-    # 1. Primary: OneJAV Search
     url = f"https://onejav.com/search/{code}"
-    try:
-        time.sleep(0.3)  # Rate limiting to prevent ConnectionResetError
-        resp = _session.get(url, timeout=10)
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            for tag in soup.find_all("a", href=re.compile(r"/tag/")):
-                name = tag.get_text(strip=True)
-                if name and name.lower() not in ["720p", "1080p", "4k", "uncensored", "hd"]:
-                    actresses.add(name)
-    except Exception as e:
-        logger.debug(f"OneJAV lookup failed for {code}: {e}")
+    
+    html = _ssh_curl(url, config)
+    if not html:
+        return []
 
-    if actresses:
-        return list(actresses)
-
-    # 2. Fallback: DuckDuckGo HTML search for JAV code tags
-    try:
-        time.sleep(0.5)
-        ddg_url = f"https://html.duckduckgo.com/html/?q=site:onejav.com+{code}"
-        resp = _session.get(ddg_url, timeout=10)
-        if resp.status_code == 200:
-            soup = BeautifulSoup(resp.text, "html.parser")
-            snippets = soup.find_all("a", class_="result__snippet")
-            for snippet in snippets:
-                text = snippet.get_text()
-                # Find matching names in snippet text
-                pass
-    except Exception as e:
-        logger.debug(f"Fallback search failed for {code}: {e}")
+    actresses = set()
+    soup = BeautifulSoup(html, "html.parser")
+    for tag in soup.find_all("a", href=re.compile(r"/tag/")):
+        name = tag.get_text(strip=True)
+        if name and name.lower() not in ["720p", "1080p", "4k", "uncensored", "hd"]:
+            actresses.add(name)
 
     return list(actresses)
+
 
