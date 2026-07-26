@@ -39,3 +39,11 @@ def test_dakota_doll_in_settings():
     config = load_config("config/settings.json")
     assert "Dakota Doll" in config.get("classify", {}).get("artist_folders", [])
 
+
+def test_exxxtrasmall_studio_classification():
+    config = load_config("config/settings.json")
+    filename = "ExxxtraSmall.26.07.18.Remi.Raw.And.Alli.Skye.XXX.1080p.MP4-WRB[XC].mp4"
+    assert "ExxxtraSmall" in config.get("classify", {}).get("studio_folders", [])
+    assert classify_filename(filename, config) == "ExxxtraSmall"
+
+
