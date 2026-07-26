@@ -41,3 +41,28 @@ def test_discover_selective_filtering(mocker):
     config["selective_only"] = False
     items_all = discover(config)
     assert len(items_all) == 2
+
+
+def test_is_whitelisted_title_west_only():
+    config = {
+        "classify": {
+            "artists": {
+                "WEST": ["Dakota Doll", "Molli Little"],
+                "JPN": ["MINAMO"],
+            },
+            "studios": {
+                "WEST": {
+                    "Vixen": ["vixen", "tushy"],
+                    "TeamSkeet": ["tiny4k"],
+                }
+            },
+        }
+    }
+    # Matches WEST artist or WEST studio
+    assert is_whitelisted_title("Dakota.Doll.OhMyHoles.mp4", config) is True
+    assert is_whitelisted_title("Tushy.26.06.28.Alina.Lopez.mp4", config) is True
+    # JPN artist is EXCLUDED from xxxclub whitelist
+    assert is_whitelisted_title("MINAMO.FNS-237.mp4", config) is False
+    # Unmatched title
+    assert is_whitelisted_title("UnknownStudio.26.07.18.Random.mp4", config) is False
+

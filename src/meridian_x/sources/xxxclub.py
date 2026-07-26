@@ -7,18 +7,23 @@ import logging
 import re
 
 import requests
-from meridian_x.classify import _normalize_name
+from meridian_x.classify import (
+    _normalize_name,
+    get_artist_folders,
+    get_studio_mappings,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def is_whitelisted_title(title: str, config: dict) -> bool:
-    """Check if title contains any configured artist, studio, or genre keyword."""
-    classify = config.get("classify", {})
+    """Check if title contains any configured WEST artist, WEST studio, or genre keyword."""
     genres = config.get("genres", {})
 
-    keywords = set(classify.get("artist_folders", []))
-    keywords.update(classify.get("studio_folders", []))
+    keywords = set(get_artist_folders(config, region="WEST"))
+    for studio, aliases in get_studio_mappings(config, region="WEST").items():
+        keywords.add(studio)
+        keywords.update(aliases)
 
     for genre_name, rules in genres.items():
         keywords.add(genre_name)
@@ -30,6 +35,7 @@ def is_whitelisted_title(title: str, config: dict) -> bool:
         if kw and _normalize_name(kw) in norm_title:
             return True
     return False
+
 
 
 def discover(config: dict) -> list[dict]:
