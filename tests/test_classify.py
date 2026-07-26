@@ -15,8 +15,8 @@ def test_classify_filename_with_normalized_artist():
             "studio_folders": ["Vixen"]
         }
     }
-    assert classify_filename("ohmyholes.25.02.13.dakota.doll.mp4", config) == "Dakota Doll"
-    assert classify_filename("dakota_doll_scene_01.mp4", config) == "Dakota Doll"
+    assert classify_filename("ohmyholes.25.02.13.dakota.doll.mp4", config) == "Actors/Dakota Doll"
+    assert classify_filename("dakota_doll_scene_01.mp4", config) == "Actors/Dakota Doll"
     assert classify_filename("Vixen.24.01.01.random.scene.mp4", config) == "Vixen"
     assert classify_filename("GVH-864.mp4", config) == "JPN"
     assert classify_filename("FC2-PPV-4930952.mp4", config) == "FC2"
@@ -29,8 +29,9 @@ def test_classify_folder_with_normalized_artist():
             "studio_folders": ["Vixen"]
         }
     }
-    assert classify_folder("dakota.doll.collection", config) == "Dakota Doll"
+    assert classify_folder("dakota.doll.collection", config) == "Actors/Dakota Doll"
     assert classify_folder("vixen.studio.pack", config) == "Vixen"
+
 
 
 from meridian_x.core import load_config

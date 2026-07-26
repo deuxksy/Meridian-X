@@ -80,7 +80,7 @@ def classify_filename(filename: str, config: dict) -> str:
     # 1. 배우
     for folder in classify.get("artist_folders", []):
         if _normalize_name(folder) in f_norm:
-            return folder
+            return f"Actors/{folder}"
 
     # 2. 스튜디오
     for folder in classify.get("studio_folders", []):
@@ -121,7 +121,8 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
     # 1. 배우
     for folder in classify.get("artist_folders", []):
         if _normalize_name(folder) in f_norm:
-            return folder
+            return f"Actors/{folder}"
+
 
     # 2. 스튜디오
     for folder in classify.get("studio_folders", []):
