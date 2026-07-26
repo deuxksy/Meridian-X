@@ -21,7 +21,13 @@ def load_config(config_path: str | Path | None = None) -> dict:
     일반 JSON 및 sops 바이너리 암호화 파일을 모두 지원합니다.
     """
     if config_path is None:
-        config_path = Path(__file__).parent.parent.parent / "config" / "settings.json"
+        base_config_dir = Path(__file__).parent.parent.parent / "config"
+        if (base_config_dir / "settings.json").exists():
+            config_path = base_config_dir / "settings.json"
+        elif (base_config_dir / "settings.json.sops").exists():
+            config_path = base_config_dir / "settings.json.sops"
+        else:
+            config_path = base_config_dir / "settings.json"
     else:
         config_path = Path(config_path)
 
