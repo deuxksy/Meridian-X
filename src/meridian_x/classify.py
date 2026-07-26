@@ -306,8 +306,15 @@ def run(
         ok, output = _ssh(remote, cmd)
         if ok and output:
             jpn_files = [f for f in output.splitlines() if f]
+            logger.info(f"JPN 폴더 검사 파일: {len(jpn_files)}개")
             for filename in jpn_files:
-                dest = classify_by_actress_lookup(filename, config)
+                code = extract_jav_code(filename)
+                if not code:
+                    continue
+                actresses = lookup_jav_actresses(code, config)
+                if actresses:
+                    logger.debug(f"  [JAV Lookup] {code} -> 배우: {', '.join(actresses)}")
+                dest = classify_by_actress_lookup(filename, config, actresses)
                 if dest:
                     folder = dest.replace("Actors/", "")
                     if dry_run:
@@ -316,10 +323,11 @@ def run(
                         move_cmd = f'mkdir -p "{remote_path}/Actors/{folder}" && mv "{remote_path}/JPN/{filename}" "{remote_path}/Actors/{folder}/"'
                         m_ok, m_out = _ssh(remote, move_cmd)
                         if m_ok:
-                            logger.info(f"  [JAV Lookup 분류] JPN/{filename} -> Actors/{folder}/")
+                            logger.info(f"  [JAV Lookup 분류 성공] JPN/{filename} -> Actors/{folder}/")
                             counts[dest] = counts.get(dest, 0) + 1
                         else:
                             logger.error(f"  [JAV Lookup 이동 실패] {filename}: {m_out[:200]}")
+
 
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "없음"
     logger.info(f"=== Classify Completed ({summary}) ===")
