@@ -10,6 +10,7 @@ import shlex
 import subprocess
 
 from .core import load_config
+from .jav_lookup import extract_jav_code, lookup_jav_actresses
 
 logger = logging.getLogger(__name__)
 
@@ -64,23 +65,90 @@ def _list_folders(remote: dict, exclude: set) -> list[str]:
     return [f for f in output.splitlines() if f and f.lower() not in exclude_lower]
 
 
+def _normalize_name(name: str) -> str:
+    """파일명/폴더명 및 검색 키워드의 구분 기호(점, 밑줄, 하이픈, 공백)를 제거하고 소문자로 변환."""
+    return re.sub(r'[\._\-\s]+', '', name).lower()
+
+
+def get_artist_folders(config: dict, region: str | None = None) -> list[str]:
+    """
+    classify.artists (WEST/JPN dict 구조) 지원 helper.
+    region이 주어지면 해당 region만, None이면 모든 아티스트 반환.
+    기존 artist_folders 리스트 fallback 지원.
+    """
+    classify = config.get("classify", {})
+    artists_cfg = classify.get("artists")
+    if isinstance(artists_cfg, dict):
+        if region:
+            return list(artists_cfg.get(region, []))
+        result = []
+        for reg_list in artists_cfg.values():
+            if isinstance(reg_list, list):
+                result.extend(reg_list)
+        return result
+    elif isinstance(artists_cfg, list):
+        return list(artists_cfg)
+
+    legacy = classify.get("artist_folders")
+    if isinstance(legacy, list):
+        return list(legacy)
+    return []
+
+
+def get_studio_mappings(config: dict, region: str | None = None) -> dict[str, list[str]]:
+    """
+    classify.studios (WEST/JPN dict 구조) 지원 helper.
+    region이 주어지면 해당 region만, None이면 모든 스튜디오 반환.
+    returns dict: { CanonicalStudioName: [aliases...] }
+    기존 studio_folders 리스트 fallback 지원.
+    """
+    classify = config.get("classify", {})
+    studios_cfg = classify.get("studios")
+    if isinstance(studios_cfg, dict):
+        if region:
+            reg_studios = studios_cfg.get(region, {})
+            if isinstance(reg_studios, dict):
+                return {k: list(v) if isinstance(v, list) else [v] for k, v in reg_studios.items()}
+            return {}
+        mapping = {}
+        for reg_studios in studios_cfg.values():
+            if isinstance(reg_studios, dict):
+                for k, v in reg_studios.items():
+                    aliases = list(v) if isinstance(v, list) else [v]
+                    if k in mapping:
+                        mapping[k].extend(aliases)
+                    else:
+                        mapping[k] = aliases
+        return mapping
+    elif isinstance(studios_cfg, list):
+        return {studio: [studio.lower()] for studio in studios_cfg}
+
+    legacy = classify.get("studio_folders")
+    if isinstance(legacy, list):
+        return {studio: [studio.lower()] for studio in legacy}
+    return {}
+
+
 def classify_filename(filename: str, config: dict) -> str:
     """
     파일명 → 목적지 폴더 결정 (순수 Python 매칭, 테스트 가능).
     우선순위: 배우 > 스튜디오 > 장르 > JPN > FC2 > West
     """
     f_lower = filename.lower()
-    classify = config.get("classify", {})
+    f_norm = _normalize_name(filename)
 
     # 1. 배우
-    for folder in classify.get("artist_folders", []):
-        if folder.lower() in f_lower:
-            return folder
+    for folder in get_artist_folders(config):
+        if _normalize_name(folder) in f_norm:
+            return f"Actors/{folder}"
 
     # 2. 스튜디오
-    for folder in classify.get("studio_folders", []):
-        if folder.lower() in f_lower:
-            return folder
+    for studio, aliases in get_studio_mappings(config).items():
+        if _normalize_name(studio) in f_norm:
+            return studio
+        for alias in aliases:
+            if _normalize_name(alias) in f_norm:
+                return studio
 
     # 3. 장르 (genres 비어있으면 스킵)
     for folder, rules in config.get("genres", {}).items():
@@ -110,17 +178,20 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
     멀티파트 폴더(FC2-PPV-*, SONE-446 등) 통째로 분류.
     """
     f_lower = folder_name.lower()
-    classify = config.get("classify", {})
+    f_norm = _normalize_name(folder_name)
 
     # 1. 배우
-    for folder in classify.get("artist_folders", []):
-        if folder.lower() in f_lower:
-            return folder
+    for folder in get_artist_folders(config):
+        if _normalize_name(folder) in f_norm:
+            return f"Actors/{folder}"
 
     # 2. 스튜디오
-    for folder in classify.get("studio_folders", []):
-        if folder.lower() in f_lower:
-            return folder
+    for studio, aliases in get_studio_mappings(config).items():
+        if _normalize_name(studio) in f_norm:
+            return studio
+        for alias in aliases:
+            if _normalize_name(alias) in f_norm:
+                return studio
 
     # 3. 장르
     for folder, rules in config.get("genres", {}).items():
@@ -140,6 +211,27 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
         return "JPN"
 
     return None
+
+
+def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str] = None) -> str | None:
+    artist_folders = get_artist_folders(config)
+    if not artist_folders:
+        return None
+
+    if actresses is None:
+        code = extract_jav_code(filename)
+        if not code:
+            return None
+        actresses = lookup_jav_actresses(code)
+
+    for actress in actresses:
+        for folder in artist_folders:
+            if _normalize_name(folder) in _normalize_name(actress):
+                return f"Actors/{folder}"
+    return None
+
+
+
 
 
 def _move_file(remote: dict, filename: str, dest_folder: str, dry_run: bool) -> str:
@@ -241,7 +333,12 @@ fi
     return "moved"
 
 
-def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str] | None = None) -> None:
+def run(
+    dry_run: bool = False,
+    refresh: bool = True,
+    simulation_files: list[str] | None = None,
+    lookup_jav: bool = False,
+) -> None:
     """원격 파일 분류 메인 실행. tidy 실행 후 호출 권장."""
     config = load_config()
     remote = config.get("remote", {})
@@ -259,26 +356,26 @@ def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str]
     logger.info("=== Meridian-X Classify Started (Remote SSH) ===")
     logger.info(f"Dry-run: {dry_run}")
 
+    counts = {}
+
     files = _list_files(remote, video_extensions, simulation_files=simulation_files)
     if not files:
         logger.info("분류할 파일 없음 (tidy 실행 후 시도 권장)")
-        logger.info("=== Classify Completed ===")
-        return
+    else:
+        logger.info(f"대상 파일: {len(files)}개")
 
-    logger.info(f"대상 파일: {len(files)}개")
-
-    counts = {}
-    for filename in files:
-        dest = classify_filename(filename, config)
-        result = _move_file(remote, filename, dest, dry_run)
-        if result == "moved":
-            counts[dest] = counts.get(dest, 0) + 1
+        for filename in files:
+            dest = classify_filename(filename, config)
+            result = _move_file(remote, filename, dest, dry_run)
+            if result == "moved":
+                counts[dest] = counts.get(dest, 0) + 1
 
     # 폴더 분류 (멀티파트 폴더 통째로 이동)
     exclude_folders = {"FC2", "JPN", "West"}
-    exclude_folders.update(classify.get("artist_folders", []))
-    exclude_folders.update(classify.get("studio_folders", []))
+    exclude_folders.update(get_artist_folders(config))
+    exclude_folders.update(get_studio_mappings(config).keys())
     exclude_folders.update(config.get("genres", {}).keys())
+
 
     folders = _list_folders(remote, exclude_folders)
     if folders:
@@ -295,6 +392,37 @@ def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str]
             fsummary = ", ".join(f"folder:{k}: {v}" for k, v in sorted(folder_counts.items()))
             logger.info(f"폴더 분류: {fsummary}")
 
+    # JAV Web Lookup (lookup_jav=True 일 때 JPN 폴더 내 파일 2차 분류)
+    if lookup_jav:
+        logger.info("=== JAV Web Lookup Classification ===")
+        remote_path = remote["path"]
+        cmd = f'find "{remote_path}/JPN" -maxdepth 1 -type f -printf "%f\\n" | sort'
+        ok, output = _ssh(remote, cmd)
+        if ok and output:
+            jpn_files = [f for f in output.splitlines() if f]
+            logger.info(f"JPN 폴더 검사 파일: {len(jpn_files)}개")
+            for filename in jpn_files:
+                code = extract_jav_code(filename)
+                if not code:
+                    continue
+                actresses = lookup_jav_actresses(code, config)
+                if actresses:
+                    logger.debug(f"  [JAV Lookup] {code} -> 배우: {', '.join(actresses)}")
+                dest = classify_by_actress_lookup(filename, config, actresses)
+                if dest:
+                    folder = dest.replace("Actors/", "")
+                    if dry_run:
+                        logger.info(f"  [Dry-run JAV lookup] JPN/{filename} -> Actors/{folder}/")
+                    else:
+                        move_cmd = f'mkdir -p "{remote_path}/Actors/{folder}" && mv "{remote_path}/JPN/{filename}" "{remote_path}/Actors/{folder}/"'
+                        m_ok, m_out = _ssh(remote, move_cmd)
+                        if m_ok:
+                            logger.info(f"  [JAV Lookup 분류 성공] JPN/{filename} -> Actors/{folder}/")
+                            counts[dest] = counts.get(dest, 0) + 1
+                        else:
+                            logger.error(f"  [JAV Lookup 이동 실패] {filename}: {m_out[:200]}")
+
+
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "없음"
     logger.info(f"=== Classify Completed ({summary}) ===")
 
@@ -303,3 +431,4 @@ def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str]
         from .jellyfin import refresh_from_config
         logger.info("=== Jellyfin Library Refresh ===")
         refresh_from_config(config)
+

@@ -13,6 +13,7 @@ dependencies = [
     "python-dotenv",
     "transmission-rpc>=7.0.11,<8",
     "playwright>=1.40",
+    "beautifulsoup4>=4.15.0",
 ]
 
 [project.scripts]
@@ -24,4 +25,5 @@ packages = ["src/meridian_x"]
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-mock>=3.15.1",
 ]

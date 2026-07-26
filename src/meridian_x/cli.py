@@ -98,6 +98,12 @@ Examples:
         help="수집 source 지정 (onejav, xxxclub). 없으면 전체 실행"
     )
 
+    parser.add_argument(
+        "--lookup-jav",
+        action="store_true",
+        help="JPN 폴더 내 파일 JAV 웹 조회를 통한 배우 폴더 2차 분류"
+    )
+
     args = parser.parse_args()
     
     # 로그 파일 위치 출력
@@ -106,7 +112,7 @@ Examples:
     # 명령 실행
     if args.command == "classify":
         from .classify import run as classify_run
-        classify_run(dry_run=args.dry_run)
+        classify_run(dry_run=args.dry_run, lookup_jav=args.lookup_jav)
 
     elif args.command == "transmission":
         from .collect import run_transmission
@@ -220,7 +226,7 @@ Examples:
 
         # 6. classify (배우/스튜디오/장르/JPN/FC2/West 분류)
         logger.info("[6/6] Classify")
-        classify_run(dry_run=args.dry_run, refresh=False)
+        classify_run(dry_run=args.dry_run, refresh=False, lookup_jav=args.lookup_jav)
 
         # 7. Jellyfin 라이브러리 갱신 (tidy+classify 변경 사항을 한 번에 반영)
         if args.dry_run:

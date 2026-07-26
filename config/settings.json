@@ -1,0 +1,180 @@
+{
+  "sources": {
+    "onejav": {
+      "enabled": true,
+      "base_url": "https://onejav.com",
+      "rss_url": "https://onejav.com/feeds/"
+    },
+    "xxxclub": {
+      "enabled": true,
+      "rss_url": "https://xxxclub.to/feed/1080p.FullHD.xml",
+      "selective_only": true
+    }
+  },
+  "transmission": {
+    "rpc_url": "https://heritage.bun-bull.ts.net/transmission/rpc",
+    "rpc_user": null,
+    "rpc_password": null,
+    "download_dir": null,
+    "timeout": 10,
+    "use_env_auth": true,
+    "filters": {
+      "exclude_extensions": [
+        ".html",
+        ".url",
+        ".txt",
+        ".nfo"
+      ],
+      "exclude_keywords": [
+        "sample",
+        "trailer",
+        "preview",
+        "996gg"
+      ],
+      "min_file_size_mb": 100
+    },
+    "stop_after_download": true
+  },
+  "collection": {
+    "history_file": "logs/downloads.txt",
+    "request_timeout": 30,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  },
+  "classify": {
+    "source_path": "/path/to/source",
+    "work_path": "/path/to/work",
+    "target_dirs": [
+      "target1",
+      "target2"
+    ],
+    "artists": {
+      "WEST": [
+        "Dakota Doll",
+        "Molli Little",
+        "Lulu Sweety",
+        "Kiki Cali",
+        "Coco Lovelock",
+        "Remi Raw",
+        "Lola Valentine",
+        "Blake Blossom"
+      ],
+      "JPN": [
+        "MINAMO",
+        "Rena Miyashita",
+        "Rima Arai",
+        "Umi Yatsugake",
+        "佐野葉月",
+        "博多彩葉",
+        "川越にこ",
+        "日向由奈",
+        "白花にあ",
+        "雛形みくる"
+      ]
+    },
+    "studios": {
+      "WEST": {
+        "Vixen": [
+          "vixen",
+          "tushy",
+          "blacked",
+          "slayed",
+          "deeper"
+        ],
+        "Nubile": [
+          "nubile",
+          "nubilefilms",
+          "nubiles",
+          "fit18",
+          "stepsiblings",
+          "sisswap",
+          "sheseducedme",
+          "mywifeshotfriend",
+          "myfriendshotmom",
+          "mysistershotfriend",
+          "pervtherapy",
+          "sweetsinner"
+        ],
+        "TeamSkeet": [
+          "teamskeet",
+          "teamskeetsingles",
+          "tiny4k",
+          "rim4k",
+          "rkprime",
+          "povmasters"
+        ],
+        "MetArtX": [
+          "metartx",
+          "metart",
+          "sexart"
+        ],
+        "X-Art": [
+          "xart",
+          "x-art"
+        ],
+        "TheLifeErotic": [
+          "thelifeerotic"
+        ],
+        "JoyMii": [
+          "joymii"
+        ],
+        "Wowgirls": [
+          "wowgirls"
+        ],
+        "ExxxtraSmall": [
+          "exxxtrasmall"
+        ],
+        "AngelsLove": [
+          "angelslove"
+        ],
+        "UltraFilms": [
+          "ultrafilms"
+        ],
+        "ALSScan": [
+          "alsscan"
+        ],
+        "FTV": [
+          "ftv",
+          "ftvgirls",
+          "ftvmilfs"
+        ],
+        "Cartoon": [
+          "cartoon",
+          "3dcartoon",
+          "animation",
+          "3dhentai"
+        ]
+      },
+      "JPN": {}
+    },
+    "delete_keywords": [
+      "sample",
+      "trailer",
+      "preview"
+    ],
+    "delete_extensions": [
+      ".txt",
+      ".url",
+      ".nfo"
+    ],
+    "video_extensions": [
+      ".mp4",
+      ".mkv",
+      ".avi"
+    ],
+    "clean_prefixes": [
+      "hhd800.com@"
+    ]
+  },
+  "genres": {},
+  "jellyfin": {
+    "url": "https://heritage.bun-bull.ts.net/jellyfin",
+    "api_key": "aa85f5fa37144c58915d7d5365915cec",
+    "timeout": 10
+  },
+  "remote": {
+    "host": "100.96.115.19",
+    "user": "media",
+    "ssh_key": "~/.ssh/id_ed25519",
+    "path": "/mnt/data1/torrent/complete"
+  }
+}

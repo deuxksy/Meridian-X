@@ -66,8 +66,13 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
         src_module = SOURCES[src_name]
         logger.info(f"\n--- Source: {src_name} ---")
 
-        # 공통 설정과 source 설정 병합 (Codex 검증 반영)
-        effective_config = {**collection_config, **src_config, "remote": config.get("remote", {})}
+        effective_config = {
+            **collection_config,
+            **src_config,
+            "remote": config.get("remote", {}),
+            "classify": config.get("classify", {}),
+            "genres": config.get("genres", {}),
+        }
 
         try:
             # discover
