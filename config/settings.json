@@ -7,7 +7,8 @@
     },
     "xxxclub": {
       "enabled": true,
-      "rss_url": "https://xxxclub.to/feed/1080p.FullHD.xml"
+      "rss_url": "https://xxxclub.to/feed/1080p.FullHD.xml",
+      "selective_only": true
     }
   },
   "transmission": {

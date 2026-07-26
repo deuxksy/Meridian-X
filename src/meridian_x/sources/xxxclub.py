@@ -7,8 +7,29 @@ import logging
 import re
 
 import requests
+from meridian_x.classify import _normalize_name
 
 logger = logging.getLogger(__name__)
+
+
+def is_whitelisted_title(title: str, config: dict) -> bool:
+    """Check if title contains any configured artist, studio, or genre keyword."""
+    classify = config.get("classify", {})
+    genres = config.get("genres", {})
+
+    keywords = set(classify.get("artist_folders", []))
+    keywords.update(classify.get("studio_folders", []))
+
+    for genre_name, rules in genres.items():
+        keywords.add(genre_name)
+        keywords.update(rules.get("keywords", []))
+        keywords.update(rules.get("prefixes", []))
+
+    norm_title = _normalize_name(title)
+    for kw in keywords:
+        if kw and _normalize_name(kw) in norm_title:
+            return True
+    return False
 
 
 def discover(config: dict) -> list[dict]:
@@ -28,7 +49,10 @@ def discover(config: dict) -> list[dict]:
         logger.error(f"XXXClub RSS fetch failed: {e}")
         return []
 
-    return _parse_rss(response.text)
+    items = _parse_rss(response.text)
+    if config.get("selective_only", True):
+        items = [i for i in items if is_whitelisted_title(i["title"], config)]
+    return items
 
 
 def resolve(item: dict, config: dict) -> dict | None:
