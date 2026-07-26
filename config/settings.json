@@ -47,26 +47,99 @@
       "target1",
       "target2"
     ],
-    "artist_folders": [
-      "Dakota Doll",
-      "MINAMO",
-      "Rena Miyashita",
-      "Rima Arai",
-      "Umi Yatsugake",
-      "佐野葉月",
-      "博多彩葉",
-      "川越にこ",
-      "日向由奈",
-      "白花にあ",
-      "雛形みくる"
-    ],
-    "studio_folders": [
-      "Vixen",
-      "Tiny4k",
-      "Wowgirls",
-      "Vivthomas",
-      "ExxxtraSmall"
-    ],
+    "artists": {
+      "WEST": [
+        "Dakota Doll",
+        "Molli Little",
+        "Lulu Sweety",
+        "Kiki Cali",
+        "Coco Lovelock",
+        "Remi Raw",
+        "Lola Valentine",
+        "Blake Blossom"
+      ],
+      "JPN": [
+        "MINAMO",
+        "Rena Miyashita",
+        "Rima Arai",
+        "Umi Yatsugake",
+        "佐野葉月",
+        "博多彩葉",
+        "川越にこ",
+        "日向由奈",
+        "白花にあ",
+        "雛形みくる"
+      ]
+    },
+    "studios": {
+      "WEST": {
+        "Vixen": [
+          "vixen",
+          "tushy",
+          "blacked",
+          "slayed",
+          "deeper"
+        ],
+        "Nubile": [
+          "nubile",
+          "nubilefilms",
+          "nubiles",
+          "fit18",
+          "stepsiblings",
+          "sisswap",
+          "sheseducedme",
+          "mywifeshotfriend",
+          "myfriendshotmom",
+          "mysistershotfriend",
+          "pervtherapy",
+          "sweetsinner"
+        ],
+        "TeamSkeet": [
+          "teamskeet",
+          "teamskeetsingles",
+          "tiny4k",
+          "rim4k",
+          "rkprime",
+          "povmasters"
+        ],
+        "MetArtX": [
+          "metartx",
+          "metart",
+          "sexart"
+        ],
+        "X-Art": [
+          "xart",
+          "x-art"
+        ],
+        "TheLifeErotic": [
+          "thelifeerotic"
+        ],
+        "JoyMii": [
+          "joymii"
+        ],
+        "Wowgirls": [
+          "wowgirls"
+        ],
+        "ExxxtraSmall": [
+          "exxxtrasmall"
+        ],
+        "AngelsLove": [
+          "angelslove"
+        ],
+        "UltraFilms": [
+          "ultrafilms"
+        ],
+        "ALSScan": [
+          "alsscan"
+        ],
+        "FTV": [
+          "ftv",
+          "ftvgirls",
+          "ftvmilfs"
+        ]
+      },
+      "JPN": {}
+    },
     "delete_keywords": [
       "sample",
       "trailer",
@@ -86,10 +159,7 @@
       "hhd800.com@"
     ]
   },
-  "genres": {
-    "Vixen": { "prefixes": ["tushy", "blacked", "slayed", "deeper"] },
-    "NTR": { "keywords": ["ntr"] }
-  },
+  "genres": {},
   "jellyfin": {
     "url": "https://heritage.bun-bull.ts.net/jellyfin",
     "api_key": "aa85f5fa37144c58915d7d5365915cec",

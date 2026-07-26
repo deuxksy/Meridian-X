@@ -69,6 +69,65 @@ def _normalize_name(name: str) -> str:
     return re.sub(r'[\._\-\s]+', '', name).lower()
 
 
+def get_artist_folders(config: dict, region: str | None = None) -> list[str]:
+    """
+    classify.artists (WEST/JPN dict 구조) 지원 helper.
+    region이 주어지면 해당 region만, None이면 모든 아티스트 반환.
+    기존 artist_folders 리스트 fallback 지원.
+    """
+    classify = config.get("classify", {})
+    artists_cfg = classify.get("artists")
+    if isinstance(artists_cfg, dict):
+        if region:
+            return list(artists_cfg.get(region, []))
+        result = []
+        for reg_list in artists_cfg.values():
+            if isinstance(reg_list, list):
+                result.extend(reg_list)
+        return result
+    elif isinstance(artists_cfg, list):
+        return list(artists_cfg)
+
+    legacy = classify.get("artist_folders")
+    if isinstance(legacy, list):
+        return list(legacy)
+    return []
+
+
+def get_studio_mappings(config: dict, region: str | None = None) -> dict[str, list[str]]:
+    """
+    classify.studios (WEST/JPN dict 구조) 지원 helper.
+    region이 주어지면 해당 region만, None이면 모든 스튜디오 반환.
+    returns dict: { CanonicalStudioName: [aliases...] }
+    기존 studio_folders 리스트 fallback 지원.
+    """
+    classify = config.get("classify", {})
+    studios_cfg = classify.get("studios")
+    if isinstance(studios_cfg, dict):
+        if region:
+            reg_studios = studios_cfg.get(region, {})
+            if isinstance(reg_studios, dict):
+                return {k: list(v) if isinstance(v, list) else [v] for k, v in reg_studios.items()}
+            return {}
+        mapping = {}
+        for reg_studios in studios_cfg.values():
+            if isinstance(reg_studios, dict):
+                for k, v in reg_studios.items():
+                    aliases = list(v) if isinstance(v, list) else [v]
+                    if k in mapping:
+                        mapping[k].extend(aliases)
+                    else:
+                        mapping[k] = aliases
+        return mapping
+    elif isinstance(studios_cfg, list):
+        return {studio: [studio.lower()] for studio in studios_cfg}
+
+    legacy = classify.get("studio_folders")
+    if isinstance(legacy, list):
+        return {studio: [studio.lower()] for studio in legacy}
+    return {}
+
+
 def classify_filename(filename: str, config: dict) -> str:
     """
     파일명 → 목적지 폴더 결정 (순수 Python 매칭, 테스트 가능).
@@ -76,17 +135,19 @@ def classify_filename(filename: str, config: dict) -> str:
     """
     f_lower = filename.lower()
     f_norm = _normalize_name(filename)
-    classify = config.get("classify", {})
 
     # 1. 배우
-    for folder in classify.get("artist_folders", []):
+    for folder in get_artist_folders(config):
         if _normalize_name(folder) in f_norm:
             return f"Actors/{folder}"
 
     # 2. 스튜디오
-    for folder in classify.get("studio_folders", []):
-        if _normalize_name(folder) in f_norm:
-            return folder
+    for studio, aliases in get_studio_mappings(config).items():
+        if _normalize_name(studio) in f_norm:
+            return studio
+        for alias in aliases:
+            if _normalize_name(alias) in f_norm:
+                return studio
 
     # 3. 장르 (genres 비어있으면 스킵)
     for folder, rules in config.get("genres", {}).items():
@@ -117,18 +178,19 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
     """
     f_lower = folder_name.lower()
     f_norm = _normalize_name(folder_name)
-    classify = config.get("classify", {})
 
     # 1. 배우
-    for folder in classify.get("artist_folders", []):
+    for folder in get_artist_folders(config):
         if _normalize_name(folder) in f_norm:
             return f"Actors/{folder}"
 
-
     # 2. 스튜디오
-    for folder in classify.get("studio_folders", []):
-        if _normalize_name(folder) in f_norm:
-            return folder
+    for studio, aliases in get_studio_mappings(config).items():
+        if _normalize_name(studio) in f_norm:
+            return studio
+        for alias in aliases:
+            if _normalize_name(alias) in f_norm:
+                return studio
 
     # 3. 장르
     for folder, rules in config.get("genres", {}).items():
@@ -151,8 +213,7 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
 
 
 def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str] = None) -> str | None:
-    classify = config.get("classify", {})
-    artist_folders = classify.get("artist_folders", [])
+    artist_folders = get_artist_folders(config)
     if not artist_folders:
         return None
 
@@ -167,6 +228,7 @@ def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str]
             if _normalize_name(folder) in _normalize_name(actress):
                 return f"Actors/{folder}"
     return None
+
 
 
 
@@ -279,9 +341,10 @@ def run(
 
     # 폴더 분류 (멀티파트 폴더 통째로 이동)
     exclude_folders = {"FC2", "JPN", "West"}
-    exclude_folders.update(classify.get("artist_folders", []))
-    exclude_folders.update(classify.get("studio_folders", []))
+    exclude_folders.update(get_artist_folders(config))
+    exclude_folders.update(get_studio_mappings(config).keys())
     exclude_folders.update(config.get("genres", {}).keys())
+
 
     folders = _list_folders(remote, exclude_folders)
     if folders:
