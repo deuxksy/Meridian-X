@@ -1,5 +1,6 @@
 import pytest
-from src.meridian_x.classify import _normalize_name, classify_filename, classify_folder
+from meridian_x.classify import _normalize_name, classify_filename, classify_folder
+
 
 def test_normalize_name():
     assert _normalize_name("Dakota.Doll") == "dakotadoll"
