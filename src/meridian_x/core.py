@@ -5,7 +5,10 @@ Meridian-X Core Module
 
 import json
 import logging
+import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 from typing import List, Set
 
@@ -15,6 +18,7 @@ logger = logging.getLogger(__name__)
 def load_config(config_path: str | Path | None = None) -> dict:
     """
     config/settings.json에서 설정을 로드합니다.
+    일반 JSON 및 sops 바이너리 암호화 파일을 모두 지원합니다.
     """
     if config_path is None:
         config_path = Path(__file__).parent.parent.parent / "config" / "settings.json"
@@ -25,8 +29,49 @@ def load_config(config_path: str | Path | None = None) -> dict:
         logger.error(f"Config not found: {config_path}")
         raise FileNotFoundError(f"Config not found: {config_path}")
 
-    with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    raw_bytes = config_path.read_bytes()
+
+    # 1. 일반 UTF-8 JSON 파싱 시도
+    try:
+        raw_text = raw_bytes.decode("utf-8")
+        parsed = json.loads(raw_text)
+        if isinstance(parsed, dict) and "sops" in parsed:
+            raise json.JSONDecodeError("SOPS encrypted JSON wrapper detected", raw_text, 0)
+        return parsed
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        # 2. 파싱 실패 또는 SOPS 암호화 wrapper인 경우 SOPS 바이너리 복호화 시도
+        logger.info(f"Attempting sops binary decryption for {config_path}")
+        sops_bin = shutil.which("sops")
+        if not sops_bin:
+            logger.error("sops command not found for encrypted config")
+            raise RuntimeError("sops command is required to load encrypted config")
+
+        env = os.environ.copy()
+        if "SOPS_AGE_KEY_FILE" not in env:
+            default_key = Path.home() / ".config" / "sops" / "age" / "keys.txt"
+            if default_key.exists():
+                env["SOPS_AGE_KEY_FILE"] = str(default_key)
+
+        cmd = [
+            sops_bin,
+            "--decrypt",
+            "--input-type",
+            "binary",
+            "--output-type",
+            "binary",
+            str(config_path),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, env=env)
+        if proc.returncode != 0:
+            err_msg = proc.stderr.decode("utf-8", errors="replace")
+            logger.error(f"Failed to decrypt config with sops: {err_msg}")
+            raise ValueError(f"Failed to decrypt config with sops: {err_msg}")
+
+        try:
+            return json.loads(proc.stdout.decode("utf-8"))
+        except Exception as e:
+            logger.error(f"Failed to parse decrypted config JSON: {e}")
+            raise ValueError(f"Decrypted config is not valid JSON: {e}")
 
 
 def load_downloaded_history(history_file: str) -> Set[str]:
