@@ -9,6 +9,7 @@ import re
 import subprocess
 
 from .core import load_config
+from .jav_lookup import extract_jav_code, lookup_jav_actresses
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +150,26 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
     return None
 
 
+def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str] = None) -> str | None:
+    classify = config.get("classify", {})
+    artist_folders = classify.get("artist_folders", [])
+    if not artist_folders:
+        return None
+
+    if actresses is None:
+        code = extract_jav_code(filename)
+        if not code:
+            return None
+        actresses = lookup_jav_actresses(code)
+
+    for actress in actresses:
+        for folder in artist_folders:
+            if _normalize_name(folder) in _normalize_name(actress):
+                return f"Actors/{folder}"
+    return None
+
+
+
 
 def _move_file(remote: dict, filename: str, dest_folder: str, dry_run: bool) -> str:
     """
@@ -219,7 +240,12 @@ fi
     return "moved"
 
 
-def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str] | None = None) -> None:
+def run(
+    dry_run: bool = False,
+    refresh: bool = True,
+    simulation_files: list[str] | None = None,
+    lookup_jav: bool = False,
+) -> None:
     """원격 파일 분류 메인 실행. tidy 실행 후 호출 권장."""
     config = load_config()
     remote = config.get("remote", {})
@@ -237,20 +263,19 @@ def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str]
     logger.info("=== Meridian-X Classify Started (Remote SSH) ===")
     logger.info(f"Dry-run: {dry_run}")
 
+    counts = {}
+
     files = _list_files(remote, video_extensions, simulation_files=simulation_files)
     if not files:
         logger.info("분류할 파일 없음 (tidy 실행 후 시도 권장)")
-        logger.info("=== Classify Completed ===")
-        return
+    else:
+        logger.info(f"대상 파일: {len(files)}개")
 
-    logger.info(f"대상 파일: {len(files)}개")
-
-    counts = {}
-    for filename in files:
-        dest = classify_filename(filename, config)
-        result = _move_file(remote, filename, dest, dry_run)
-        if result == "moved":
-            counts[dest] = counts.get(dest, 0) + 1
+        for filename in files:
+            dest = classify_filename(filename, config)
+            result = _move_file(remote, filename, dest, dry_run)
+            if result == "moved":
+                counts[dest] = counts.get(dest, 0) + 1
 
     # 폴더 분류 (멀티파트 폴더 통째로 이동)
     exclude_folders = {"FC2", "JPN", "West"}
@@ -273,6 +298,29 @@ def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str]
             fsummary = ", ".join(f"folder:{k}: {v}" for k, v in sorted(folder_counts.items()))
             logger.info(f"폴더 분류: {fsummary}")
 
+    # JAV Web Lookup (lookup_jav=True 일 때 JPN 폴더 내 파일 2차 분류)
+    if lookup_jav:
+        logger.info("=== JAV Web Lookup Classification ===")
+        remote_path = remote["path"]
+        cmd = f'find "{remote_path}/JPN" -maxdepth 1 -type f -printf "%f\\n" | sort'
+        ok, output = _ssh(remote, cmd)
+        if ok and output:
+            jpn_files = [f for f in output.splitlines() if f]
+            for filename in jpn_files:
+                dest = classify_by_actress_lookup(filename, config)
+                if dest:
+                    folder = dest.replace("Actors/", "")
+                    if dry_run:
+                        logger.info(f"  [Dry-run JAV lookup] JPN/{filename} -> Actors/{folder}/")
+                    else:
+                        move_cmd = f'mkdir -p "{remote_path}/Actors/{folder}" && mv "{remote_path}/JPN/{filename}" "{remote_path}/Actors/{folder}/"'
+                        m_ok, m_out = _ssh(remote, move_cmd)
+                        if m_ok:
+                            logger.info(f"  [JAV Lookup 분류] JPN/{filename} -> Actors/{folder}/")
+                            counts[dest] = counts.get(dest, 0) + 1
+                        else:
+                            logger.error(f"  [JAV Lookup 이동 실패] {filename}: {m_out[:200]}")
+
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "없음"
     logger.info(f"=== Classify Completed ({summary}) ===")
 
@@ -281,3 +329,4 @@ def run(dry_run: bool = False, refresh: bool = True, simulation_files: list[str]
         from .jellyfin import refresh_from_config
         logger.info("=== Jellyfin Library Refresh ===")
         refresh_from_config(config)
+

@@ -59,4 +59,13 @@ def test_japanese_artists_classification():
     assert classify_filename("MINAMO_special_01.mp4", config) == "Actors/MINAMO"
 
 
+from meridian_x.classify import classify_by_actress_lookup
 
+def test_classify_by_actress_lookup():
+    config = {
+        "classify": {
+            "artist_folders": ["MINAMO"]
+        }
+    }
+    assert classify_by_actress_lookup("FNS-237.mp4", config, ["MINAMO"]) == "Actors/MINAMO"
+    assert classify_by_actress_lookup("ABF-364.mp4", config, ["Unknown"]) is None
