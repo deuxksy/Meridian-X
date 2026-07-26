@@ -30,3 +30,11 @@ def test_classify_folder_with_normalized_artist():
     }
     assert classify_folder("dakota.doll.collection", config) == "Dakota Doll"
     assert classify_folder("vixen.studio.pack", config) == "Vixen"
+
+
+from meridian_x.core import load_config
+
+def test_dakota_doll_in_settings():
+    config = load_config("config/settings.json")
+    assert "Dakota Doll" in config.get("classify", {}).get("artist_folders", [])
+

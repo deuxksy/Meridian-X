@@ -47,7 +47,7 @@
     "source_path": "/path/to/source",
     "work_path": "/path/to/work",
     "target_dirs": ["target1", "target2"],
-    "artist_folders": ["ArtistA", "ArtistB"],
+    "artist_folders": ["ArtistA", "ArtistB", "Dakota Doll"],
     "studio_folders": ["StudioX", "StudioY"],
     "delete_keywords": ["sample", "trailer", "preview"],
     "delete_extensions": [".txt", ".url", ".nfo"],

@@ -12,11 +12,14 @@ from typing import List, Set
 logger = logging.getLogger(__name__)
 
 
-def load_config() -> dict:
+def load_config(config_path: str | Path | None = None) -> dict:
     """
     config/settings.json에서 설정을 로드합니다.
     """
-    config_path = Path(__file__).parent.parent.parent / "config" / "settings.json"
+    if config_path is None:
+        config_path = Path(__file__).parent.parent.parent / "config" / "settings.json"
+    else:
+        config_path = Path(config_path)
 
     if not config_path.exists():
         logger.error(f"Config not found: {config_path}")
