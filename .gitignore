@@ -107,3 +107,4 @@ package.json
 package-lock.json
 
 config/settings.json
+.serena
