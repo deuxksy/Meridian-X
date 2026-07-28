@@ -129,6 +129,15 @@ def get_studio_mappings(config: dict, region: str | None = None) -> dict[str, li
     return {}
 
 
+def compute_exclude_folders(config: dict) -> list[str]:
+    """분류 대상 스캔 시 제외할 폴더 집합 (분류 목적지 보호). artists/studios dict 구조 지원."""
+    exclude = {"Actors", "JPN", "FC2", "West"}
+    exclude.update(get_artist_folders(config))
+    exclude.update(get_studio_mappings(config).keys())
+    exclude.update(config.get("genres", {}).keys())
+    return sorted(exclude)
+
+
 def classify_filename(filename: str, config: dict) -> str:
     """
     파일명 → 목적지 폴더 결정 (순수 Python 매칭, 테스트 가능).
@@ -371,11 +380,7 @@ def run(
                 counts[dest] = counts.get(dest, 0) + 1
 
     # 폴더 분류 (멀티파트 폴더 통째로 이동)
-    exclude_folders = {"FC2", "JPN", "West"}
-    exclude_folders.update(get_artist_folders(config))
-    exclude_folders.update(get_studio_mappings(config).keys())
-    exclude_folders.update(config.get("genres", {}).keys())
-
+    exclude_folders = set(compute_exclude_folders(config))
 
     folders = _list_folders(remote, exclude_folders)
     if folders:

@@ -99,3 +99,28 @@ def test_structured_artists_and_studios_classification():
     assert classify_filename("tushy.26.07.18.Remi.Raw.mp4", config) == "Vixen"
     assert classify_filename("tiny4k.26.07.18.mp4", config) == "TeamSkeet"
 
+
+class TestComputeExcludeFolders:
+    """compute_exclude_folders: 폴더 분류 제외 집합 (분류 목적지 보호)."""
+
+    def test_includes_actors_container(self):
+        """회귀: Actors/ 컨테이너 자체가 분류 대상 폴더로 재분류되면 안 된다."""
+        from meridian_x.classify import compute_exclude_folders
+        config = {"classify": {}, "genres": {}}
+        assert "Actors" in compute_exclude_folders(config)
+
+    def test_full_set_from_dict_config(self):
+        from meridian_x.classify import compute_exclude_folders
+        config = {
+            "classify": {
+                "artists": {"WEST": ["Dakota Doll"], "JPN": ["MINAMO"]},
+                "studios": {"WEST": {"Vixen": ["vixen", "tushy"]}, "JPN": {}},
+            },
+            "genres": {"Anime": {"keywords": [], "prefixes": []}},
+        }
+        exclude = set(compute_exclude_folders(config))
+        assert {
+            "Actors", "JPN", "FC2", "West",
+            "Dakota Doll", "MINAMO", "Vixen", "Anime",
+        } <= exclude
+

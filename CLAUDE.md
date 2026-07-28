@@ -11,6 +11,7 @@
 # ========== Setup (초기 설정) ==========
 uv sync                              # 의존성 설치
 cp config/settings.json.example config/settings.json  # 설정 파일 복사
+sops --decrypt --input-type binary --output-type binary config/settings.json.sops > config/settings.json  # sops 추적본에서 설정 복원
 # .env 파일에 FANZA_API_ID, FANZA_AFFILIATE_ID 설정 (선택)
 
 # ========== Collect (Transmission RPC) ==========
@@ -118,7 +119,10 @@ tests/
 - onejav Cloudflare 차단: 로컬 IP 반복 요청 시 rate 차단 (Connection reset). `sources.onejav.remote.ssh_alias`(예: `lt`) 경유 SSH로 우회해 `curl -sL` 실행. `-L` 필수 (http→https redirect). RSS/페이지/.torrent 전부 원격 curl, 바이너리는 `base64` 경유. IPv4 강제.
 - 워크플로우: `tidy`(정리/flatten) → `classify`(분류). tidy가 폴더 flatten 후 classify가 파일을 배우/장르/스튜디오/JPN/West로 분류. 둘 다 SSH 기반 (로컬 실행 + 원격 조작).
 - classify는 tidy 실행 후 호출 권장 (flatten되지 않은 파일은 분류 안 됨).
-- `tidy --dry-run`은 SSH 명령 시뮬레이션 로그만 출력, 실제 파일 변경 없음. 시뮬레이션 결과로 폴더 Flatten/파일명 정리 개수 확인 가능
+- `tidy --dry-run`은 읽기 전용 probe로 실제 Flatten/파일명 정리 후보를 출력 (파일 변경·Jellyfin 갱신 없음)
+- 생성 셸 스크립트에서 `grep -F "^..$"`는 `^`/`$`가 리터럴이라 영구 미매칭. 라인 정확 매칭은 `grep -icFx` 사용 (`$$`는 PID 확장되므로 앵커에 사용 금지)
+- flatten 정책: 다중 영상 폴더는 SKIP (삭제 금지, classify 폴더 분류가 처리). 대소문자 중복 폴더는 전체 영상 루트 병합 후 남은 영상 없을 때만 삭제
+- tidy 셸 스크립트는 `_build_*_script()` 빌더를 로컬 `bash -c`로 실행해 SSH 없이 테스트. case-dup 테스트는 case-sensitive FS 필요 (macOS APFS는 skip 처리됨)
 - `filter`/`label --dry-run`의 제한적 출력 문제 해결 방안: 시뮬레이션 테스트 스크립트 활용 권장
 
 ## Roadmap
