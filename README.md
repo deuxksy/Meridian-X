@@ -4,7 +4,20 @@
 
 *품격 있는 디지털 수집가를 위한 우아한 솔루션*
 
-**Meridian-X**는 귀하의 소중한 프라이빗 미디어 컬렉션을 완벽한 상태로 유지하기 위해 설계된 맞춤형 자동화 스위트입니다. 귀하의 디지털 서고가 항상 정돈되고, 깨끗하며, 즉시 감상 가능한 상태를 유지하도록 돕습니다.
+**Meridian-X**는 귀하의 소중한 프라이빗 미디어 컬렉션을 완벽한 상태로 유지하기 위해 설계된 맞춤형 자동화 스위트입니다. RSS 피드 수집에서 Transmission 다운로드, Jellyfin 라이브러리 큐레이션까지 전 과정을 자동으로 수행하며, 귀하의 디지털 서고가 항상 정돈되고, 깨끗하며, 즉시 감상 가능한 상태를 유지하도록 돕습니다.
+
+---
+
+## 목차
+
+- [철학 (Philosophy)](#-철학-philosophy)
+- [워크플로우 (Workflow)](#-워크플로우-workflow)
+- [프로젝트 구조](#-프로젝트-구조)
+- [설정 (Configuration)](#-설정-configuration)
+- [주요 기능 (Features)](#-주요-기능-features)
+- [사용법 (Usage)](#-사용법-usage)
+- [명령어 옵션](#-명령어-옵션)
+- [문서 (Documents)](#-문서-documents)
 
 ---
 
@@ -18,39 +31,38 @@
 ## 🔄 워크플로우 (Workflow)
 
 ```mermaid
-flowchart TB
-    subgraph Collect["📥 Collect (수집)"]
-        RSS[RSS 피드] --> TORR[토렌트 파일]
-        TORR --> WATCH[Watch 폴더]
-        WATCH --> DL[다운로드 완료]
+graph TB
+    subgraph Collect[수집 - Collect]
+        RSS[RSS 피드] --> SRC[Multi-source - onejav/xxxclub]
+        SRC --> TX[Transmission RPC]
+        TX --> FIL[filter - 광고 파일 제외]
+        FIL --> LAB[label - 자동 라벨링]
+        LAB --> SYN[sync - Jellyfin Tags 동기화]
     end
 
-    subgraph Classify["🏷️ Classify (분류)"]
-        SRC[SOURCE_PATH] --> P1[1️⃣ Purify<br/>불순물 제거]
-        P1 --> P2[2️⃣ Refine<br/>파일명 정제]
-        P2 --> P3[3️⃣ Organize<br/>구조 정돈]
-        P3 --> WORK[WORK_PATH]
-        WORK --> C1[4️⃣ Cleanse<br/>빈 폴더 정리]
-        C1 --> C2[5️⃣ Classify<br/>분류]
+    subgraph Curate[큐레이션 - tidy/classify]
+        TIDY[tidy - 정크삭제 - Flatten - 파일명정리] --> CLS[classify - 우선순위 분류]
     end
 
-    subgraph Priority["📊 분류 우선순위"]
-        C2 --> A1[1계급: Artist<br/>출연자]
-        C2 --> A2[2계급: Genre<br/>장르]
-        C2 --> A3[3계급: Studio<br/>스튜디오]
-        C2 --> A4[4계급: Orient<br/>동양]
-        C2 --> A5[5계급: Occident<br/>서양]
+    subgraph Priority[분류 우선순위]
+        CLS --> A1[1. Artist - 배우]
+        CLS --> A2[2. Studio - 스튜디오]
+        CLS --> A3[3. Genre - 장르]
+        CLS --> A4[4. JPN - JAV 패턴]
+        CLS --> A5[5. FC2 - FC2-PPV]
+        CLS --> A6[6. West - fallback]
     end
 
-    DL --> SRC
-    A1 --> TARGET[📁 Target Folders]
+    SYN --> TIDY
+    A1 --> TARGET[Target Folders]
     A2 --> TARGET
     A3 --> TARGET
     A4 --> TARGET
     A5 --> TARGET
+    A6 --> TARGET
 
     style Collect fill:#e1f5fe
-    style Classify fill:#f3e5f5
+    style Curate fill:#f3e5f5
     style Priority fill:#fff3e0
 ```
 
@@ -60,18 +72,25 @@ flowchart TB
 
 ```
 Meridian-X/
-├── .gitignore
 ├── README.md
+├── ROADMAP.md
 ├── pyproject.toml
 ├── uv.lock
 ├── config/
 │   ├── settings.json          # 전체 설정 (git 제외)
 │   └── settings.json.example  # 설정 템플릿
 └── src/meridian_x/
-    ├── __init__.py
     ├── cli.py                 # CLI 진입점
-    ├── classify.py            # 분류 로직
-    └── collect.py             # 수집 로직
+    ├── collect.py             # Multi-source 수집 오케스트레이터
+    ├── sources/               # 수집 source 모듈 (onejav, xxxclub)
+    ├── transmission.py        # Transmission RPC 클라이언트
+    ├── jellyfin.py            # Jellyfin REST API 클라이언트
+    ├── tidy.py                # 원격 파일 정리 (SSH)
+    ├── classify.py            # 원격 파일 분류 (SSH)
+    ├── report.py              # disk/토렌트 상태 리포트
+    ├── fanza.py               # FANZA API 클라이언트
+    ├── jav_lookup.py          # JAV 배우 2차 분류 조회
+    └── core.py                # 공통 함수 (설정/히스토리)
 ```
 
 ---
@@ -80,36 +99,17 @@ Meridian-X/
 
 ### settings.json 구조
 
-```json
-{
-  "feed": {
-    "base_url": "https://example.com",
-    "rss_url": "https://example.com/feeds/"
-  },
-  "download": {
-    "watch_path": "/path/to/torrent/watch",
-    "history_file": "logs/downloads.txt",
-    "request_timeout": 30,
-    "user_agent": "Mozilla/5.0 ..."
-  },
-  "classify": {
-    "source_path": "/path/to/source",
-    "work_path": "/path/to/work",
-    "target_dirs": ["target1", "target2"],
-    "artist_folders": ["ArtistA", "ArtistB"],
-    "studio_folders": ["StudioX", "StudioY"],
-    "delete_keywords": ["sample", "trailer", "preview"],
-    "delete_extensions": [".txt", ".url", ".nfo"],
-    "video_extensions": [".mp4", ".mkv", ".avi"]
-  },
-  "genres": {
-    "GenreName": {
-      "keywords": ["keyword1"],
-      "prefixes": ["PRE-"]
-    }
-  }
-}
-```
+최상위 키 구조는 다음과 같습니다 (전체 필드는 `config/settings.json.example` 참조):
+
+| 키 | 용도 |
+| :--- | :--- |
+| `sources` | 수집 source 설정 (onejav, xxxclub — RSS URL, SSH 우회 등) |
+| `transmission` | Transmission RPC 연결 (`rpc_url`, 인증, `stop_after_download`) |
+| `jellyfin` | Jellyfin REST API (`url`, `api_key`) |
+| `remote` | 원격 서버 SSH (`host`, `user`, `ssh_key`, `path`) — tidy/classify 대상 |
+| `collection` | 수집 히스토리/요청 설정 (`history_file`, `request_timeout`, `user_agent`) |
+| `classify` | 분류 규칙 (`artists`/`studios` WEST·JPN dict, `source_path`, `work_path` 등) |
+| `genres` | 장르별 키워드/접두사 규칙 |
 
 > **참고:** `config/settings.json`은 git에서 제외됩니다. `settings.json.example`을 복사하여 수정하세요.
 
@@ -136,10 +136,10 @@ SSH 기반 원격 파일 정리 (heritage 서버). tidy → classify 워크플�
 tidy(flatten) 이후, flatten된 파일을 우선순위별로 분류. SSH 하이브리드 방식 (Python 매칭 로직 + SSH `mv`).
 
 **분류 우선순위:**
-1. **배우 (Artist)** — `artist_folders` (파일명 포함 매칭)
-2. **스튜디오 (Studio)** — `studio_folders` (예: vixen, tiny4k, wowgirls, vivthomas)
+1. **배우 (Artist)** — `classify.artists` (파일명 포함 매칭)
+2. **스튜디오 (Studio)** — `classify.studios` (예: Vixen, Nubile)
 3. **장르 (Genre)** — `genres` 키워드/접두사 규칙
-4. **JPN** — JAV 패턴 `^[A-Z]{3,5}-\d{3,5}` (예: SONE-446, ABC-001)
+4. **JPN** — JAV 패턴 `^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]` (예: SONE-446, 200GANA-3399)
 5. **FC2** — `FC2-PPV-*` 패턴
 6. **West** — 매칭되지 않은 나머지 영상 파일 (fallback)
 
@@ -179,6 +179,14 @@ uv run meridian tidy                    # 정크삭제→Flatten→파일명정�
 # ========== Classify (원격 분류, tidy 후 실행) ==========
 uv run meridian classify --dry-run      # 미리보기 (권장)
 uv run meridian classify                # SSH로 원격 파일 분류
+uv run meridian classify --lookup-jav   # JPN/ 내 파일 OneJAV 조회로 배우 폴더 2차 분류
+
+# ========== Pipeline (한 번에 실행) ==========
+uv run meridian pipeline --dry-run      # 미리보기 (권장)
+uv run meridian pipeline                # stop→filter→label→sync→tidy→classify→갱신→report
+
+# ========== Report (상태 조회) ==========
+uv run meridian report                  # disk 사용량 + Transmission 토렌트 상태
 ```
 
 ---
@@ -201,9 +209,25 @@ uv run meridian classify                # SSH로 원격 파일 분류
 | 옵션 | 설명 | 기본값 |
 | :--- | :--- | :--- |
 | `--dry-run` | 실제 이동/변경 없이 결과만 출력 | - |
+| `--lookup-jav` | (classify 전용) JPN 폴더 내 파일 배우 폴더 2차 분류 | - |
 
 ### sync
 옵션 없음. 실행 즉시 Transmission labels → Jellyfin Tags 동기화 (`--dry-run` 미지원).
+
+### pipeline
+| 옵션 | 설명 | 기본값 |
+| :--- | :--- | :--- |
+| `--dry-run` | 실제 변경 없이 결과만 출력 | - |
+| `--no-refresh` | Jellyfin 라이브러리 갱신 스킵 | - |
+
+### report
+옵션 없음. disk 사용량 + Transmission 토렌트 상태 출력 (읽기 전용).
+
+---
+
+## 📚 문서 (Documents)
+
+- [Roadmap](./ROADMAP.md) — 버전별 현황과 향후 계획 (Multi-Source 아키텍처, FANZA 연동 등)
 
 ---
 

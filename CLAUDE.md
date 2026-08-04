@@ -37,6 +37,7 @@ uv run meridian tidy --dry-run            # 실제 변경 없이 정리 동작 �
 # ========== Classify (원격 분류, tidy 후 실행) ==========
 uv run meridian classify --dry-run                # 미리보기 (항상 먼저)
 uv run meridian classify                          # SSH 원격 분류 → Jellyfin 라이브러리 갱신
+uv run meridian classify --lookup-jav             # JPN/ 내 파일 OneJAV 조회로 배우 폴더 2차 분류
 
 # ========== Pipeline (한 번에 실행, transmission 제외) ==========
 uv run meridian pipeline --dry-run              # 미리보기 (항상 먼저)
@@ -66,18 +67,26 @@ src/meridian_x/
 ├── tidy.py           # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
 ├── report.py         # disk 사용량 + Transmission 상태 리포트 (읽기 전용)
 ├── fanza.py          # FANZA API 클라이언트 (JAV 메타데이터 조회, 보존됨/classify 미사용)
+├── jav_lookup.py     # OneJAV SSH 조회 기반 JAV 배우 2차 분류 (classify --lookup-jav)
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
 ```
 
 ```text
 tests/
 ├── test_transmission.py            # TransmissionClient 도메인 로직 회귀 테스트 (RPC 없이)
+├── test_classify.py                # 배우명 normalize + 분류 매칭
+├── test_classify_security.py       # shlex.quote 쉘 인젝션 방어
+├── test_collect.py                 # source 화이트리스트 필터링
+├── test_core.py                    # 암호화된 설정 로드
+├── test_jav_lookup.py              # JAV 코드 추출
+├── test_onejav_security.py         # URL 검증/타임아웃
+├── test_tidy.py                    # exclude 폴더 계산, flatten 스크립트
 └── test_simulation_classify.py     # classify/tidy 시뮬레이션 테스트
 ```
 
 ## Configuration
 
-- 핵심 의존성 (`pyproject.toml`): `requests`, `transmission-rpc` (Transmission RPC), `python-dotenv`. dev: `pytest`.
+- 핵심 의존성 (`pyproject.toml`): `requests`, `transmission-rpc` (Transmission RPC), `python-dotenv`, `beautifulsoup4` (jav_lookup). dev: `pytest`, `pytest-mock`.
 - `playwright>=1.40`은 `pyproject.toml`에 잔존하나 사용 중단 (onejav SSH 경유 전환, 커밋 933ea24). 제거 후보.
 - `config/settings.json` — 메인 설정 (gitignored). `settings.json.example` 참고.
 - `.env` — FANZA API: `FANZA_API_ID`, `FANZA_AFFILIATE_ID`
@@ -97,7 +106,7 @@ tests/
 - **파일 필터**: 확장자/키워드/최소 크기로 광고 파일 자동 제외 (settings.json `filters`)
 - **Multi-source**: `sources/` 패키지의 각 모듈이 `discover()`+`resolve()` 제공. `collect.py`가 활성 source 순회.
 - **History ID**: `{source}:{id}` 형태 (`onejav:SNOS155`, `xxxclub:<infohash>`). prefix 없는 기존 항목은 `onejav:` 자동 부여(migration).
-- **분류 우선순위** (classify): 배우(`artist_folders`) > 스튜디오(`studio_folders`) > 장르(`genres`) > JAV 패턴(`JPN/`) > FC2(`FC2/`) > West(fallback). tidy(flatten) 후 실행.
+- **분류 우선순위** (classify): 배우 > 스튜디오 > 장르(`genres`) > JAV 패턴(`JPN/`) > FC2(`FC2/`) > West(fallback). 배우/스튜디오 설정은 `classify.artists`/`classify.studios` (WEST/JPN dict, legacy `artist_folders`/`studio_folders` 리스트 fallback). tidy(flatten) 후 실행.
 - **JAV 패턴**: `^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]` (예: SONE-446, 200GANA-3399, 300MIUM-1383) → `JPN/`
 - **FC2 패턴**: `^FC2` (예: FC2-PPV-4914752) → `FC2/`
 
