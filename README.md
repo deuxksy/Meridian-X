@@ -18,6 +18,7 @@
 - [사용법 (Usage)](#-사용법-usage)
 - [명령어 옵션](#-명령어-옵션)
 - [문서 (Documents)](#-문서-documents)
+- [라이선스 (License)](#-라이선스-license)
 
 ---
 
@@ -74,11 +75,14 @@ graph TB
 Meridian-X/
 ├── README.md
 ├── ROADMAP.md
+├── AGENTS.md
 ├── pyproject.toml
 ├── uv.lock
 ├── config/
 │   ├── settings.json          # 전체 설정 (git 제외)
+│   ├── settings.json.sops     # sops+age 암호화 추적본
 │   └── settings.json.example  # 설정 템플릿
+├── tests/                     # pytest 회귀 테스트 (9개 모듈)
 └── src/meridian_x/
     ├── cli.py                 # CLI 진입점
     ├── collect.py             # Multi-source 수집 오케스트레이터
@@ -227,7 +231,17 @@ uv run meridian report                  # disk 사용량 + Transmission 토렌�
 
 ## 📚 문서 (Documents)
 
-- [Roadmap](./ROADMAP.md) — 버전별 현황과 향후 계획 (Multi-Source 아키텍처, FANZA 연동 등)
+| 분류 (Diátaxis) | 문서 | 설명 |
+| :--- | :--- | :--- |
+| Explanation | [Roadmap](./ROADMAP.md) | 버전별 현황과 향후 계획 |
+| Explanation | [Security Scan 설계](./docs/plans/2026-04-03-security-scan-design.md) | 보안 스캔 도입 배경과 설계 결정 |
+| Explanation | [Security Scan 구현](./docs/plans/2026-04-03-security-scan-implementation.md) | 보안 스캔 구현 단계 계획 |
+
+---
+
+## 📄 라이선스 (License)
+
+MIT License — [LICENSE](./LICENSE) 참조.
 
 ---
 
