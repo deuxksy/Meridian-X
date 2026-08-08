@@ -1,12 +1,15 @@
 """
 Meridian-X Jellyfin Module
-Transmission labels → Jellyfin Tags 동기화
+Transmission labels → Jellyfin Tags 동기화 및 JAV 메타데이터 동기화
 """
 
 import logging
 from pathlib import Path
 
 import requests
+
+from .jav_lookup import extract_jav_code
+from .jav_metadata import get_jav_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +106,39 @@ class JellyfinClient:
             logger.error(f"[Jellyfin] Update tags failed for {item_id}: {e}")
             return False
 
+    def update_metadata(self, item_id: str, metadata: dict) -> bool:
+        """아이템 Studios, Genres, People, Tags 메타데이터 동기화."""
+        try:
+            item = self.get_item(item_id)
+            if not item:
+                return False
+
+            actresses = metadata.get("actresses", [])
+            makers = metadata.get("makers", [])
+            genres = metadata.get("genres", [])
+
+            if makers:
+                item["Studios"] = [{"Name": m} for m in makers]
+            if genres:
+                item["Genres"] = list(genres)
+            if actresses:
+                item["People"] = [{"Name": a, "Type": "Actor"} for a in actresses]
+
+            tags = set(item.get("Tags") or [])
+            for a in actresses:
+                tags.add(a.lower())
+            for m in makers:
+                tags.add(m.lower())
+            item["Tags"] = sorted(tags)
+
+            # null 필드 제거 (Jellyfin ArgumentNullException 방지)
+            item = {k: v for k, v in item.items() if v is not None}
+            self._post(f"/Items/{item_id}", item)
+            return True
+        except Exception as e:
+            logger.error(f"[Jellyfin] Update metadata failed for {item_id}: {e}")
+            return False
+
 
 def _match_name(torrent_name: str, jellyfin_path: str) -> bool:
     """토렌트 이름과 Jellyfin 파일 경로 매칭.
@@ -113,11 +149,11 @@ def _match_name(torrent_name: str, jellyfin_path: str) -> bool:
     return torrent_name in filename or filename in torrent_name
 
 
-def sync_tags(jellyfin: JellyfinClient, transmission_client) -> int:
-    """Transmission labels → Jellyfin Tags 동기화.
+def sync_tags(jellyfin: JellyfinClient, transmission_client, config: dict | None = None) -> int:
+    """Transmission labels → Jellyfin Tags 동기화 및 JAV 메타데이터 동기화.
 
     Returns: 업데이트된 아이템 수
-"""
+    """
     # 1. Transmission: 완료된 토렌트 + labels
     labeled = transmission_client.get_labeled_completed()
     logger.info(f"[Sync] Transmission: {len(labeled)} labeled completed torrents")
@@ -139,12 +175,22 @@ def sync_tags(jellyfin: JellyfinClient, transmission_client) -> int:
             }
     logger.info(f"[Sync] Jellyfin: {len(path_map)} videos")
 
-    # 3. 매칭 + Tags 업데이트
+    # 3. 매칭 + Tags & JAV 메타데이터 업데이트
     updated = 0
     for item_id, info in path_map.items():
         for torrent_name, labels in labeled.items():
             if not _match_name(torrent_name, info["path"]):
                 continue
+
+            # JAV 메타데이터 업데이트 시도
+            code = extract_jav_code(info["path"]) or extract_jav_code(torrent_name)
+            if code:
+                try:
+                    meta = get_jav_metadata(code, config)
+                    if meta and (meta.get("actresses") or meta.get("makers") or meta.get("genres")):
+                        jellyfin.update_metadata(item_id, meta)
+                except Exception as e:
+                    logger.warning(f"[Sync] JAV metadata update failed for {code}: {e}")
 
             # 이미 동일 tags면 스킵
             if sorted(info["tags"]) == sorted(labels):
