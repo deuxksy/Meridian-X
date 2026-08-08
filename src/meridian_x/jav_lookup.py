@@ -50,13 +50,26 @@ def lookup_jav_actresses(code: str, config: dict | None = None) -> list[str]:
     if not html:
         return []
 
-    actresses = set()
     soup = BeautifulSoup(html, "html.parser")
+    # 1. Prefer explicit /actress/ links
+    actresses_list = []
+    for tag in soup.find_all("a", href=re.compile(r"/actress/.+")):
+        name = tag.get_text(strip=True)
+        if name and name.lower() not in ["actresses", "tags"]:
+            if name not in actresses_list:
+                actresses_list.append(name)
+
+    if actresses_list:
+        return actresses_list
+
+    # 2. Fallback to /tag/ links
+    tags_set = set()
     for tag in soup.find_all("a", href=re.compile(r"/tag/")):
         name = tag.get_text(strip=True)
-        if name and name.lower() not in ["720p", "1080p", "4k", "uncensored", "hd"]:
-            actresses.add(name)
+        if name and name.lower() not in ["720p", "1080p", "4k", "uncensored", "hd", "tags", "actresses"]:
+            tags_set.add(name)
 
-    return list(actresses)
+    return list(tags_set)
+
 
 
