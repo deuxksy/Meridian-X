@@ -11,6 +11,7 @@ import subprocess
 
 from .core import load_config
 from .jav_lookup import extract_jav_code, lookup_jav_actresses
+from .jav_metadata import get_jav_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -222,6 +223,32 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
     return None
 
 
+def classify_filename_with_metadata(filename: str, config: dict, use_metadata: bool = True) -> str:
+    """
+    파일명 → 목적지 폴더 결정 (외부 API 메타데이터 연동).
+    우선순위: 명시적 설정(배우/스튜디오/장르) > API 메타데이터(배우 > 스튜디오) > JPN > FC2 > West
+    """
+    # 1. 기존 명시적 설정 규칙 우선
+    dest = classify_filename(filename, config)
+    if dest not in ("JPN", "FC2", "West"):
+        return dest
+
+    # 2. JAV 패턴 매칭 시 API 메타데이터 조회
+    if use_metadata and dest == "JPN":
+        code = extract_jav_code(filename)
+        if code:
+            meta = get_jav_metadata(code, config)
+            actresses = meta.get("actresses", [])
+            makers = meta.get("makers", [])
+
+            if actresses:
+                return f"Actors/{actresses[0]}"
+            if makers:
+                return makers[0]
+
+    return dest
+
+
 def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str] = None) -> str | None:
     artist_folders = get_artist_folders(config)
     if not artist_folders:
@@ -231,13 +258,15 @@ def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str]
         code = extract_jav_code(filename)
         if not code:
             return None
-        actresses = lookup_jav_actresses(code)
+        meta = get_jav_metadata(code, config)
+        actresses = meta.get("actresses", [])
 
     for actress in actresses:
         for folder in artist_folders:
             if _normalize_name(folder) in _normalize_name(actress):
                 return f"Actors/{folder}"
     return None
+
 
 
 
@@ -347,6 +376,7 @@ def run(
     refresh: bool = True,
     simulation_files: list[str] | None = None,
     lookup_jav: bool = False,
+    no_lookup: bool = False,
 ) -> None:
     """원격 파일 분류 메인 실행. tidy 실행 후 호출 권장."""
     config = load_config()
@@ -374,7 +404,7 @@ def run(
         logger.info(f"대상 파일: {len(files)}개")
 
         for filename in files:
-            dest = classify_filename(filename, config)
+            dest = classify_filename_with_metadata(filename, config, use_metadata=not no_lookup)
             result = _move_file(remote, filename, dest, dry_run)
             if result == "moved":
                 counts[dest] = counts.get(dest, 0) + 1

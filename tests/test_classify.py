@@ -124,3 +124,78 @@ class TestComputeExcludeFolders:
             "Dakota Doll", "MINAMO", "Vixen", "Anime",
         } <= exclude
 
+
+from unittest.mock import patch
+from meridian_x.classify import classify_filename_with_metadata
+
+
+@patch("meridian_x.classify.get_jav_metadata")
+def test_classify_filename_with_metadata_actress(mock_get_meta):
+    mock_get_meta.return_value = {
+        "code": "SONE-446",
+        "actresses": ["MINAMO"],
+        "makers": ["S1 NO.1 STYLE"],
+        "genres": [],
+        "source": "fanza",
+    }
+
+    config = {
+        "classify": {
+            "artists": {"WEST": [], "JPN": []},
+            "studios": {"WEST": {}, "JPN": {}},
+        }
+    }
+
+    dest = classify_filename_with_metadata("SONE-446.mp4", config)
+    assert dest == "Actors/MINAMO"
+
+
+@patch("meridian_x.classify.get_jav_metadata")
+def test_classify_filename_with_metadata_maker_fallback(mock_get_meta):
+    mock_get_meta.return_value = {
+        "code": "SONE-446",
+        "actresses": [],
+        "makers": ["S1 NO.1 STYLE"],
+        "genres": [],
+        "source": "fanza",
+    }
+
+    config = {
+        "classify": {
+            "artists": {"WEST": [], "JPN": []},
+            "studios": {"WEST": {}, "JPN": {}},
+        }
+    }
+
+    dest = classify_filename_with_metadata("SONE-446.mp4", config)
+    assert dest == "S1 NO.1 STYLE"
+
+
+@patch("meridian_x.classify.get_jav_metadata")
+def test_classify_filename_with_metadata_explicit_config_priority(mock_get_meta):
+    config = {
+        "classify": {
+            "artist_folders": ["Dakota Doll"],
+            "studio_folders": []
+        }
+    }
+
+    dest = classify_filename_with_metadata("dakota_doll_scene.mp4", config)
+    assert dest == "Actors/Dakota Doll"
+    mock_get_meta.assert_not_called()
+
+
+@patch("meridian_x.classify.get_jav_metadata")
+def test_classify_filename_with_metadata_no_lookup(mock_get_meta):
+    config = {
+        "classify": {
+            "artists": {"WEST": [], "JPN": []},
+            "studios": {"WEST": {}, "JPN": {}},
+        }
+    }
+
+    dest = classify_filename_with_metadata("SONE-446.mp4", config, use_metadata=False)
+    assert dest == "JPN"
+    mock_get_meta.assert_not_called()
+
+
