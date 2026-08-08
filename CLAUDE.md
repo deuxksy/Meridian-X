@@ -28,7 +28,8 @@ uv run meridian filter                          # 전체 토렌트 광고 파일
 uv run meridian label                           # 메이커/배우 labels 자동 설정
 
 # ========== Sync (Transmission → Jellyfin) ==========
-uv run meridian sync                            # Transmission labels → Jellyfin Tags 동기화
+uv run meridian sync                            # Transmission labels & JAV 메타데이터(Studios/Genres/People/Tags) → Jellyfin 동기화
+
 
 # ========== Tidy (원격 파일 정리) ==========
 uv run meridian tidy                            # 정크삭제→Flatten→파일명정리→라이브러리갱신
@@ -37,7 +38,9 @@ uv run meridian tidy --dry-run            # 실제 변경 없이 정리 동작 �
 # ========== Classify (원격 분류, tidy 후 실행) ==========
 uv run meridian classify --dry-run                # 미리보기 (항상 먼저)
 uv run meridian classify                          # SSH 원격 분류 → Jellyfin 라이브러리 갱신
+uv run meridian classify --no-lookup              # 외부 API 조회 없이 단순 품번 매칭 분류만 수행
 uv run meridian classify --lookup-jav             # JPN/ 내 파일 OneJAV 조회로 배우 폴더 2차 분류
+
 
 # ========== Pipeline (한 번에 실행, transmission 제외) ==========
 uv run meridian pipeline --dry-run              # 미리보기 (항상 먼저)
@@ -66,9 +69,11 @@ src/meridian_x/
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
 ├── tidy.py           # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
 ├── report.py         # disk 사용량 + Transmission 상태 리포트 (읽기 전용)
-├── fanza.py          # FANZA API 클라이언트 (JAV 메타데이터 조회, 보존됨/classify 미사용)
-├── jav_lookup.py     # OneJAV SSH 조회 기반 JAV 배우 2차 분류 (classify --lookup-jav)
+├── fanza.py          # FANZA API 클라이언트 (DMM Affiliate API 메타데이터 조회)
+├── jav_lookup.py     # JavBus/Jav321 및 OneJAV SSH 조회 기반 JAV 웹 메타데이터 수집
+├── jav_metadata.py   # JAV 메타데이터 통합 Resolver (FANZA -> JavBus -> OneJAV 필드 병합 & 디스크 캐싱)
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
+
 ```
 
 ```text
@@ -81,7 +86,9 @@ tests/
 ├── test_jav_lookup.py              # JAV 코드 추출
 ├── test_onejav_security.py         # URL 검증/타임아웃
 ├── test_tidy.py                    # exclude 폴더 계산, flatten 스크립트
+├── test_jav_metadata.py            # FANZA API/웹 DB 필드 병합 및 캐싱 회귀 테스트
 └── test_simulation_classify.py     # classify/tidy 시뮬레이션 테스트
+
 ```
 
 ## Configuration
@@ -107,7 +114,8 @@ tests/
 - **Multi-source**: `sources/` 패키지의 각 모듈이 `discover()`+`resolve()` 제공. `collect.py`가 활성 source 순회.
 - **History ID**: `{source}:{id}` 형태 (`onejav:SNOS155`, `xxxclub:<infohash>`). prefix 없는 기존 항목은 `onejav:` 자동 부여(migration).
 - **분류 우선순위** (classify): 배우 > 스튜디오 > 장르(`genres`) > JAV 패턴(`JPN/`) > FC2(`FC2/`) > West(fallback). 배우/스튜디오 설정은 `classify.artists`/`classify.studios` (WEST/JPN dict, legacy `artist_folders`/`studio_folders` 리스트 fallback). tidy(flatten) 후 실행.
-- **JAV 패턴**: `^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]` (예: SONE-446, 200GANA-3399, 300MIUM-1383) → `JPN/`
+- **JAV 패턴 & API 메타데이터 연동**: `^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]` 감지 시 `jav_metadata.get_jav_metadata()`로 메타데이터 수집 (FANZA → JavBus/Jav321 → OneJAV 필드 병합). 배우 수집 시 `Actors/{배우명}/`, 메이커 수집 시 `{스튜디오명}/`으로 우선 이동, 미조회 시 `JPN/` 이동.
+
 - **FC2 패턴**: `^FC2` (예: FC2-PPV-4914752) → `FC2/`
 
 ## Gotchas
