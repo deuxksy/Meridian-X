@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .core import load_config
 from .fanza import FanzaClient
-from .jav_lookup import lookup_jav_actresses
+from .jav_lookup import lookup_jav_actresses, lookup_web_jav_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def get_jav_metadata(
 ) -> dict:
     """
     품번(code)으로 FANZA 표준 데이터 수집.
-    캐시 -> FANZA API -> OneJAV Lookup 순서로 시도.
+    캐시 -> FANZA API -> Web DB (JavBus/Jav321) -> OneJAV Lookup 순서로 시도.
     """
     if config is None:
         try:
@@ -86,8 +86,21 @@ def get_jav_metadata(
         except Exception as e:
             logger.warning(f"[FANZA API Error] {code_upper}: {e}")
 
-    # 2. OneJAV SSH Lookup Fallback
-    if not actresses:
+    # 2. Web DB (JavBus/Jav321) SSH Lookup (OneJAV보다 높은 우선순위)
+    if not actresses and not makers:
+        try:
+            web_data = lookup_web_jav_metadata(code_upper, config)
+            if web_data and (web_data.get("actresses") or web_data.get("makers")):
+                actresses = web_data.get("actresses", [])
+                makers = web_data.get("makers", [])
+                genres = web_data.get("genres", [])
+                title = web_data.get("title")
+                source = "web_db"
+        except Exception as e:
+            logger.warning(f"[Web DB Lookup Error] {code_upper}: {e}")
+
+    # 3. OneJAV SSH Lookup Fallback
+    if not actresses and not makers:
         try:
             onejav_actresses = lookup_jav_actresses(code_upper, config)
             if onejav_actresses:
@@ -95,6 +108,7 @@ def get_jav_metadata(
                 source = "onejav"
         except Exception as e:
             logger.warning(f"[OneJAV Lookup Error] {code_upper}: {e}")
+
 
     metadata = {
         "code": code_upper,

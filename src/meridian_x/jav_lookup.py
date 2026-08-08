@@ -72,4 +72,62 @@ def lookup_jav_actresses(code: str, config: dict | None = None) -> list[str]:
     return list(tags_set)
 
 
+def lookup_web_jav_metadata(code: str, config: dict | None = None) -> dict:
+    """SSH curl 기반 웹 DB 조회 (Jav321/JavBus, OneJAV보다 높은 우선순위)."""
+    if config is None:
+        try:
+            config = load_config()
+        except Exception:
+            config = {}
+
+    remote = config.get("sources", {}).get("onejav", {}).get("remote") or config.get("remote", {})
+    ssh_alias = remote.get("ssh_alias", "lt")
+    code = code.upper()
+
+    if ssh_alias:
+        args = ["ssh", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no", ssh_alias, f'curl -sL -d "sn={code}" "https://www.jav321.com/search"']
+    elif remote.get("host"):
+        args = ["ssh", "-i", remote["ssh_key"], "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=no", f'{remote["user"]}@{remote["host"]}', f'curl -sL -d "sn={code}" "https://www.jav321.com/search"']
+    else:
+        return {"actresses": [], "makers": [], "genres": [], "title": None}
+
+    try:
+        res = subprocess.run(args, capture_output=True, text=True, timeout=15)
+        if res.returncode != 0 or not res.stdout:
+            return {"actresses": [], "makers": [], "genres": [], "title": None}
+
+        soup = BeautifulSoup(res.stdout, "html.parser")
+        actresses = []
+        makers = []
+        genres = []
+        title = None
+
+        title_tag = soup.find("title")
+        if title_tag:
+            t_text = title_tag.get_text(strip=True)
+            if "JAV321" not in t_text:
+                title = t_text.split(" sone-")[0].split(" bittorrent")[0].strip()
+
+        for a in soup.find_all("a", href=True):
+            href = a["href"]
+            name = a.get_text(strip=True)
+            if not name:
+                continue
+            if "/star/" in href:
+                if name not in actresses and name.lower() not in ["star", "actress"]:
+                    actresses.append(name)
+            elif "/company/" in href:
+                if name not in makers:
+                    makers.append(name)
+            elif "/genre/" in href:
+                if name not in genres and name.lower() not in ["genre", "hd"]:
+                    genres.append(name)
+
+        return {"actresses": actresses, "makers": makers, "genres": genres, "title": title}
+    except Exception as e:
+        logger.debug(f"SSH curl web lookup failed for {code}: {e}")
+        return {"actresses": [], "makers": [], "genres": [], "title": None}
+
+
+
 
