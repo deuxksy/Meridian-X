@@ -440,22 +440,33 @@ def run(
                 code = extract_jav_code(filename)
                 if not code:
                     continue
-                actresses = lookup_jav_actresses(code, config)
+                meta = get_jav_metadata(code, config)
+                actresses = meta.get("actresses", [])
+                makers = meta.get("makers", [])
                 if actresses:
                     logger.debug(f"  [JAV Lookup] {code} -> 배우: {', '.join(actresses)}")
+                elif makers:
+                    logger.debug(f"  [JAV Lookup] {code} -> 메이커: {', '.join(makers)}")
+
                 dest = classify_by_actress_lookup(filename, config, actresses)
-                if dest:
-                    folder = dest.replace("Actors/", "")
+                if not dest:
+                    if actresses:
+                        dest = f"Actors/{actresses[0]}"
+                    elif makers:
+                        dest = makers[0]
+
+                if dest and dest != "JPN":
                     if dry_run:
-                        logger.info(f"  [Dry-run JAV lookup] JPN/{filename} -> Actors/{folder}/")
+                        logger.info(f"  [Dry-run JAV lookup] JPN/{filename} -> {dest}/")
                     else:
-                        move_cmd = f'mkdir -p "{remote_path}/Actors/{folder}" && mv "{remote_path}/JPN/{filename}" "{remote_path}/Actors/{folder}/"'
+                        move_cmd = f'mkdir -p "{remote_path}/{dest}" && mv "{remote_path}/JPN/{filename}" "{remote_path}/{dest}/"'
                         m_ok, m_out = _ssh(remote, move_cmd)
                         if m_ok:
-                            logger.info(f"  [JAV Lookup 분류 성공] JPN/{filename} -> Actors/{folder}/")
+                            logger.info(f"  [JAV Lookup 분류 성공] JPN/{filename} -> {dest}/")
                             counts[dest] = counts.get(dest, 0) + 1
                         else:
                             logger.error(f"  [JAV Lookup 이동 실패] {filename}: {m_out[:200]}")
+
 
 
     summary = ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())) or "없음"
