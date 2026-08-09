@@ -2,8 +2,12 @@
 
 transmission-rpc 마이그레이션 후에도 순수 함수 동작이 보존되는지 검증.
 RPC 호출 / 네트워크 / Client 생성은 포함하지 않는다.
+(probe 테스트만 예외적으로 소켓을 사용한다.)
 """
+import socket
 from types import SimpleNamespace
+
+import pytest
 
 from meridian_x.transmission import TransmissionClient
 
@@ -130,3 +134,35 @@ class TestStopAfterDownloadExisting:
         c, calls = self._client_with_torrents(torrents)
         assert c.stop_after_download_existing(dry_run=True) == 1
         assert calls == []
+
+
+class TestProbeReachable:
+    """__init__ 도달성 probe: tailnet 다운 시 RPC timeout까지 hang 대신 명시적 에러."""
+
+    def test_unreachable_port_raises_connection_error(self):
+        # 닫힌 포트 → 즉시 refused → ConnectionError (hang 없음)
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+        s.close()
+        with pytest.raises(ConnectionError, match=f"127.0.0.1:{port}"):
+            TransmissionClient(rpc_url=f"http://127.0.0.1:{port}/transmission/rpc")
+
+    def test_ts_net_host_gets_tailscale_hint(self, mocker):
+        # .ts.net 호스트 실패 시 Tailscale 점검 안내 포함
+        mocker.patch("socket.create_connection", side_effect=OSError("unreachable"))
+        with pytest.raises(ConnectionError, match="tailscale status"):
+            TransmissionClient(rpc_url="https://heritage.bun-bull.ts.net/transmission/rpc")
+
+    def test_reachable_host_constructs(self, mocker):
+        # 로컬 리스너가 있으면 probe 통과. Client 생성 자체는 lib 영역이라 mock.
+        mocker.patch("meridian_x.transmission.Client")
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        port = listener.getsockname()[1]
+        try:
+            client = TransmissionClient(rpc_url=f"http://127.0.0.1:{port}/transmission/rpc")
+            assert client._client is not None
+        finally:
+            listener.close()

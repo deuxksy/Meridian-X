@@ -1,4 +1,5 @@
 import logging
+import socket
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -15,16 +16,37 @@ class TransmissionClient:
         """RPC 클라이언트 초기화. rpc_url을 protocol/host/port/path로 분리하여
         transmission-rpc Client 생성. 409 세션 ID / Basic Auth는 lib가 처리."""
         parsed = urlparse(rpc_url)
+        host = parsed.hostname or "127.0.0.1"
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        self._probe_reachable(host, port)
         self._client = Client(
             protocol=parsed.scheme or "http",
-            host=parsed.hostname or "127.0.0.1",
-            port=parsed.port or (443 if parsed.scheme == "https" else 80),
+            host=host,
+            port=port,
             path=parsed.path or "/transmission/rpc",
             username=user,
             password=password,
             timeout=timeout,
         )
         self._stop_after_download = stop_after_download
+
+    @staticmethod
+    def _probe_reachable(host: str, port: int, timeout: float = 3.0) -> None:
+        """RPC 연결 전 TCP 도달성 사전 확인.
+
+        transmission-rpc Client는 생성 시점에 세션 핸드셰이크를 하므로
+        tailnet 다운 시 RPC timeout까지 hang된다. 짧은 probe로 먼저 실패시켜
+        명시적 에러로 전환. .ts.net 호스트는 공개 DNS가 100.x를 반환해
+        DNS 실패 없이 connect가 hang하므로 Tailscale 점검 안내를 포함한다.
+        """
+        try:
+            with socket.create_connection((host, port), timeout=timeout):
+                pass
+        except OSError as e:
+            hint = " Tailscale 상태 확인 (tailscale status)." if host.endswith(".ts.net") else ""
+            raise ConnectionError(
+                f"Transmission RPC 도달 불가: {host}:{port}.{hint} 원인: {e}"
+            ) from e
 
     def add_torrent(self, metainfo: bytes, download_dir: str = None,
                     labels: list = None, filters: dict = None) -> bool:

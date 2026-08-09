@@ -88,7 +88,7 @@ src/url_resolver/
 ├── config.py         # TOML 설정 로더 (~/.config/url-resolver/config.toml)
 ├── extractors/       # misskon, cosplaytele, mediafire, ouo (Playwright) 파서
 └── dispatchers/      # aria2p RPC 전송 디스패처
-```�지 → .torrent
+```�지 → .torrent
 │   └── xxxclub.py    # XXXClub RSS → magnet link 직접 추출
 ├── transmission.py    # Transmission RPC 클라이언트 (transmission-rpc 기반, add/filter/label)
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
@@ -153,6 +153,7 @@ tests/
 - `config/settings.json` 없으면 `FileNotFoundError` 발생. 최초 설정 시 example 복사 필수.
 - Transmission RPC 사용 시 `config/settings.json`에 `transmission.rpc_url` 설정 필수.
 - Transmission 409 응답 = CSRF 세션 ID 요구 (인증 에러 아님). transmission-rpc가 자동 처리.
+- transmission-rpc `Client()`는 생성 시점에 세션 핸드셰이크 수행 (lazy 아님) → tailnet 다운 시 생성 단계에서 RPC timeout까지 hang. `TransmissionClient.__init__`의 `_probe_reachable`(3s TCP)가 먼저 실패시켜 `Tailscale 상태 확인` 안내 포함 `ConnectionError`로 전환. `*.ts.net`은 공개 DNS가 100.x를 반환해 DNS 실패 없이 connect가 hang됨.
 - `labels` 필드 (RPC spec) 미지원 빌드 → `labels` 사용 (linuxserver/transmission).
 - 토렌트 추가 흐름: lib `add_torrent`(paused) → `change_torrent`(labels/seedRatio/files-unwanted) → `start_torrent`.
 - magnet 추가 시 lib는 paused를 무시할 수 있음 (메타데이터 다운로드 필요). labels/filter는 동일 적용.
