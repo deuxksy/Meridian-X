@@ -10,6 +10,7 @@ from rich.console import Console
 from url_resolver.config import AppConfig, load_config
 from url_resolver.dispatchers.aria2 import Aria2Dispatcher
 from url_resolver.extractors.crawler import CategoryCrawler
+from url_resolver.extractors.cosplaytele import CosplayteleParser, CosplayteleCrawler
 from url_resolver.extractors.mediafire import MediafireResolver
 from url_resolver.extractors.misskon import MisskonParser
 from url_resolver.extractors.ouo import OuoBypasser
@@ -38,10 +39,14 @@ def resolve_post(post_url: str) -> list[DownloadMetadata]:
         console.print(f"[bold red]Failed to fetch post URL {post_url}: {e}[/bold red]")
         return []
 
-    parser = MisskonParser()
+    if "cosplaytele.com" in post_url:
+        parser = CosplayteleParser()
+    else:
+        parser = MisskonParser()
+
     links = parser.extract_download_links(html_content)
     if not links:
-        if any(domain in post_url for domain in ["ouo.io", "ouo.press", "mediafire.com", "mega.nz"]):
+        if any(domain in post_url for domain in ["ouo.io", "ouo.press", "mediafire.com", "mega.nz", "gofile.io"]):
             links = [post_url]
 
     results: list[DownloadMetadata] = []
@@ -182,7 +187,11 @@ def crawl(
 ):
     """Crawl category or tag listing across multiple pages and process all posts."""
     headers = {"User-Agent": DEFAULT_USER_AGENT}
-    crawler = CategoryCrawler()
+    if "cosplaytele.com" in url:
+        crawler = CosplayteleCrawler()
+    else:
+        crawler = CategoryCrawler()
+
     visited_pages = set()
     to_visit = [url]
     all_post_urls: list[str] = []
