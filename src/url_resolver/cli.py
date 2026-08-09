@@ -31,6 +31,11 @@ DEFAULT_USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
+GENRE_TAG_KEYWORDS = [
+    "cosplay", "ero", "game", "free style", "nude", "anime", "manga",
+    "video", "part", "photos", "ai art", "cheongsam", "hktv", "video cosplay"
+]
+
 
 def extract_tags_from_html_and_url(html_content: str, post_url: str) -> list[str]:
     """Extract all tags as an Array (list) from HTML rel='tag' links and URL."""
@@ -41,12 +46,31 @@ def extract_tags_from_html_and_url(html_content: str, post_url: str) -> list[str
         if tag_text and tag_text not in tags:
             tags.append(tag_text)
 
-    # Fallback/additional check from URL slug
-    match = re.search(r"/tag/([^/]+)/", post_url)
+    match = re.search(r"/(?:tag|category)/([^/]+)/", post_url)
     if match and match.group(1) not in tags:
         tags.append(match.group(1))
 
     return tags
+
+
+def extract_models_from_tags_and_html(tags: list[str], html_content: str, post_url: str, config_models: list[str]) -> list[str]:
+    """Smart auto-extract model names from tags, config, and title."""
+    models = []
+    # 1. Config matched models
+    for m in config_models:
+        if m in post_url or m in html_content:
+            if m not in models:
+                models.append(m)
+
+    # 2. Tag-based model extraction (exclude pure genre/category tags)
+    for tag in tags:
+        lower_t = tag.lower().strip()
+        is_genre = any(kw in lower_t for kw in GENRE_TAG_KEYWORDS)
+        if not is_genre and tag not in models:
+            # Contains specific model naming formats like 'Byoru (ビョル)', 'Chunmomo (蠢沫沫)', 'Rioko (凉凉子)'
+            models.append(tag)
+
+    return models
 
 
 def resolve_post(post_url: str, config: Optional[AppConfig] = None, current_tag: Optional[str] = None) -> list[DownloadMetadata]:
@@ -76,12 +100,8 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None, current_tag:
     if current_tag and current_tag not in tags:
         tags.append(current_tag)
 
-    # Detect models Array
-    matched_models = []
-    for m in config.models:
-        if m in post_url or m in html_content:
-            if m not in matched_models:
-                matched_models.append(m)
+    # Smart detect models Array (from tags + config)
+    matched_models = extract_models_from_tags_and_html(tags, html_content, post_url, config.models)
 
     results: list[DownloadMetadata] = []
     ouo_bypasser = OuoBypasser()
