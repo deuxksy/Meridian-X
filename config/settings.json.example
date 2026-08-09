@@ -39,6 +39,9 @@
     "ssh_key": "~/.ssh/id_ed25519",
     "path": "/mnt/data1/torrent/complete"
   },
+  "stashdb": {
+    "api_key": null
+  },
   "collection": {
     "history_file": "logs/downloads.txt",
     "request_timeout": 30,
