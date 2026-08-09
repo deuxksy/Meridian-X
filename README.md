@@ -194,6 +194,11 @@ uv run meridian pipeline                # stop→filter→label→sync→tidy→
 
 # ========== Report (상태 조회) ==========
 uv run meridian report                  # disk 사용량 + Transmission 토렌트 상태
+
+# ========== URL Resolver (직링크 추출 및 aria2 전송) ==========
+uv run url-resolver parse "https://misskon.com/114764-..."            # 단일 게시글 직링크 추출 & aria2 전송
+uv run url-resolver crawl "https://misskon.com/tag/you-shui-ling-yi/"  # 카테고리/태그 전체 순차 수집
+uv run url-resolver crawl "https://cosplaytele.com/category/byoru/" --pages 2 --extract-only # 직링크만 추출
 ```
 
 ---

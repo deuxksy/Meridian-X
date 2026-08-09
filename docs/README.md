@@ -11,6 +11,7 @@ Meridian-X 프로젝트의 문서 집합입니다. Diátaxis 프레임워크 4�
 
 ### 2. 💡 How-To Guides (사용법 가이드)
 - [CLI 사용 설명서](../README.md#-주요-기능-features): `collect`, `filter`, `label`, `sync`, `tidy`, `classify`, `pipeline`, `report` 개별 명령어 가이드
+- [URL Resolver 사용법](../README.md#-사용법-usage): `url-resolver` 단축링크 우회 및 aria2 자동 전송 가이드
 
 ### 3. 📖 Reference (참조)
 - [Configuration Spec](../README.md#-설정-configuration): `config/settings.json` 및 `sops` 암호화 설정 명세
