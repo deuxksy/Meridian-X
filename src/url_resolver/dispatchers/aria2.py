@@ -32,4 +32,6 @@ class Aria2Dispatcher:
             options["out"] = metadata.filename
 
         download = self.api.add(metadata.direct_url, options=options)
-        return download.gid
+        if isinstance(download, list):
+            return download[0].gid
+        return getattr(download, "gid", str(download))
