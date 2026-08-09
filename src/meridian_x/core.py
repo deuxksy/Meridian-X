@@ -84,38 +84,28 @@ def load_config(config_path: str | Path | None = None) -> dict:
             raise ValueError(f"Decrypted config is not valid JSON: {e}")
 
 
-def load_downloaded_history(history_file: str) -> Set[str]:
+def load_downloaded_history(history_file: str = "downloaded_history.txt") -> Set[str]:
     """
     이미 다운로드한 토렌트 ID 목록을 로드합니다.
-    prefix 없는 기존 항목은 onejav: prefix 자동 추가 (migration).
+    (MeridianDB 백엔드를 사용하며 legacy txt 파일이 존재하면 자동으로 마이그레이션합니다)
     """
-    history_path = Path(history_file)
-    if not history_path.exists():
-        return set()
+    from .db import MeridianDB
 
-    with open(history_path, "r", encoding="utf-8") as f:
-        result = set()
-        for line in f:
-            item = line.strip()
-            if not item:
-                continue
-            # prefix 없는 기존 항목은 onejav: prefix 추가
-            if ":" not in item:
-                item = "onejav:" + item
-            result.add(item)
-        return result
+    db = MeridianDB()
+    if Path(history_file).exists():
+        db.migrate_history_txt(history_file)
+    return db.get_download_history()
 
 
 def save_downloaded_history(history_file: str, downloaded: Set[str]) -> None:
     """
-    다운로드한 토렌트 ID 목록을 저장합니다.
+    다운로드한 토렌트 ID 목록을 저장합니다. (MeridianDB에 추가)
     """
-    history_path = Path(history_file)
-    history_path.parent.mkdir(parents=True, exist_ok=True)
+    from .db import MeridianDB
 
-    with open(history_path, "w", encoding="utf-8") as f:
-        for torrent_id in sorted(downloaded):
-            f.write(f"{torrent_id}\n")
+    db = MeridianDB()
+    db.add_download_history(downloaded)
+
 
 
 def extract_page_links(rss_content: str) -> List[dict]:

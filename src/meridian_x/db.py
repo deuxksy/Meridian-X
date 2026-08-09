@@ -59,3 +59,44 @@ class MeridianDB:
                 );
                 CREATE INDEX IF NOT EXISTS idx_west_updated ON west_metadata(updated_at);
             """)
+
+    def get_download_history(self) -> Set[str]:
+        with self.get_connection() as conn:
+            rows = conn.execute("SELECT id FROM download_history").fetchall()
+            return {row["id"] for row in rows}
+
+    def is_downloaded(self, torrent_id: str) -> bool:
+        item = f"onejav:{torrent_id}" if ":" not in torrent_id else torrent_id
+        with self.get_connection() as conn:
+            row = conn.execute("SELECT 1 FROM download_history WHERE id = ?", (item,)).fetchone()
+            return row is not None
+
+    def add_download_history(self, torrent_ids: Iterable[str]) -> None:
+        to_insert = []
+        for tid in torrent_ids:
+            item = f"onejav:{tid}" if ":" not in tid else tid
+            source = item.split(":", 1)[0]
+            to_insert.append((item, source))
+
+        with self.get_connection() as conn:
+            conn.executemany(
+                "INSERT OR IGNORE INTO download_history (id, source) VALUES (?, ?)",
+                to_insert,
+            )
+
+    def migrate_history_txt(self, history_file: str) -> int:
+        path = Path(history_file)
+        if not path.exists():
+            return 0
+        items = set()
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                item = line.strip()
+                if item:
+                    if ":" not in item:
+                        item = "onejav:" + item
+                    items.add(item)
+        if items:
+            self.add_download_history(items)
+        return len(items)
+

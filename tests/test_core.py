@@ -43,3 +43,21 @@ def test_load_config_encrypted(tmp_path):
     # Verify load_config decrypts transparently
     loaded = load_config(config_file)
     assert loaded == {"sources": {"test": {"enabled": True}}}
+
+
+def test_downloaded_history_integration(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    from meridian_x.core import load_downloaded_history, save_downloaded_history
+
+    txt_file = tmp_path / "downloaded_history.txt"
+    txt_file.write_text("SNOS100\nxxxclub:HASH123\n", encoding="utf-8")
+
+    # Loading should migrate legacy txt into DB and return set
+    history = load_downloaded_history(str(txt_file))
+    assert history == {"onejav:SNOS100", "xxxclub:HASH123"}
+
+    # Saving additional items updates DB
+    save_downloaded_history(str(txt_file), {"onejav:SNOS100", "xxxclub:HASH123", "onejav:SNOS101"})
+    history_after = load_downloaded_history(str(txt_file))
+    assert history_after == {"onejav:SNOS100", "xxxclub:HASH123", "onejav:SNOS101"}
+
