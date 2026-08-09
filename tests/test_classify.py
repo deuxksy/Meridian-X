@@ -199,3 +199,62 @@ def test_classify_filename_with_metadata_no_lookup(mock_get_meta):
     mock_get_meta.assert_not_called()
 
 
+@patch("meridian_x.classify.get_west_metadata")
+@patch("meridian_x.classify.get_jav_metadata")
+def test_classify_filename_with_metadata_west_stashdb(mock_jav_meta, mock_west_meta):
+    mock_jav_meta.return_value = {"actresses": [], "makers": []}
+    mock_west_meta.return_value = {
+        "query_term": "Lily Love",
+        "performers": ["Lily Love"],
+        "studio": "Vixen",
+        "tags": [],
+        "source": "stashdb",
+    }
+
+    config = {
+        "classify": {
+            "artists": {"WEST": [], "JPN": []},
+            "studios": {"WEST": {}, "JPN": {}},
+        }
+    }
+
+    dest = classify_filename_with_metadata("Lily.Love.Sample.mp4", config)
+    assert dest == "Actors/Lily Love"
+
+
+@patch("meridian_x.classify.get_west_metadata")
+def test_classify_filename_with_metadata_west_studio_fallback(mock_west_meta):
+    mock_west_meta.return_value = {
+        "query_term": "Random Scene",
+        "performers": [],
+        "studio": "Vixen",
+        "tags": [],
+        "source": "stashdb",
+    }
+
+    config = {
+        "classify": {
+            "artists": {"WEST": [], "JPN": []},
+            "studios": {"WEST": {}, "JPN": {}},
+        }
+    }
+
+    dest = classify_filename_with_metadata("Random.Scene.mp4", config)
+    assert dest == "Vixen"
+
+
+@patch("meridian_x.classify.get_west_metadata")
+def test_classify_filename_with_metadata_west_no_lookup(mock_west_meta):
+    config = {
+        "classify": {
+            "artists": {"WEST": [], "JPN": []},
+            "studios": {"WEST": {}, "JPN": {}},
+        }
+    }
+
+    dest = classify_filename_with_metadata("Lily.Love.Sample.mp4", config, use_metadata=False)
+    assert dest == "West"
+    mock_west_meta.assert_not_called()
+
+
+

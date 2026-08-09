@@ -12,8 +12,10 @@ import subprocess
 from .core import load_config
 from .jav_lookup import extract_jav_code, lookup_jav_actresses
 from .jav_metadata import get_jav_metadata
+from .west_metadata import get_west_metadata
 
 logger = logging.getLogger(__name__)
+
 
 # JAV 패턴 (메이커 코드 3-7자리 알파벳/숫자 + 숫자). 숫자 시작(348NTR), 7자리 시리즈(200GANA/300MIUM) 지원
 JPN_PATTERN = r"^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]"
@@ -226,27 +228,38 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
 def classify_filename_with_metadata(filename: str, config: dict, use_metadata: bool = True) -> str:
     """
     파일명 → 목적지 폴더 결정 (외부 API 메타데이터 연동).
-    우선순위: 명시적 설정(배우/스튜디오/장르) > API 메타데이터(배우 > 스튜디오) > JPN > FC2 > West
+    우선순위: 명시적 설정(배우/스튜디오/장르) > API 메타데이터(JPN: 배우 > 스튜디오, West: StashDB 배우 > 스튜디오) > JPN > FC2 > West
     """
-    # 1. 기존 명시적 설정 규칙 우선
     dest = classify_filename(filename, config)
     if dest not in ("JPN", "FC2", "West"):
         return dest
 
-    # 2. JAV 패턴 매칭 시 API 메타데이터 조회
-    if use_metadata and dest == "JPN":
-        code = extract_jav_code(filename)
-        if code:
-            meta = get_jav_metadata(code, config)
-            actresses = meta.get("actresses", [])
-            makers = meta.get("makers", [])
+    if use_metadata:
+        # JAV 패턴 매칭 시 JPN 메타데이터 수집
+        if dest == "JPN":
+            code = extract_jav_code(filename)
+            if code:
+                meta = get_jav_metadata(code, config)
+                actresses = meta.get("actresses", [])
+                makers = meta.get("makers", [])
 
-            if actresses:
-                return f"Actors/{actresses[0]}"
-            if makers:
-                return makers[0]
+                if actresses:
+                    return f"Actors/{actresses[0]}"
+                if makers:
+                    return makers[0]
+
+        # JAV/FC2가 아닌 West 미디어에 대해 StashDB 메타데이터 수집
+        elif dest == "West":
+            west_meta = get_west_metadata(filename, config)
+            performers = west_meta.get("performers", [])
+            studio = west_meta.get("studio")
+            if performers:
+                return f"Actors/{performers[0]}"
+            if studio:
+                return studio
 
     return dest
+
 
 
 def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str] = None) -> str | None:
