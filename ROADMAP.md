@@ -62,4 +62,4 @@
 
 ### 🌐 Long-Term (향후 확장)
 - [ ] **Cloudflare D1 클라우드 동기화**: 다중 머신/클라우드 환경 대비 `meridian.db` ➔ Cloudflare D1 백업 모듈
-- [ ] **Web Dashboard**: FastAPI / Next.js 기반 수집 이력 조회, 미디어 분류 상태 모니터링 및 메타데이터 수동 재조회 웹 대시보드
+- [ ] **Gradio 기반 Web Dashboard**: Gradio를 활용하여 수집 이력 조회, 미디어 분류 상태 모니터링, 토렌트 상태 및 메타데이터 수동 재조회 웹 UI 구축 (`uv run meridian dashboard`)
