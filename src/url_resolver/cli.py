@@ -30,7 +30,10 @@ DEFAULT_USER_AGENT = (
 )
 
 
-def resolve_post(post_url: str) -> list[DownloadMetadata]:
+def resolve_post(post_url: str, config: Optional[AppConfig] = None) -> list[DownloadMetadata]:
+    if config is None:
+        config = load_config()
+
     headers = {"User-Agent": DEFAULT_USER_AGENT}
     try:
         resp = httpx.get(post_url, headers=headers, follow_redirects=True, timeout=30.0)
@@ -48,6 +51,13 @@ def resolve_post(post_url: str) -> list[DownloadMetadata]:
     if not links:
         if any(domain in post_url for domain in ["ouo.io", "ouo.press", "mediafire.com", "mega.nz", "gofile.io"]):
             links = [post_url]
+
+    # Detect model_name from post_url or HTML content using configured models
+    model_name = None
+    for m in config.models:
+        if m in post_url or m in html_content:
+            model_name = m
+            break
 
     results: list[DownloadMetadata] = []
     ouo_bypasser = OuoBypasser()
@@ -82,6 +92,7 @@ def resolve_post(post_url: str) -> list[DownloadMetadata]:
             user_agent=DEFAULT_USER_AGENT,
             filename=filename,
             source_page=post_url,
+            model_name=model_name,
         )
         results.append(meta)
 
@@ -108,6 +119,7 @@ def handle_results(
                 "user_agent": m.user_agent,
                 "filename": m.filename,
                 "source_page": m.source_page,
+                "model_name": m.model_name,
             }
             for m in metadata_list
         ]
@@ -115,6 +127,8 @@ def handle_results(
     else:
         for m in metadata_list:
             console.print(f"[bold green]Direct URL:[/bold green] {m.direct_url}")
+            if m.model_name:
+                console.print(f"  [bold magenta]Model:[/bold magenta] {m.model_name}")
             if m.filename:
                 console.print(f"  [bold cyan]Filename:[/bold cyan] {m.filename}")
 
@@ -142,6 +156,7 @@ def handle_results(
                             "user_agent": m.user_agent,
                             "filename": m.filename,
                             "source_page": m.source_page,
+                            "model_name": m.model_name,
                         }
                         for m in metadata_list
                     ],
@@ -227,12 +242,13 @@ def crawl(
             if p not in visited_pages and p not in to_visit:
                 to_visit.append(p)
 
+    config = load_config()
     all_metadata: list[DownloadMetadata] = []
     for post_url in all_post_urls:
-        metadata = resolve_post(post_url)
+        metadata = resolve_post(post_url, config=config)
         all_metadata.extend(metadata)
 
-    handle_results(all_metadata, extract_only=extract_only, output=output, copy=False, json_output=False)
+    handle_results(all_metadata, extract_only=extract_only, output=output, copy=False, json_output=False, config=config)
 
 
 @app.command()
@@ -273,12 +289,13 @@ def batch(
     lines = path.read_text().splitlines()
     urls = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
 
+    config = load_config()
     all_metadata: list[DownloadMetadata] = []
     for url in urls:
-        metadata = resolve_post(url)
+        metadata = resolve_post(url, config=config)
         all_metadata.extend(metadata)
 
-    handle_results(all_metadata, extract_only=extract_only, output=output, copy=False, json_output=False)
+    handle_results(all_metadata, extract_only=extract_only, output=output, copy=False, json_output=False, config=config)
 
 
 if __name__ == "__main__":

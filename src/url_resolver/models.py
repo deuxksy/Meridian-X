@@ -9,3 +9,4 @@ class DownloadMetadata:
     user_agent: str
     filename: Optional[str]
     source_page: str
+    model_name: Optional[str] = None
