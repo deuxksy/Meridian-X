@@ -9,4 +9,5 @@ class DownloadMetadata:
     user_agent: str
     filename: Optional[str]
     source_page: str
+    tag: Optional[str] = None
     models: list[str] = field(default_factory=list)

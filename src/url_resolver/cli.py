@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -30,7 +31,18 @@ DEFAULT_USER_AGENT = (
 )
 
 
-def resolve_post(post_url: str, config: Optional[AppConfig] = None) -> list[DownloadMetadata]:
+def extract_tag_from_url(url: str) -> Optional[str]:
+    """Extract URL slug key (e.g. tag name) from URL."""
+    match = re.search(r"/tag/([^/]+)/", url)
+    if match:
+        return match.group(1)
+    match_cat = re.search(r"/category/([^/]+)/", url)
+    if match_cat:
+        return match_cat.group(1)
+    return None
+
+
+def resolve_post(post_url: str, config: Optional[AppConfig] = None, current_tag: Optional[str] = None) -> list[DownloadMetadata]:
     if config is None:
         config = load_config()
 
@@ -52,12 +64,14 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None) -> list[Down
         if any(domain in post_url for domain in ["ouo.io", "ouo.press", "mediafire.com", "mega.nz", "gofile.io"]):
             links = [post_url]
 
-    # Detect all matching model names as an Array (list)
+    # Detect models Array
     matched_models = []
     for m in config.models:
         if m in post_url or m in html_content:
             if m not in matched_models:
                 matched_models.append(m)
+
+    tag = current_tag or extract_tag_from_url(post_url)
 
     results: list[DownloadMetadata] = []
     ouo_bypasser = OuoBypasser()
@@ -92,6 +106,7 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None) -> list[Down
             user_agent=DEFAULT_USER_AGENT,
             filename=filename,
             source_page=post_url,
+            tag=tag,
             models=list(matched_models),
         )
         results.append(meta)
@@ -119,6 +134,7 @@ def handle_results(
                 "user_agent": m.user_agent,
                 "filename": m.filename,
                 "source_page": m.source_page,
+                "tag": m.tag,
                 "models": m.models,
             }
             for m in metadata_list
@@ -127,6 +143,8 @@ def handle_results(
     else:
         for m in metadata_list:
             console.print(f"[bold green]Direct URL:[/bold green] {m.direct_url}")
+            if m.tag:
+                console.print(f"  [bold yellow]Tag:[/bold yellow] {m.tag}")
             if m.models:
                 console.print(f"  [bold magenta]Models:[/bold magenta] {', '.join(m.models)}")
             if m.filename:
@@ -156,6 +174,7 @@ def handle_results(
                             "user_agent": m.user_agent,
                             "filename": m.filename,
                             "source_page": m.source_page,
+                            "tag": m.tag,
                             "models": m.models,
                         }
                         for m in metadata_list
@@ -199,6 +218,7 @@ def crawl(
     limit: int = typer.Option(0, "--limit", help="Max posts to process (0 for all)"),
     extract_only: bool = typer.Option(False, "--extract-only", help="Extract direct URL without dispatching to aria2"),
     output: Optional[str] = typer.Option(None, "-o", "--output", help="Save extracted URLs to file"),
+    json_output: bool = typer.Option(False, "--json", help="Output as JSON format"),
 ):
     """Crawl category or tag listing across multiple pages and process all posts."""
     headers = {"User-Agent": DEFAULT_USER_AGENT}
@@ -206,6 +226,8 @@ def crawl(
         crawler = CosplayteleCrawler()
     else:
         crawler = CategoryCrawler()
+
+    tag_slug = extract_tag_from_url(url)
 
     visited_pages = set()
     to_visit = [url]
@@ -245,10 +267,10 @@ def crawl(
     config = load_config()
     all_metadata: list[DownloadMetadata] = []
     for post_url in all_post_urls:
-        metadata = resolve_post(post_url, config=config)
+        metadata = resolve_post(post_url, config=config, current_tag=tag_slug)
         all_metadata.extend(metadata)
 
-    handle_results(all_metadata, extract_only=extract_only, output=output, copy=False, json_output=False, config=config)
+    handle_results(all_metadata, extract_only=extract_only, output=output, copy=False, json_output=json_output, config=config)
 
 
 @app.command()
