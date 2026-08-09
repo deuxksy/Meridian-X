@@ -52,12 +52,12 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None) -> list[Down
         if any(domain in post_url for domain in ["ouo.io", "ouo.press", "mediafire.com", "mega.nz", "gofile.io"]):
             links = [post_url]
 
-    # Detect model_name from post_url or HTML content using configured models
-    model_name = None
+    # Detect all matching model names as an Array (list)
+    matched_models = []
     for m in config.models:
         if m in post_url or m in html_content:
-            model_name = m
-            break
+            if m not in matched_models:
+                matched_models.append(m)
 
     results: list[DownloadMetadata] = []
     ouo_bypasser = OuoBypasser()
@@ -92,7 +92,7 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None) -> list[Down
             user_agent=DEFAULT_USER_AGENT,
             filename=filename,
             source_page=post_url,
-            model_name=model_name,
+            models=list(matched_models),
         )
         results.append(meta)
 
@@ -119,7 +119,7 @@ def handle_results(
                 "user_agent": m.user_agent,
                 "filename": m.filename,
                 "source_page": m.source_page,
-                "model_name": m.model_name,
+                "models": m.models,
             }
             for m in metadata_list
         ]
@@ -127,8 +127,8 @@ def handle_results(
     else:
         for m in metadata_list:
             console.print(f"[bold green]Direct URL:[/bold green] {m.direct_url}")
-            if m.model_name:
-                console.print(f"  [bold magenta]Model:[/bold magenta] {m.model_name}")
+            if m.models:
+                console.print(f"  [bold magenta]Models:[/bold magenta] {', '.join(m.models)}")
             if m.filename:
                 console.print(f"  [bold cyan]Filename:[/bold cyan] {m.filename}")
 
@@ -156,7 +156,7 @@ def handle_results(
                             "user_agent": m.user_agent,
                             "filename": m.filename,
                             "source_page": m.source_page,
-                            "model_name": m.model_name,
+                            "models": m.models,
                         }
                         for m in metadata_list
                     ],
