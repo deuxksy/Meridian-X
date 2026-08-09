@@ -17,19 +17,38 @@ logger = logging.getLogger(__name__)
 DEFAULT_CACHE_PATH = "logs/jav_metadata_cache.json"
 
 
+def _get_db_from_config_or_cache_path(config: dict | None = None, cache_path: str = DEFAULT_CACHE_PATH):
+    from .db import MeridianDB
+    db_path = None
+    if config:
+        db_path = config.get("db_path")
+    if not db_path and cache_path:
+        p = Path(cache_path)
+        db_path = p.with_suffix(".db") if p.suffix == ".json" else p
+    return MeridianDB(db_path=db_path)
+
+
 def load_cache(cache_path: str = DEFAULT_CACHE_PATH) -> dict:
+    db = _get_db_from_config_or_cache_path(cache_path=cache_path)
     path = Path(cache_path)
-    if not path.exists():
-        return {}
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError) as e:
-        logger.warning(f"Cache load failed: {e}")
-        return {}
+    if path.exists():
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    for k, v in data.items():
+                        if isinstance(v, dict):
+                            db.save_jav_metadata(k, v)
+        except Exception as e:
+            logger.warning(f"Cache load failed: {e}")
+    return db.get_all_jav_metadata()
 
 
 def save_cache(cache_path: str, cache: dict) -> None:
+    db = _get_db_from_config_or_cache_path(cache_path=cache_path)
+    for k, v in cache.items():
+        if isinstance(v, dict):
+            db.save_jav_metadata(k, v)
     path = Path(cache_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -56,12 +75,16 @@ def get_jav_metadata(
             config = {}
 
     cache_path = config.get("jav_metadata_cache") or DEFAULT_CACHE_PATH
-    cache = load_cache(cache_path)
+    db = _get_db_from_config_or_cache_path(config=config, cache_path=cache_path)
+    if Path(cache_path).exists():
+        db.migrate_json_caches(jav_json=cache_path)
+
     code_upper = code.upper()
 
-    if code_upper in cache:
+    cached = db.get_jav_metadata(code_upper)
+    if cached:
         logger.debug(f"[JAV Metadata Cache Hit] {code_upper}")
-        return cache[code_upper]
+        return cached
 
     sources_used = []
     actresses = []
@@ -136,7 +159,7 @@ def get_jav_metadata(
         "source": source,
     }
 
-    cache[code_upper] = metadata
-    save_cache(cache_path, cache)
+    db.save_jav_metadata(code_upper, metadata)
     return metadata
+
 
