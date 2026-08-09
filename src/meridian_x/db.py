@@ -98,6 +98,10 @@ class MeridianDB:
                     items.add(item)
         if items:
             self.add_download_history(items)
+        try:
+            path.rename(path.with_suffix(path.suffix + ".bak"))
+        except OSError as e:
+            logger.warning(f"Failed to rename {path} to .bak: {e}")
         return len(items)
 
     def get_jav_metadata(self, code: str) -> dict | None:
@@ -224,6 +228,7 @@ class MeridianDB:
                                 if isinstance(v, dict):
                                     self.save_jav_metadata(k, v)
                                     jav_count += 1
+                    jpath.rename(jpath.with_suffix(jpath.suffix + ".bak"))
                 except Exception as e:
                     logger.warning(f"Failed to migrate legacy JAV cache from {jav_json}: {e}")
 
@@ -238,6 +243,7 @@ class MeridianDB:
                                 if isinstance(v, dict):
                                     self.save_west_metadata(k, v)
                                     west_count += 1
+                    wpath.rename(wpath.with_suffix(wpath.suffix + ".bak"))
                 except Exception as e:
                     logger.warning(f"Failed to migrate legacy West cache from {west_json}: {e}")
 

@@ -49,13 +49,6 @@ def save_cache(cache_path: str, cache: dict) -> None:
     for k, v in cache.items():
         if isinstance(v, dict):
             db.save_jav_metadata(k, v)
-    path = Path(cache_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(cache, f, ensure_ascii=False, indent=2)
-    except OSError as e:
-        logger.warning(f"Cache save failed: {e}")
 
 
 def get_jav_metadata(

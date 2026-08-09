@@ -41,6 +41,10 @@ def test_migrate_history_txt(tmp_path: Path):
     assert "onejav:SNOS101" in history
     assert "xxxclub:HASH99" in history
 
+    bak_file = tmp_path / "downloaded_history.txt.bak"
+    assert not txt_file.exists()
+    assert bak_file.exists()
+
 
 def test_jav_metadata_crud(tmp_path: Path):
     db = MeridianDB(db_path=tmp_path / "test.db")
@@ -110,5 +114,12 @@ def test_migrate_json_caches(tmp_path: Path):
     west_res = db.get_west_metadata("vixen scene")
     assert west_res is not None
     assert west_res["title"] == "Legacy West"
+
+    jav_bak_file = tmp_path / "jav_cache.json.bak"
+    west_bak_file = tmp_path / "west_cache.json.bak"
+    assert not jav_file.exists()
+    assert jav_bak_file.exists()
+    assert not west_file.exists()
+    assert west_bak_file.exists()
 
 
