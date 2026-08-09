@@ -72,7 +72,9 @@ src/meridian_x/
 ├── fanza.py          # FANZA API 클라이언트 (DMM Affiliate API 메타데이터 조회)
 ├── jav_lookup.py     # JavBus/Jav321 및 OneJAV SSH 조회 기반 JAV 웹 메타데이터 수집
 ├── jav_metadata.py   # JAV 메타데이터 통합 Resolver (FANZA -> JavBus -> OneJAV 필드 병합 & 디스크 캐싱)
+├── west_metadata.py  # StashDB GraphQL API West 메타데이터 Resolver (queryScenes & 디스크 캐싱)
 └── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
+
 
 ```
 
@@ -87,7 +89,9 @@ tests/
 ├── test_onejav_security.py         # URL 검증/타임아웃
 ├── test_tidy.py                    # exclude 폴더 계산, flatten 스크립트
 ├── test_jav_metadata.py            # FANZA API/웹 DB 필드 병합 및 캐싱 회귀 테스트
+├── test_west_metadata.py           # StashDB GraphQL API 수집 및 캐싱 회귀 테스트
 └── test_simulation_classify.py     # classify/tidy 시뮬레이션 테스트
+
 
 ```
 
@@ -95,8 +99,8 @@ tests/
 
 - 핵심 의존성 (`pyproject.toml`): `requests`, `transmission-rpc` (Transmission RPC), `python-dotenv`, `beautifulsoup4` (jav_lookup). dev: `pytest`, `pytest-mock`.
 - `playwright>=1.40`은 `pyproject.toml`에 잔존하나 사용 중단 (onejav SSH 경유 전환, 커밋 933ea24). 제거 후보.
-- `config/settings.json` — 메인 설정 (gitignored). `settings.json.example` 참고.
-- `.env` — FANZA API: `FANZA_API_ID`, `FANZA_AFFILIATE_ID`
+- `config/settings.json` — 메인 설정 (gitignored). `settings.json.example` 및 `settings.json.sops` 참고.
+- `stashdb.api_key` — StashDB GraphQL API Key (settings.json / settings.json.sops 암호화 저장)
 - `jellyfin.api_key` — Jellyfin API Key (settings.json에 직접 설정)
 - `transmission.stop_after_download` — 기존 토렌트 다운로드 완료 후 자동 정지 (pipeline `stop` 단계 활성화)
 - `transmission.use_env_auth` — RPC 인증을 환경변수 기반으로 수행
@@ -115,6 +119,7 @@ tests/
 - **History ID**: `{source}:{id}` 형태 (`onejav:SNOS155`, `xxxclub:<infohash>`). prefix 없는 기존 항목은 `onejav:` 자동 부여(migration).
 - **분류 우선순위** (classify): 배우 > 스튜디오 > 장르(`genres`) > JAV 패턴(`JPN/`) > FC2(`FC2/`) > West(fallback). 배우/스튜디오 설정은 `classify.artists`/`classify.studios` (WEST/JPN dict, legacy `artist_folders`/`studio_folders` 리스트 fallback). tidy(flatten) 후 실행.
 - **JAV 패턴 & API 메타데이터 연동**: `^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]` 감지 시 `jav_metadata.get_jav_metadata()`로 메타데이터 수집 (FANZA → JavBus/Jav321 → OneJAV 필드 병합). 배우 수집 시 `Actors/{배우명}/`, 메이커 수집 시 `{스튜디오명}/`으로 우선 이동, 미조회 시 `JPN/` 이동.
+- **West 패턴 & StashDB API 연동**: JAV/FC2 외 미디어에 대해 `west_metadata.get_west_metadata()`로 StashDB 수집. 배우 수집 시 `Actors/{배우명}/`, 스튜디오 수집 시 `{스튜디오명}/`으로 이동, 미조회 시 `West/` fallback.
 
 - **FC2 패턴**: `^FC2` (예: FC2-PPV-4914752) → `FC2/`
 
