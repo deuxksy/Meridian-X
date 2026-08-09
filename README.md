@@ -93,6 +93,8 @@ Meridian-X/
     ├── classify.py            # 원격 파일 분류 (SSH)
     ├── report.py              # disk/토렌트 상태 리포트
     ├── fanza.py               # FANZA API 클라이언트
+    ├── jav_metadata.py        # JAV 메타데이터 통합 Resolver (FANZA -> JavBus -> OneJAV)
+    ├── west_metadata.py       # StashDB GraphQL API West 메타데이터 Resolver
     ├── jav_lookup.py          # JAV 배우 2차 분류 조회
     └── core.py                # 공통 함수 (설정/히스토리)
 ```
@@ -137,15 +139,15 @@ SSH 기반 원격 파일 정리 (heritage 서버). tidy → classify 워크플�
 - **라이브러리 갱신:** Jellyfin library refresh
 
 ### Classify (원격 분류)
-tidy(flatten) 이후, flatten된 파일을 우선순위별로 분류. SSH 하이브리드 방식 (Python 매칭 로직 + SSH `mv`).
+tidy(flatten) 이후, flatten된 파일을 우선순위별로 분류. SSH 하이브리드 방식 (Python 매칭 로직 + SSH `mv`). JPN(FANZA/JavBus/OneJAV) 및 West(StashDB GraphQL API) 메타데이터를 하이브리드로 자동 수집하여 배우(`Actors/{배우명}/`) 또는 스튜디오 폴더로 1차/2차 분류를 수행합니다.
 
 **분류 우선순위:**
-1. **배우 (Artist)** — `classify.artists` (파일명 포함 매칭)
-2. **스튜디오 (Studio)** — `classify.studios` (예: Vixen, Nubile)
+1. **배우 (Artist)** — `classify.artists` (파일명 포함 매칭) 및 JPN/West API 메타데이터
+2. **스튜디오 (Studio)** — `classify.studios` (예: Vixen, Nubile) 및 JPN/West API 메타데이터
 3. **장르 (Genre)** — `genres` 키워드/접두사 규칙
 4. **JPN** — JAV 패턴 `^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]` (예: SONE-446, 200GANA-3399)
 5. **FC2** — `FC2-PPV-*` 패턴
-6. **West** — 매칭되지 않은 나머지 영상 파일 (fallback)
+6. **West** — 매칭되지 않은 나머지 영상 파일 (StashDB 수집 후 fallback)
 
 > tidy(정리) → classify(분류) 순서로 실행. 중복 파일은 원본 삭제.
 
@@ -175,15 +177,16 @@ uv run meridian filter                  # 기존 토렌트 광고 파일 일괄 
 uv run meridian label                   # 메이커 코드/스튜디오/배우 labels 자동 설정
 
 # ========== Sync (Transmission → Jellyfin) ==========
-uv run meridian sync                    # Transmission labels → Jellyfin Tags 동기화
+uv run meridian sync                    # Transmission labels & JPN/West 메타데이터(Studios/Genres/People/Tags) → Jellyfin 동기화
 
 # ========== Tidy (원격 정리) ==========
 uv run meridian tidy                    # 정크삭제→Flatten→파일명정리→갱신
 
 # ========== Classify (원격 분류, tidy 후 실행) ==========
 uv run meridian classify --dry-run      # 미리보기 (권장)
-uv run meridian classify                # SSH로 원격 파일 분류
-uv run meridian classify --lookup-jav   # JPN/ 내 파일 OneJAV 조회로 배우 폴더 2차 분류
+uv run meridian classify                # SSH 원격 분류 (API 메타데이터 자동 lookup 포함)
+uv run meridian classify --no-lookup    # 외부 API 조회 없이 단순 수동 규칙 분류만 수행
+uv run meridian classify --lookup-jav   # JPN/ 내 파일 웹 DB 조회 기반 배우 폴더 2차 재분류
 
 # ========== Pipeline (한 번에 실행) ==========
 uv run meridian pipeline --dry-run      # 미리보기 (권장)
@@ -213,6 +216,7 @@ uv run meridian report                  # disk 사용량 + Transmission 토렌�
 | 옵션 | 설명 | 기본값 |
 | :--- | :--- | :--- |
 | `--dry-run` | 실제 이동/변경 없이 결과만 출력 | - |
+| `--no-lookup` | (classify 전용) 외부 API 메타데이터 조회 스킵 | - |
 | `--lookup-jav` | (classify 전용) JPN 폴더 내 파일 배우 폴더 2차 분류 | - |
 
 ### sync
@@ -233,6 +237,7 @@ uv run meridian report                  # disk 사용량 + Transmission 토렌�
 
 | 분류 (Diátaxis) | 문서 | 설명 |
 | :--- | :--- | :--- |
+| Reference | [Documentation Hub](./docs/README.md) | `docs/` 디렉터리 구조 및 문서 분류 안내 |
 | Explanation | [Roadmap](./ROADMAP.md) | 버전별 현황과 향후 계획 |
 | Explanation | [Security Scan 설계](./docs/plans/2026-04-03-security-scan-design.md) | 보안 스캔 도입 배경과 설계 결정 |
 | Explanation | [Security Scan 구현](./docs/plans/2026-04-03-security-scan-implementation.md) | 보안 스캔 구현 단계 계획 |
