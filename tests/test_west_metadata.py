@@ -37,18 +37,22 @@ def test_get_west_metadata_stashdb_success(mock_post, tmp_path):
     mock_resp.status_code = 200
     mock_resp.json.return_value = {
         "data": {
-            "searchScene": [
-                {
-                    "id": "scene123",
-                    "title": "Sample Scene",
-                    "date": "2025-01-29",
-                    "studio": {"name": "Vixen"},
-                    "performers": [{"performer": {"name": "Lily Love"}}],
-                    "tags": [{"name": "Lesbian"}],
-                }
-            ]
+            "queryScenes": {
+                "count": 1,
+                "scenes": [
+                    {
+                        "id": "scene123",
+                        "title": "Sample Scene",
+                        "date": "2025-01-29",
+                        "studio": {"name": "Vixen"},
+                        "performers": [{"performer": {"name": "Lily Love"}}],
+                        "tags": [{"name": "Lesbian"}],
+                    }
+                ]
+            }
         }
     }
+
     mock_post.return_value = mock_resp
 
     cache_file = tmp_path / "cache.json"

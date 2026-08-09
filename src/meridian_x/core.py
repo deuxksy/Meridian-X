@@ -12,6 +12,8 @@ import subprocess
 from pathlib import Path
 from typing import List, Set
 
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,7 +22,9 @@ def load_config(config_path: str | Path | None = None) -> dict:
     config/settings.json에서 설정을 로드합니다.
     일반 JSON 및 sops 바이너리 암호화 파일을 모두 지원합니다.
     """
+    load_dotenv()
     if config_path is None:
+
         base_config_dir = Path(__file__).parent.parent.parent / "config"
         if (base_config_dir / "settings.json").exists():
             config_path = base_config_dir / "settings.json"

@@ -90,21 +90,24 @@ def get_west_metadata(
         headers["ApiKey"] = api_key
 
     query = """
-    query SearchScenes($term: String!) {
-      searchScene(term: $term) {
-        id
-        title
-        date
-        studio {
-          name
-        }
-        performers {
-          performer {
+    query QueryScenes($input: SceneQueryInput!) {
+      queryScenes(input: $input) {
+        count
+        scenes {
+          id
+          title
+          date
+          studio {
             name
           }
-        }
-        tags {
-          name
+          performers {
+            performer {
+              name
+            }
+          }
+          tags {
+            name
+          }
         }
       }
     }
@@ -120,13 +123,15 @@ def get_west_metadata(
     try:
         resp = requests.post(
             STASHDB_GRAPHQL_URL,
-            json={"query": query, "variables": {"term": term}},
+            json={"query": query, "variables": {"input": {"text": term, "page": 1, "per_page": 5}}},
             headers=headers,
             timeout=10,
         )
         if resp.status_code == 200:
-            data = resp.json().get("data", {})
-            scenes = data.get("searchScene", [])
+            res_json = resp.json()
+            data = res_json.get("data") or {}
+            qs = data.get("queryScenes") or {}
+            scenes = qs.get("scenes") or []
             if scenes:
                 first_scene = scenes[0]
                 title = first_scene.get("title")
@@ -145,6 +150,7 @@ def get_west_metadata(
                 source = "stashdb"
     except Exception as e:
         logger.warning(f"[StashDB API Error] {term}: {e}")
+
 
     metadata = {
         "query_term": term,
