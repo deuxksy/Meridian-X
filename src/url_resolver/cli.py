@@ -56,18 +56,15 @@ def extract_tags_from_html_and_url(html_content: str, post_url: str) -> list[str
 def extract_models_from_tags_and_html(tags: list[str], html_content: str, post_url: str, config_models: list[str]) -> list[str]:
     """Smart auto-extract model names from tags, config, and title."""
     models = []
-    # 1. Config matched models
     for m in config_models:
         if m in post_url or m in html_content:
             if m not in models:
                 models.append(m)
 
-    # 2. Tag-based model extraction (exclude pure genre/category tags)
     for tag in tags:
         lower_t = tag.lower().strip()
         is_genre = any(kw in lower_t for kw in GENRE_TAG_KEYWORDS)
         if not is_genre and tag not in models:
-            # Contains specific model naming formats like 'Byoru (ビョル)', 'Chunmomo (蠢沫沫)', 'Rioko (凉凉子)'
             models.append(tag)
 
     return models
@@ -95,12 +92,10 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None, current_tag:
         if any(domain in post_url for domain in ["ouo.io", "ouo.press", "mediafire.com", "mega.nz", "gofile.io"]):
             links = [post_url]
 
-    # Detect tags Array
     tags = extract_tags_from_html_and_url(html_content, post_url)
     if current_tag and current_tag not in tags:
         tags.append(current_tag)
 
-    # Smart detect models Array (from tags + config)
     matched_models = extract_models_from_tags_and_html(tags, html_content, post_url, config.models)
 
     results: list[DownloadMetadata] = []
@@ -123,8 +118,16 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None, current_tag:
                 extracted_direct = mediafire_resolver.extract_direct_url(mf_resp.text)
                 if extracted_direct:
                     direct_url = extracted_direct
+                else:
+                    # Ignore Mediafire pages that failed to yield a direct CDN download link
+                    continue
             except Exception as e:
                 console.print(f"[yellow]Warning fetching Mediafire page {current_url}: {e}[/yellow]")
+                continue
+
+        # Ignore non-downloadable auxiliary links like blog.mediafire.com or repair scripts
+        if any(bad in direct_url for bad in ["blog.mediafire.com", "download_repair.php", "af_link.php"]):
+            continue
 
         filename = direct_url.split("/")[-1].split("?")[0] if "/" in direct_url else None
         if not filename or filename == direct_url:
