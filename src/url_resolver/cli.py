@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
+from bs4 import BeautifulSoup
 import httpx
 import typer
 from rich.console import Console
@@ -31,15 +32,21 @@ DEFAULT_USER_AGENT = (
 )
 
 
-def extract_tag_from_url(url: str) -> Optional[str]:
-    """Extract URL slug key (e.g. tag name) from URL."""
-    match = re.search(r"/tag/([^/]+)/", url)
-    if match:
-        return match.group(1)
-    match_cat = re.search(r"/category/([^/]+)/", url)
-    if match_cat:
-        return match_cat.group(1)
-    return None
+def extract_tags_from_html_and_url(html_content: str, post_url: str) -> list[str]:
+    """Extract all tags as an Array (list) from HTML rel='tag' links and URL."""
+    tags = []
+    soup = BeautifulSoup(html_content, "html.parser")
+    for a in soup.find_all("a", rel="tag"):
+        tag_text = a.text.strip()
+        if tag_text and tag_text not in tags:
+            tags.append(tag_text)
+
+    # Fallback/additional check from URL slug
+    match = re.search(r"/tag/([^/]+)/", post_url)
+    if match and match.group(1) not in tags:
+        tags.append(match.group(1))
+
+    return tags
 
 
 def resolve_post(post_url: str, config: Optional[AppConfig] = None, current_tag: Optional[str] = None) -> list[DownloadMetadata]:
@@ -64,14 +71,17 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None, current_tag:
         if any(domain in post_url for domain in ["ouo.io", "ouo.press", "mediafire.com", "mega.nz", "gofile.io"]):
             links = [post_url]
 
+    # Detect tags Array
+    tags = extract_tags_from_html_and_url(html_content, post_url)
+    if current_tag and current_tag not in tags:
+        tags.append(current_tag)
+
     # Detect models Array
     matched_models = []
     for m in config.models:
         if m in post_url or m in html_content:
             if m not in matched_models:
                 matched_models.append(m)
-
-    tag = current_tag or extract_tag_from_url(post_url)
 
     results: list[DownloadMetadata] = []
     ouo_bypasser = OuoBypasser()
@@ -106,7 +116,7 @@ def resolve_post(post_url: str, config: Optional[AppConfig] = None, current_tag:
             user_agent=DEFAULT_USER_AGENT,
             filename=filename,
             source_page=post_url,
-            tag=tag,
+            tags=list(tags),
             models=list(matched_models),
         )
         results.append(meta)
@@ -134,7 +144,7 @@ def handle_results(
                 "user_agent": m.user_agent,
                 "filename": m.filename,
                 "source_page": m.source_page,
-                "tag": m.tag,
+                "tags": m.tags,
                 "models": m.models,
             }
             for m in metadata_list
@@ -143,8 +153,8 @@ def handle_results(
     else:
         for m in metadata_list:
             console.print(f"[bold green]Direct URL:[/bold green] {m.direct_url}")
-            if m.tag:
-                console.print(f"  [bold yellow]Tag:[/bold yellow] {m.tag}")
+            if m.tags:
+                console.print(f"  [bold yellow]Tags:[/bold yellow] {', '.join(m.tags)}")
             if m.models:
                 console.print(f"  [bold magenta]Models:[/bold magenta] {', '.join(m.models)}")
             if m.filename:
@@ -174,7 +184,7 @@ def handle_results(
                             "user_agent": m.user_agent,
                             "filename": m.filename,
                             "source_page": m.source_page,
-                            "tag": m.tag,
+                            "tags": m.tags,
                             "models": m.models,
                         }
                         for m in metadata_list
@@ -227,7 +237,8 @@ def crawl(
     else:
         crawler = CategoryCrawler()
 
-    tag_slug = extract_tag_from_url(url)
+    tag_match = re.search(r"/(?:tag|category)/([^/]+)/", url)
+    tag_slug = tag_match.group(1) if tag_match else None
 
     visited_pages = set()
     to_visit = [url]
@@ -317,7 +328,7 @@ def batch(
         metadata = resolve_post(url, config=config)
         all_metadata.extend(metadata)
 
-    handle_results(all_metadata, extract_only=extract_only, output=output, copy=False, json_output=False, config=config)
+    handle_results(all_metadata, extract_only=extract_only, output=output, copy=False, json_output=json_output, config=config)
 
 
 if __name__ == "__main__":
