@@ -1,5 +1,7 @@
 # Meridian-X
 
+@./.ai/RULES.md
+
 미디어 컬렉션 자동화 큐레이션 도구. RSS 수집 → 정제 → 분류 파이프라인.
 
 ## Commands
@@ -50,6 +52,11 @@ uv run meridian pipeline --no-refresh           # Jellyfin 라이브러리 갱�
 # ========== Report (상태 조회, 읽기 전용) ==========
 uv run meridian report                          # disk 사용량 + Transmission 토렌트 상태
 
+# ========== URL Resolver (직링크 추출 및 aria2 전송) ==========
+uv run url-resolver parse "https://misskon.com/114764-..."            # 단일 게시글 직링크 추출 & aria2 전송
+uv run url-resolver crawl "https://misskon.com/tag/you-shui-ling-yi/"  # 카테고리/태그 전체 순차 수집
+uv run url-resolver crawl "https://cosplaytele.com/category/byoru/" --pages 2 --extract-only # 직링크만 추출
+
 # ========== Verification ==========
 uv run meridian transmission --dry-run          # 항상 --dry-run으로 먼저 확인
 uv run pytest tests/ -v                         # 도메인 로직 회귀 테스트 (RPC 없이)
@@ -64,6 +71,24 @@ src/meridian_x/
 ├── collect.py        # Multi-source orchestrator (source 순회, history 관리)
 ├── sources/          # Source 모듈 (discover + resolve 함수)
 │   ├── onejav.py     # OneJAV SSH 경유 (Cloudflare 우회): RSS → 페이지 → .torrent
+│   └── xxxclub.py    # XXXClub RSS → magnet link 직접 추출
+├── transmission.py    # Transmission RPC 클라이언트 (transmission-rpc 기반, add/filter/label)
+├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
+├── tidy.py           # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
+├── report.py         # disk 사용량 + Transmission 상태 리포트 (읽기 전용)
+├── fanza.py          # FANZA API 클라이언트 (DMM Affiliate API 메타데이터 조회)
+├── jav_lookup.py     # JavBus/Jav321 및 OneJAV SSH 조회 기반 JAV 웹 메타데이터 수집
+├── jav_metadata.py   # JAV 메타데이터 통합 Resolver (FANZA -> JavBus -> OneJAV 필드 병합 & 디스크 캐싱)
+├── west_metadata.py  # StashDB GraphQL API West 메타데이터 Resolver (queryScenes & 디스크 캐싱)
+└── core.py           # 공통 함수 (설정 로드, RSS 파싱, 히스토리 관리)
+
+src/url_resolver/
+├── cli.py            # url-resolver CLI 진입점 (parse, crawl, clip, batch)
+├── models.py         # DownloadMetadata 데이터 클래스 (tags, models 지원)
+├── config.py         # TOML 설정 로더 (~/.config/url-resolver/config.toml)
+├── extractors/       # misskon, cosplaytele, mediafire, ouo (Playwright) 파서
+└── dispatchers/      # aria2p RPC 전송 디스패처
+```�지 → .torrent
 │   └── xxxclub.py    # XXXClub RSS → magnet link 직접 추출
 ├── transmission.py    # Transmission RPC 클라이언트 (transmission-rpc 기반, add/filter/label)
 ├── jellyfin.py       # Jellyfin REST API 클라이언트 (sync tags, refresh library)
