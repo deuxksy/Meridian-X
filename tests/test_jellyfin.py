@@ -85,3 +85,82 @@ def test_sync_tags_with_jav_metadata(mock_get_videos, mock_update_tags, mock_upd
         }
     )
     mock_update_tags.assert_called_once_with("item1", ["jpn", "s1"])
+
+
+@patch.object(JellyfinClient, "_post")
+@patch.object(JellyfinClient, "get_item")
+def test_update_metadata_west_stashdb(mock_get_item, mock_post):
+    mock_get_item.return_value = {
+        "Id": "west123",
+        "Name": "Vixen.Lily.Love",
+        "Path": "/data/West/Vixen.Lily.Love.mp4",
+        "Tags": [],
+        "Studios": [],
+        "Genres": [],
+        "People": [],
+    }
+
+    client = JellyfinClient("http://localhost:8096", "test_key")
+    metadata = {
+        "performers": ["Lily Love"],
+        "studio": "Vixen",
+        "tags": ["Lesbian"],
+    }
+
+    ok = client.update_metadata("west123", metadata)
+    assert ok is True
+    mock_post.assert_called_once()
+    posted_payload = mock_post.call_args[0][1]
+    assert posted_payload["Studios"] == [{"Name": "Vixen"}]
+    assert posted_payload["People"] == [{"Name": "Lily Love", "Type": "Actor"}]
+    assert posted_payload["Genres"] == ["Lesbian"]
+    assert "lily love" in posted_payload["Tags"]
+    assert "vixen" in posted_payload["Tags"]
+    assert "lesbian" in posted_payload["Tags"]
+
+
+@patch("meridian_x.jellyfin.get_west_metadata")
+@patch.object(JellyfinClient, "update_metadata")
+@patch.object(JellyfinClient, "update_tags")
+@patch.object(JellyfinClient, "get_videos")
+def test_sync_tags_with_west_metadata(mock_get_videos, mock_update_tags, mock_update_metadata, mock_get_west_meta):
+    mock_get_videos.return_value = [
+        {
+            "Id": "west1",
+            "Name": "Vixen.Lily.Love",
+            "Path": "/data/West/Vixen.Lily.Love.mp4",
+            "Tags": [],
+        }
+    ]
+    mock_get_west_meta.return_value = {
+        "query_term": "Vixen Lily Love",
+        "performers": ["Lily Love"],
+        "studio": "Vixen",
+        "tags": ["Lesbian"],
+        "source": "stashdb",
+    }
+    mock_update_tags.return_value = True
+
+    tx_client = MagicMock()
+    tx_client.get_labeled_completed.return_value = {
+        "Vixen.Lily.Love": ["vixen", "lily love"]
+    }
+
+    client = JellyfinClient("http://localhost:8096", "test_key")
+    updated = sync_tags(client, tx_client)
+
+    assert updated == 1
+    mock_get_west_meta.assert_called_once_with("/data/West/Vixen.Lily.Love.mp4", None)
+    mock_update_metadata.assert_called_once_with(
+        "west1",
+        {
+            "query_term": "Vixen Lily Love",
+            "performers": ["Lily Love"],
+            "studio": "Vixen",
+            "tags": ["Lesbian"],
+            "source": "stashdb",
+        }
+    )
+    mock_update_tags.assert_called_once_with("west1", ["vixen", "lily love"])
+
+

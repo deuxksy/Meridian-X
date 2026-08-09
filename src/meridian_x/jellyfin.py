@@ -10,8 +10,10 @@ import requests
 
 from .jav_lookup import extract_jav_code
 from .jav_metadata import get_jav_metadata
+from .west_metadata import get_west_metadata
 
 logger = logging.getLogger(__name__)
+
 
 
 class JellyfinClient:
@@ -107,15 +109,15 @@ class JellyfinClient:
             return False
 
     def update_metadata(self, item_id: str, metadata: dict) -> bool:
-        """아이템 Studios, Genres, People, Tags 메타데이터 동기화."""
+        """아이템 Studios, Genres, People, Tags 메타데이터 동기화 (JPN 및 West 공통)."""
         try:
             item = self.get_item(item_id)
             if not item:
                 return False
 
-            actresses = metadata.get("actresses", [])
-            makers = metadata.get("makers", [])
-            genres = metadata.get("genres", [])
+            actresses = metadata.get("actresses") or metadata.get("performers") or []
+            makers = metadata.get("makers") or ([metadata["studio"]] if metadata.get("studio") else [])
+            genres = metadata.get("genres") or metadata.get("tags") or []
 
             if makers:
                 item["Studios"] = [{"Name": m} for m in makers]
@@ -129,6 +131,8 @@ class JellyfinClient:
                 tags.add(a.lower())
             for m in makers:
                 tags.add(m.lower())
+            for g in genres:
+                tags.add(g.lower())
             item["Tags"] = sorted(tags)
 
             # null 필드 제거 (Jellyfin ArgumentNullException 방지)
@@ -138,6 +142,7 @@ class JellyfinClient:
         except Exception as e:
             logger.error(f"[Jellyfin] Update metadata failed for {item_id}: {e}")
             return False
+
 
 
 def _match_name(torrent_name: str, jellyfin_path: str) -> bool:
@@ -182,7 +187,7 @@ def sync_tags(jellyfin: JellyfinClient, transmission_client, config: dict | None
             if not _match_name(torrent_name, info["path"]):
                 continue
 
-            # JAV 메타데이터 업데이트 시도
+            # JAV / West 메타데이터 업데이트 시도
             code = extract_jav_code(info["path"]) or extract_jav_code(torrent_name)
             if code:
                 try:
@@ -191,6 +196,14 @@ def sync_tags(jellyfin: JellyfinClient, transmission_client, config: dict | None
                         jellyfin.update_metadata(item_id, meta)
                 except Exception as e:
                     logger.warning(f"[Sync] JAV metadata update failed for {code}: {e}")
+            else:
+                try:
+                    west_meta = get_west_metadata(info["path"], config)
+                    if west_meta and (west_meta.get("performers") or west_meta.get("studio") or west_meta.get("tags")):
+                        jellyfin.update_metadata(item_id, west_meta)
+                except Exception as e:
+                    logger.warning(f"[Sync] West metadata update failed for {info['path']}: {e}")
+
 
             # 이미 동일 tags면 스킵
             if sorted(info["tags"]) == sorted(labels):
