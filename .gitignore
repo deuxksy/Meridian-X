@@ -111,3 +111,11 @@ config/settings.json
 
 keys.txt
 .superpowers/
+
+# SQLite Database Files
+data/*.db
+data/*.db-wal
+data/*.db-shm
+logs/*.db
+logs/*.db-wal
+logs/*.db-shm
