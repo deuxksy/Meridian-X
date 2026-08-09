@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the `url-resolver` CLI tool to extract direct download URLs from complex link chains (`misskon`, `ouo.io`, `mediafire`) and category listing pages, optionally dispatching metadata to a remote `aria2` daemon (`ws://heritage.bun-bull.ts.net:6800`).
+**Goal:** Build the `url-resolver` CLI tool to extract direct download URLs from complex link chains (`misskon`, `ouo.io`, `mediafire`) and multi-page category/tag listings, optionally dispatching metadata to a remote `aria2` daemon (`ws://heritage.bun-bull.ts.net:6800`).
 
-**Architecture:** 2-Stage Pipeline (Stage 1: HTML Parsing + Playwright Bypass Extractor Engine -> Stage 2: `aria2p` Dispatcher).
+**Architecture:** 2-Stage Pipeline (Stage 1: HTML Parsing + Pagination Crawler + Playwright Bypass Extractor Engine -> Stage 2: `aria2p` Dispatcher).
 
 **Tech Stack:** Python 3.10+, `typer`, `httpx`, `beautifulsoup4`, `playwright`, `aria2p`, `rich`, `pytest`.
 
@@ -22,7 +22,7 @@
 - `src/url_resolver/config.py`: Loads TOML config for aria2 settings.
 - `src/url_resolver/extractors/base.py`: Base abstract class for resolvers.
 - `src/url_resolver/extractors/misskon.py`: HTML parser for misskon post pages.
-- `src/url_resolver/extractors/crawler.py`: Crawler for category/tag list pages.
+- `src/url_resolver/extractors/crawler.py`: Crawler for category/tag list & pagination pages.
 - `src/url_resolver/extractors/mediafire.py`: Parser for MediaFire download pages.
 - `src/url_resolver/extractors/ouo.py`: Playwright headless browser bypass engine for `ouo.io`/`ouo.press`.
 - `src/url_resolver/dispatchers/aria2.py`: `aria2p` client dispatcher.
@@ -138,7 +138,7 @@ git commit -m "feat: add models and config module"
 
 **Interfaces:**
 - Consumes: `DownloadMetadata`
-- Produces: `MisskonParser.extract_links(html_content: str) -> list[str]`
+- Produces: `MisskonParser.extract_download_links(html_content: str) -> list[str]`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -206,15 +206,17 @@ git commit -m "feat: add Misskon HTML parser extractor"
 
 ---
 
-### Task 3: Category & Tag List Crawler
+### Task 3: Category & Tag List Crawler (with Pagination support)
 
 **Files:**
 - Create: `src/url_resolver/extractors/crawler.py`
 - Test: `tests/test_crawler.py`
 
 **Interfaces:**
-- Consumes: None
-- Produces: `CategoryCrawler.extract_post_urls(html_content: str) -> list[str]`
+- Consumes: Category HTML content string
+- Produces: 
+  - `CategoryCrawler.extract_post_urls(html_content: str) -> list[str]`
+  - `CategoryCrawler.extract_pagination_urls(html_content: str) -> list[str]`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -234,14 +236,24 @@ def test_extract_post_urls_from_category_html():
             <a href="https://misskon.com/114765-post2/">Post 2 Title</a>
           </h2>
         </div>
+        <div class="pagination">
+          <span class="current">1</span>
+          <a href="https://misskon.com/tag/test/page/2/" class="page" title="2">2</a>
+          <a href="https://misskon.com/tag/test/page/3/" class="page" title="3">3</a>
+        </div>
       </body>
     </html>
     '''
     crawler = CategoryCrawler()
     urls = crawler.extract_post_urls(sample_html)
+    pages = crawler.extract_pagination_urls(sample_html)
     assert urls == [
         "https://misskon.com/114764-post1/",
         "https://misskon.com/114765-post2/"
+    ]
+    assert pages == [
+        "https://misskon.com/tag/test/page/2/",
+        "https://misskon.com/tag/test/page/3/"
     ]
 ```
 
@@ -265,6 +277,18 @@ class CategoryCrawler:
             if a_tag and a_tag["href"] not in post_urls:
                 post_urls.append(a_tag["href"])
         return post_urls
+
+    def extract_pagination_urls(self, html_content: str) -> list[str]:
+        soup = BeautifulSoup(html_content, "html.parser")
+        pagination_div = soup.find("div", class_="pagination")
+        if not pagination_div:
+            return []
+        pages = []
+        for a_tag in pagination_div.find_all("a", class_="page", href=True):
+            href = a_tag["href"]
+            if href not in pages:
+                pages.append(href)
+        return pages
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
@@ -276,7 +300,7 @@ Expected: PASS.
 
 ```bash
 git add src/url_resolver/extractors/crawler.py tests/test_crawler.py
-git commit -m "feat: add category crawler for post list extraction"
+git commit -m "feat: add pagination support to category crawler"
 ```
 
 ---
@@ -327,7 +351,6 @@ class MediafireResolver:
         btn = soup.find("a", id="downloadButton")
         if btn and btn.get("href"):
             return btn["href"]
-        # Fallback to aria-label
         btn_aria = soup.find("a", attrs={"aria-label": "Download file"})
         if btn_aria and btn_aria.get("href"):
             return btn_aria["href"]
@@ -488,7 +511,6 @@ from url_resolver.config import AppConfig
 class Aria2Dispatcher:
     def __init__(self, config: AppConfig):
         self.config = config
-        # Parse host URL
         host = config.aria2_host.replace("ws://", "http://").replace("wss://", "https://")
         if "/jsonrpc" in host:
             host = host.split("/jsonrpc")[0]
@@ -575,9 +597,10 @@ def parse(
 @app.command()
 def crawl(
     url: str = typer.Argument(..., help="Category or Tag list URL"),
+    pages: int = typer.Option(1, "--pages", help="Max pages to crawl (0 for all)"),
     limit: int = typer.Option(0, "--limit", help="Max posts to process (0 for all)")
 ):
-    console.print(f"[bold blue]Crawling category:[/bold blue] {url}")
+    console.print(f"[bold blue]Crawling category:[/bold blue] {url} (pages: {pages})")
 
 if __name__ == "__main__":
     app()
@@ -598,6 +621,6 @@ git commit -m "feat: add Typer CLI entrypoint and commands"
 ---
 
 ## Plan Self-Review
-1. **Spec coverage**: Covers `DownloadMetadata`, `MisskonParser`, `OuoBypasser`, `MediafireResolver`, `CategoryCrawler`, `Aria2Dispatcher`, and Typer CLI (`parse`, `crawl`).
+1. **Spec coverage**: Covers `DownloadMetadata`, `MisskonParser`, `OuoBypasser`, `MediafireResolver`, `CategoryCrawler` (with pagination), `Aria2Dispatcher`, and Typer CLI (`parse`, `crawl` with `--pages`).
 2. **Placeholder scan**: No placeholders. All test and code blocks are fully written.
 3. **Type consistency**: `DownloadMetadata` field names and types match across tasks.
