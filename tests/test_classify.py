@@ -97,8 +97,6 @@ def test_japanese_artists_favorite_list():
     assert actual_jpn == expected
 
 
-
-
 from meridian_x.classify import classify_by_actress_lookup
 
 def test_classify_by_actress_lookup():
