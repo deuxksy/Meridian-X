@@ -65,6 +65,39 @@ def test_japanese_artists_classification():
     assert classify_filename("MINAMO_special_01.mp4", config) == "Actors/MINAMO"
 
 
+def test_japanese_artists_favorite_list():
+    config = load_config("config/settings.json")
+    expected = [
+        "MINAMO",
+        "Rena Miyashita",
+        "Rima Arai",
+        "Umi Yatsugake",
+        "佐野葉月",
+        "博多彩葉",
+        "川越にこ",
+        "日向由奈",
+        "白花にあ",
+        "雛形みくる",
+        "白月さとみ",
+        "美月結衣",
+        "来栖唯希",
+        "篠宮るい",
+        "彩月七緒",
+        "桜ゆの",
+        "赤名いと",
+        "白石透羽",
+        "倉木華",
+        "Ranran Fujii",
+        "柴崎はる",
+        "瀬戸環奈",
+        "松永あかり",
+        "岬さくら",
+    ]
+    actual_jpn = config.get("classify", {}).get("artists", {}).get("JPN", [])
+    assert actual_jpn == expected
+
+
+
 
 from meridian_x.classify import classify_by_actress_lookup
 
