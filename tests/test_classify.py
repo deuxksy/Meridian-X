@@ -1,10 +1,16 @@
+from unittest.mock import patch
+
 from meridian_x.classify import (
     _normalize_name,
+    classify_by_actress_lookup,
     classify_filename,
+    classify_filename_with_metadata,
     classify_folder,
+    compute_exclude_folders,
     get_artist_folders,
     get_studio_mappings,
 )
+from meridian_x.core import load_config
 
 
 def test_normalize_name():
@@ -36,10 +42,6 @@ def test_classify_folder_with_normalized_artist():
     }
     assert classify_folder("dakota.doll.collection", config) == "Actors/Dakota Doll"
     assert classify_folder("vixen.studio.pack", config) == "Vixen"
-
-
-
-from meridian_x.core import load_config
 
 def test_dakota_doll_in_settings():
     config = load_config("config/settings.json")
@@ -95,10 +97,6 @@ def test_japanese_artists_favorite_list():
     ]
     actual_jpn = config.get("classify", {}).get("artists", {}).get("JPN", [])
     assert actual_jpn == expected
-
-
-from meridian_x.classify import classify_by_actress_lookup
-
 def test_classify_by_actress_lookup():
     config = {
         "classify": {
@@ -136,12 +134,10 @@ class TestComputeExcludeFolders:
 
     def test_includes_actors_container(self):
         """회귀: Actors/ 컨테이너 자체가 분류 대상 폴더로 재분류되면 안 된다."""
-        from meridian_x.classify import compute_exclude_folders
         config = {"classify": {}, "genres": {}}
         assert "Actors" in compute_exclude_folders(config)
 
     def test_full_set_from_dict_config(self):
-        from meridian_x.classify import compute_exclude_folders
         config = {
             "classify": {
                 "artists": {"WEST": ["Dakota Doll"], "JPN": ["MINAMO"]},
@@ -154,11 +150,6 @@ class TestComputeExcludeFolders:
             "Actors", "JPN", "FC2", "West",
             "Dakota Doll", "MINAMO", "Vixen", "Anime",
         } <= exclude
-
-
-from unittest.mock import patch
-from meridian_x.classify import classify_filename_with_metadata
-
 
 @patch("meridian_x.classify.get_jav_metadata")
 def test_classify_filename_with_metadata_actress(mock_get_meta):
