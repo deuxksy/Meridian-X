@@ -2,20 +2,20 @@
 
 **Date:** 2026-08-10  
 **Status:** Approved  
-**Topic:** Clean up `classify.artists.JPN` to contain only user's favorite Japanese actors (13 actors)
+**Topic:** Clean up `classify.artists.JPN` to contain only user's favorite Japanese actors (14 actors)
 
 ---
 
 ## 1. Overview
 
-This design specification updates `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example`. The existing configuration contains 35 Japanese artists accumulated over time. The user requested to clean up the list to contain strictly their 13 favorite Japanese actors.
+This design specification updates `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example`. The existing configuration contains 35 Japanese artists accumulated over time. The user requested to clean up the list to contain strictly their 14 favorite Japanese actors.
 
 ---
 
 ## 2. Goals & Non-Goals
 
 ### Goals
-1. **Configuration Cleanup:** Set `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example` to the exact 13 favorite actors provided by the user.
+1. **Configuration Cleanup:** Set `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example` to the exact 14 favorite actors provided by the user.
 2. **Verification & Testing:** Ensure tests pass and the updated configuration works cleanly with `meridian classify`.
 
 ### Non-Goals
@@ -27,7 +27,7 @@ This design specification updates `classify.artists.JPN` in `config/settings.jso
 
 ### 3.1 Updated Artist List (`classify.artists.JPN`)
 
-The updated array in `config/settings.json` and `config/settings.json.example` will contain strictly the following 13 actors:
+The updated array in `config/settings.json` and `config/settings.json.example` will contain strictly the following 14 actors:
 
 1. `MINAMO`
 2. `Rena Miyashita`
@@ -42,6 +42,7 @@ The updated array in `config/settings.json` and `config/settings.json.example` w
 11. `白月さとみ`
 12. `美月結衣`
 13. `来栖唯希`
+14. `篠宮るい`
 
 ---
 
