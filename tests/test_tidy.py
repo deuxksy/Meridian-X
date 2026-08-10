@@ -252,9 +252,16 @@ class TestRunDryRun:
 
 
 def test_clean_prefixes_includes_4k688():
+    from pathlib import Path
+
     from meridian_x.core import load_config
-    config = load_config("config/settings.json")
+
+    config_path = Path("config/settings.json")
+    if not config_path.exists():
+        config_path = Path("config/settings.json.example")
+    config = load_config(config_path)
     prefixes = config.get("classify", {}).get("clean_prefixes", [])
     assert "hhd800.com@" in prefixes
     assert "4k688.com@" in prefixes
+
 
