@@ -2,20 +2,20 @@
 
 **Date:** 2026-08-10  
 **Status:** Approved  
-**Topic:** Clean up `classify.artists.JPN` to contain only user's favorite Japanese actors (15 actors)
+**Topic:** Clean up `classify.artists.JPN` to contain only user's favorite Japanese actors (24 actors)
 
 ---
 
 ## 1. Overview
 
-This design specification updates `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example`. The existing configuration contains 35 Japanese artists accumulated over time. The user requested to clean up the list to contain strictly their 15 favorite Japanese actors.
+This design specification updates `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example`. The existing configuration contained 35 Japanese artists accumulated over time. The user requested to clean up the list to contain strictly their 24 favorite Japanese actors.
 
 ---
 
 ## 2. Goals & Non-Goals
 
 ### Goals
-1. **Configuration Cleanup:** Set `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example` to the exact 15 favorite actors provided by the user.
+1. **Configuration Cleanup:** Set `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example` to the exact 24 favorite actors provided by the user.
 2. **Verification & Testing:** Ensure tests pass and the updated configuration works cleanly with `meridian classify`.
 
 ### Non-Goals
@@ -27,7 +27,7 @@ This design specification updates `classify.artists.JPN` in `config/settings.jso
 
 ### 3.1 Updated Artist List (`classify.artists.JPN`)
 
-The updated array in `config/settings.json` and `config/settings.json.example` will contain strictly the following 15 actors:
+The updated array in `config/settings.json` and `config/settings.json.example` will contain strictly the following 24 actors:
 
 1. `MINAMO`
 2. `Rena Miyashita`
@@ -44,6 +44,15 @@ The updated array in `config/settings.json` and `config/settings.json.example` w
 13. `来栖唯希`
 14. `篠宮るい`
 15. `彩月七緒`
+16. `桜ゆの`
+17. `赤名いと`
+18. `白石透羽`
+19. `倉木華`
+20. `Ranran Fujii`
+21. `柴崎はる`
+22. `瀬戸環奈`
+23. `松永あかり`
+24. `岬さくら`
 
 ---
 
