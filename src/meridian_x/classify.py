@@ -228,14 +228,16 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
 def classify_filename_with_metadata(filename: str, config: dict, use_metadata: bool = True) -> str:
     """
     파일명 → 목적지 폴더 결정 (외부 API 메타데이터 연동).
-    우선순위: 명시적 설정(배우/스튜디오/장르) > API 메타데이터(JPN: 배우 > 스튜디오, West: StashDB 배우 > 스튜디오) > JPN > FC2 > West
+    우선순위: 명시적 설정(배우/스튜디오/장르) > API 메타데이터(즐겨찾기 배우 > 등록 스튜디오) > JPN > FC2 > West
     """
     dest = classify_filename(filename, config)
     if dest not in ("JPN", "FC2", "West"):
         return dest
 
     if use_metadata:
-        # JAV 패턴 매칭 시 JPN 메타데이터 수집
+        artist_folders = get_artist_folders(config)
+        studio_mappings = get_studio_mappings(config)
+
         if dest == "JPN":
             code = extract_jav_code(filename)
             if code:
@@ -243,20 +245,36 @@ def classify_filename_with_metadata(filename: str, config: dict, use_metadata: b
                 actresses = meta.get("actresses", [])
                 makers = meta.get("makers", [])
 
-                if actresses:
-                    return f"Actors/{actresses[0]}"
-                if makers:
-                    return makers[0]
+                # 1. 즐겨찾기 배우 확인
+                for actress in actresses:
+                    for folder in artist_folders:
+                        if _normalize_name(folder) in _normalize_name(actress):
+                            return f"Actors/{folder}"
 
-        # JAV/FC2가 아닌 West 미디어에 대해 StashDB 메타데이터 수집
+                # 2. 등록 스튜디오 확인
+                for maker in makers:
+                    m_norm = _normalize_name(maker)
+                    for studio, aliases in studio_mappings.items():
+                        if _normalize_name(studio) in m_norm or any(_normalize_name(alias) in m_norm for alias in aliases):
+                            return studio
+
         elif dest == "West":
             west_meta = get_west_metadata(filename, config)
             performers = west_meta.get("performers", [])
             studio = west_meta.get("studio")
-            if performers:
-                return f"Actors/{performers[0]}"
+
+            # 1. 즐겨찾기 배우 확인
+            for performer in performers:
+                for folder in artist_folders:
+                    if _normalize_name(folder) in _normalize_name(performer):
+                        return f"Actors/{folder}"
+
+            # 2. 등록 스튜디오 확인
             if studio:
-                return studio
+                s_norm = _normalize_name(studio)
+                for st_name, aliases in studio_mappings.items():
+                    if _normalize_name(st_name) in s_norm or any(_normalize_name(alias) in s_norm for alias in aliases):
+                        return st_name
 
     return dest
 

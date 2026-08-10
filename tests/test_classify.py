@@ -163,7 +163,7 @@ def test_classify_filename_with_metadata_actress(mock_get_meta):
 
     config = {
         "classify": {
-            "artists": {"WEST": [], "JPN": []},
+            "artists": {"WEST": [], "JPN": ["MINAMO"]},
             "studios": {"WEST": {}, "JPN": {}},
         }
     }
@@ -185,7 +185,7 @@ def test_classify_filename_with_metadata_maker_fallback(mock_get_meta):
     config = {
         "classify": {
             "artists": {"WEST": [], "JPN": []},
-            "studios": {"WEST": {}, "JPN": {}},
+            "studios": {"WEST": {}, "JPN": {"S1 NO.1 STYLE": ["s1"]}},
         }
     }
 
@@ -235,7 +235,7 @@ def test_classify_filename_with_metadata_west_stashdb(mock_jav_meta, mock_west_m
 
     config = {
         "classify": {
-            "artists": {"WEST": [], "JPN": []},
+            "artists": {"WEST": ["Lily Love"], "JPN": []},
             "studios": {"WEST": {}, "JPN": {}},
         }
     }
@@ -257,7 +257,7 @@ def test_classify_filename_with_metadata_west_studio_fallback(mock_west_meta):
     config = {
         "classify": {
             "artists": {"WEST": [], "JPN": []},
-            "studios": {"WEST": {}, "JPN": {}},
+            "studios": {"WEST": {"Vixen": ["vixen"]}, "JPN": {}},
         }
     }
 
@@ -277,6 +277,46 @@ def test_classify_filename_with_metadata_west_no_lookup(mock_west_meta):
     dest = classify_filename_with_metadata("Lily.Love.Sample.mp4", config, use_metadata=False)
     assert dest == "West"
     mock_west_meta.assert_not_called()
+
+
+def test_strict_metadata_classification_favorited_only(monkeypatch):
+    config = {
+        "classify": {
+            "artists": {
+                "JPN": ["MINAMO"],
+                "WEST": ["Dakota Doll"]
+            },
+            "studios": {
+                "JPN": {
+                    "Moodyz": ["moodyz"]
+                },
+                "WEST": {
+                    "Vixen": ["vixen"]
+                }
+            }
+        }
+    }
+
+    # Mock get_jav_metadata for JPN tests
+    def mock_get_jav_meta(code, cfg):
+        if code == "SSIS-123":
+            return {"actresses": ["MINAMO"], "makers": ["Moodyz"]}
+        if code == "SSIS-456":
+            return {"actresses": ["Unknown Actress"], "makers": ["Moodyz"]}
+        if code == "SSIS-789":
+            return {"actresses": ["Unknown Actress"], "makers": ["Unknown Studio"]}
+        return {}
+
+    import meridian_x.classify
+    monkeypatch.setattr(meridian_x.classify, "get_jav_metadata", mock_get_jav_meta)
+
+    # 1. Favorited actress -> Actors/MINAMO
+    assert classify_filename_with_metadata("SSIS-123.mp4", config) == "Actors/MINAMO"
+    # 2. Unregistered actress + Registered studio -> Moodyz
+    assert classify_filename_with_metadata("SSIS-456.mp4", config) == "Moodyz"
+    # 3. Unregistered actress + Unregistered studio -> JPN
+    assert classify_filename_with_metadata("SSIS-789.mp4", config) == "JPN"
+
 
 
 
