@@ -4,7 +4,7 @@
 
 *품격 있는 디지털 수집가를 위한 우아한 솔루션*
 
-**Meridian-X**는 귀하의 소중한 프라이빗 미디어 컬렉션을 완벽한 상태로 유지하기 위해 설계된 맞춤형 자동화 스위트입니다. RSS 피드 수집에서 Transmission 다운로드, Jellyfin 라이브러리 큐레이션까지 전 과정을 자동으로 수행하며, 귀하의 디지털 서고가 항상 정돈되고, 깨끗하며, 즉시 감상 가능한 상태를 유지하도록 돕습니다.
+**Meridian-X**는 프라이빗 미디어 컬렉션을 자동 수집·정리·분류·동기화하는 Python 자동화 스위트입니다. RSS 기반 Transmission 수집, 광고 파일 정리, JAV/West 메타데이터 조회, Jellyfin 태그 동기화, URL Resolver 기반 직링크 추출과 aria2 전송을 하나의 운영 흐름으로 제공합니다.
 
 ---
 
@@ -242,10 +242,14 @@ uv run url-resolver crawl "https://cosplaytele.com/category/byoru/" --pages 2 --
 
 | 분류 (Diátaxis) | 문서 | 설명 |
 | :--- | :--- | :--- |
+| Tutorials | [Tutorials Hub](./docs/tutorials/README.md) | 입문 및 첫 실행 가이드 |
+| How-To | [How-To Hub](./docs/how-to/README.md) | 특정 운영 작업 수행 절차 |
+| Reference | [Reference Hub](./docs/reference/README.md) | 설정, CLI, 문서 구조 참조 |
 | Reference | [Documentation Hub](./docs/README.md) | `docs/` 디렉터리 구조 및 문서 분류 안내 |
 | Explanation | [Roadmap](./ROADMAP.md) | 버전별 현황과 향후 계획 |
-| Explanation | [Security Scan 설계](./docs/plans/2026-04-03-security-scan-design.md) | 보안 스캔 도입 배경과 설계 결정 |
-| Explanation | [Security Scan 구현](./docs/plans/2026-04-03-security-scan-implementation.md) | 보안 스캔 구현 단계 계획 |
+| Explanation | [Explanation Hub](./docs/explanation/README.md) | 아키텍처, 설계 결정, 배경 설명 |
+| Explanation | [Security Scan 설계](./docs/explanation/security-scan-design.md) | 보안 스캔 도입 배경과 설계 결정 |
+| How-To | [Security Scan 구현](./docs/how-to/security-scan-implementation.md) | 보안 스캔 구현 단계 계획 |
 
 ---
 
