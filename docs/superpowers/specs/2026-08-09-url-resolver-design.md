@@ -8,19 +8,19 @@
 
 ## 1. Executive Summary
 
-`url-resolver`는 `misskon.com` 등과 같이 복잡한 웹페이지, 카테고리/태그 리스트 및 단축 링크 체인(`ouo.io`, `ouo.press`, `mediafire.com` 등)에서 대용량 파일의 **최종 직링크(Direct Download URL)**와 **Referer/User-Agent 메타데이터**를 순차적으로 자동 추출하고, 선택적으로 원격 `aria2` 서버(`ws://heritage.bun-bull.ts.net:6800`)로 전달하는 2단계 파이프라인 CLI 도구이다.
+`url-resolver`는 `misskon.com` 등과 같이 복잡한 웹페이지, 카테고리/태그 리스트(다중 페이지네이션 지원) 및 단축 링크 체인(`ouo.io`, `ouo.press`, `mediafire.com` 등)에서 대용량 파일의 **최종 직링크(Direct Download URL)**와 **Referer/User-Agent 메타데이터**를 순차적으로 자동 추출하고, 선택적으로 원격 `aria2` 서버(`ws://heritage.bun-bull.ts.net:6800`)로 전달하는 2단계 파이프라인 CLI 도구이다.
 
 ---
 
 ## 2. Core Principles & Goals
 
 1. **Separation of Concerns (2-Stage Pipeline)**:
-   - **Stage 1 (Extractor Engine)**: 카테고리/게시글 HTML 파싱, `ouo.io` 바이패스, `MediaFire` 직링크 파싱 및 메타데이터 생성.
+   - **Stage 1 (Extractor Engine)**: 카테고리/태그 페이지네이션 및 게시글 HTML 파싱, `ouo.io` 바이패스, `MediaFire` 직링크 파싱 및 메타데이터 생성.
    - **Stage 2 (Dispatcher Engine)**: `aria2p` 기반 원격 aria2 RPC 전송.
 2. **Robust Bypass Success Rate**:
    - `ouo.io` / `ouo.press` 바이패스 성공률 95%+ 달성을 위해 Playwright 기반 세션/리다이렉션 트래픽 감지 핸들러 내장.
-3. **Category / Tag Crawling**:
-   - 태그/카테고리 리스트 페이지(`https://misskon.com/tag/...`)를 입력받아 등록된 게시물들을 순차적으로 순회하며 자동 추출.
+3. **Category / Tag Crawling with Pagination**:
+   - 태그/카테고리 리스트 페이지(`https://misskon.com/tag/...`)를 입력받아 `<div class="pagination">`을 탐색하며 여러 페이지(`page/2/`, `page/3/` 등)의 게시물들을 순차적으로 순회하며 자동 추출.
 
 ---
 
@@ -36,7 +36,7 @@ flowchart TD
     end
 
     subgraph Pipeline ["Stage 1: URL Extractor Pipeline"]
-        CategoryCrawler["CategoryCrawler<br/>(Extract post list URLs)"]
+        CategoryCrawler["CategoryCrawler<br/>(Extract post list & pagination URLs)"]
         Misskon["MisskonParser<br/>(Extract images & shortener links)"]
         Ouo["OuoBypasser<br/>(Playwright Bypass Engine)"]
         Mediafire["MediafireResolver<br/>(Direct Link Parser)"]
@@ -52,7 +52,7 @@ flowchart TD
     end
 
     CLI_CRAWL --> CategoryCrawler
-    CategoryCrawler -->|Post URLs| Misskon
+    CategoryCrawler -->|Post URLs per Page| Misskon
     CLI_URL --> Misskon
     CLI_CLIP --> Misskon
     CLI_BATCH --> Misskon
@@ -98,9 +98,10 @@ class DownloadMetadata:
     - `-c, --copy`: 추출된 직링크 목록을 클립보드로 복사.
     - `--json`: 메타데이터 전체를 JSON 형태 포맷으로 출력.
 
-* **`url-resolver crawl <Category_or_Tag_URL>`** (★ 순차 자동화)
-  - **설명**: 특정 카테고리나 태그 페이지(예: `https://misskon.com/tag/you-shui-ling-yi/`)의 게시물들을 순차적으로 순회하며 전 과정 자동 추출/전송.
+* **`url-resolver crawl <Category_or_Tag_URL>`** (★ 순차 및 페이지네이션 자동화)
+  - **설명**: 특정 카테고리나 태그 페이지(예: `https://misskon.com/tag/you-shui-ling-yi/`)의 게시물들을 여러 페이지에 걸쳐 순차적으로 순회하며 전 과정 자동 추출/전송.
   - **옵션**:
+    - `--pages <int>`: 순회할 최대 페이지 수 (기본값: 1, 0이면 전체 페이지).
     - `--limit <int>`: 추출할 최대 게시글 수 (기본값: 전체).
 
 * **`url-resolver clip`**
@@ -118,6 +119,7 @@ class DownloadMetadata:
 
 ### 6.1 `CategoryCrawler` & `MisskonParser`
 - `httpx` 및 `BeautifulSoup4`를 사용하여 `misskon.com` 카테고리/태그 페이지 파싱 (`article.item-list h2.post-box-title > a` 수집).
+- 페이지네이션 파싱 (`div.pagination a.page`에서 `page/2/`, `page/3/` 등의 차후 페이지 URL 수집).
 - 게시물 페이지 내 본문 이미지 및 `<a>` 태그의 `ouo.io`, `ouo.press`, `mediafire.com` 링크 추출.
 
 ### 6.2 `OuoBypasser`
@@ -146,7 +148,7 @@ src/
     ├── extractors/
     │   ├── __init__.py
     │   ├── base.py          # Base Extractor Interface
-    │   ├── crawler.py       # Category/Tag List Crawler
+    │   ├── crawler.py       # Category/Tag List & Pagination Crawler
     │   ├── misskon.py       # Misskon HTML Parser
     │   ├── ouo.py           # Ouo.io Playwright Bypasser
     │   └── mediafire.py     # MediaFire Resolver

@@ -59,6 +59,7 @@
 ### 🎯 Short-Term (다음 단계)
 - [ ] **Dry-Run 미리보기 강화**: `filter`, `label`, `classify` 실행 전 영향받는 파일 목록 및 분류 예정 디렉토리 상술 표시
 - [ ] **미사용 의존성 정리**: `pyproject.toml` 내 사용 중단된 `playwright` 의존성 완전 제거
+- [ ] **Stalled 토렌트 정리 자동화**: 미완료 + N일 경과 + 송신 피어 0 (`peersSendingToUs`) 토렌트 탐지/삭제 서브커맨드 추가. `--dry-run` 기본, 삭제 시 데이터 포함 여부 옵션 (`peersSendingToUs == 0` and `addedDate > N days` 기준)
 
 ### 🌐 Long-Term (향후 확장)
 - [ ] **Cloudflare D1 클라우드 동기화**: 다중 머신/클라우드 환경 대비 `meridian.db` ➔ Cloudflare D1 백업 모듈
