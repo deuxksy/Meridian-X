@@ -123,7 +123,11 @@
     },
     "delete_keywords": ["sample", "trailer", "preview"],
     "delete_extensions": [".txt", ".url", ".nfo"],
-    "video_extensions": [".mp4", ".mkv", ".avi"]
+    "video_extensions": [".mp4", ".mkv", ".avi"],
+    "clean_prefixes": [
+      "hhd800.com@",
+      "4k688.com@"
+    ]
   },
   "genres": {}
 }

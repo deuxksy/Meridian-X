@@ -249,3 +249,12 @@ class TestRunDryRun:
         calls = self._stub_pipeline(monkeypatch)
         tidy.run(dry_run=False, refresh=True)
         assert len(calls) == 1
+
+
+def test_clean_prefixes_includes_4k688():
+    from meridian_x.core import load_config
+    config = load_config("config/settings.json")
+    prefixes = config.get("classify", {}).get("clean_prefixes", [])
+    assert "hhd800.com@" in prefixes
+    assert "4k688.com@" in prefixes
+
