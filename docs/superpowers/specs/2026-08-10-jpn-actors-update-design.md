@@ -2,20 +2,20 @@
 
 **Date:** 2026-08-10  
 **Status:** Approved  
-**Topic:** Adding Japanese Artists (`白月さとみ`, `美月結衣`) to `classify.artists.JPN`  
+**Topic:** Adding Japanese Artists (`白月さとみ`, `美月結衣`, `来栖唯希`) to `classify.artists.JPN`  
 
 ---
 
 ## 1. Overview
 
-This design specification updates the Japanese artist list (`classify.artists.JPN`) in `config/settings.json` and `config/settings.json.example`. The existing list contains 35 Japanese artists, including user-favorite artists (`博多彩葉`, `日向由奈`, `白花にあ`, `雛形みくる`). Two new Japanese artists (`白月さとみ`, `美月結衣`) will be added to bring the total count to 37.
+This design specification updates the Japanese artist list (`classify.artists.JPN`) in `config/settings.json` and `config/settings.json.example`. The existing list contains 35 Japanese artists, including user-favorite artists (`博多彩葉`, `日向由奈`, `白花にあ`, `雛形みくる`). Three new Japanese artists (`白月さとみ`, `美月結衣`, `来栖唯希`) will be added to bring the total count to 38.
 
 ---
 
 ## 2. Goals & Non-Goals
 
 ### Goals
-1. **Configuration Update:** Add `白月さとみ` and `美月結衣` to `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example`.
+1. **Configuration Update:** Add `白月さとみ`, `美月結衣`, `来栖唯希` to `classify.artists.JPN` in `config/settings.json` and `config/settings.json.example`.
 2. **Verification & Testing:** Ensure tests pass and the updated configuration works cleanly with `meridian classify`.
 
 ### Non-Goals
@@ -28,7 +28,7 @@ This design specification updates the Japanese artist list (`classify.artists.JP
 
 ### 3.1 Updated Artist List (`classify.artists.JPN`)
 
-The updated array in `config/settings.json` and `config/settings.json.example` will contain 37 artists:
+The updated array in `config/settings.json` and `config/settings.json.example` will contain 38 artists:
 1. `MINAMO`
 2. `Rena Miyashita`
 3. `Rima Arai`
@@ -66,6 +66,7 @@ The updated array in `config/settings.json` and `config/settings.json.example` w
 35. `河奈亜依`
 36. `白月さとみ` (New)
 37. `美月結衣` (New)
+38. `来栖唯希` (New)
 
 ---
 
