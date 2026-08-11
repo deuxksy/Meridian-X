@@ -37,6 +37,121 @@ logging.getLogger('').addHandler(console)
 logger = logging.getLogger(__name__)
 
 
+def parse_selection_indices(input_str: str, max_count: int) -> list[int]:
+    if input_str.lower() == 'all':
+        return list(range(1, max_count + 1))
+    
+    indices = set()
+    parts = input_str.split(',')
+    for part in parts:
+        part = part.strip()
+        if '-' in part:
+            subparts = part.split('-')
+            if len(subparts) == 2 and subparts[0].isdigit() and subparts[1].isdigit():
+                start, end = int(subparts[0]), int(subparts[1])
+                for i in range(start, end + 1):
+                    if 1 <= i <= max_count:
+                        indices.add(i)
+        elif part.isdigit():
+            i = int(part)
+            if 1 <= i <= max_count:
+                indices.add(i)
+    return sorted(list(indices))
+
+
+def run_search(query: str, category: str = "1080p", source: str = "xxxclub", auto: bool = False, delay: float = 5.0, dry_run: bool = False) -> int:
+    import time
+    from .core import load_config
+    from .db import MeridianDB
+    from .transmission import TransmissionClient
+    from .sources import xxxclub
+
+    config = load_config()
+    logger.info(f"=== Search: query='{query}', category='{category}', source='{source}' ===")
+    
+    if source != "xxxclub":
+        logger.error(f"Search only supported for source 'xxxclub', got '{source}'")
+        return 0
+
+    items = xxxclub.search(query, category=category, config=config)
+    if not items:
+        logger.info("No items found.")
+        return 0
+
+    db = MeridianDB()
+    tx_config = config.get("transmission", {})
+    tx_client = None
+    if not dry_run and tx_config.get("rpc_url"):
+        tx_client = TransmissionClient(
+            rpc_url=tx_config["rpc_url"],
+            user=tx_config.get("rpc_user"),
+            password=tx_config.get("rpc_password"),
+            timeout=tx_config.get("timeout", 10),
+        )
+
+    added_count = 0
+    if auto:
+        logger.info(f"Auto mode enabled. Processing {len(items)} items with delay={delay}s...")
+        for idx, item in enumerate(items, 1):
+            if db.is_downloaded(item["id"]):
+                logger.info(f"[{idx}/{len(items)}] Skip already downloaded: {item['title']}")
+                continue
+            
+            logger.info(f"[{idx}/{len(items)}] Fetching details: {item['title']}")
+            magnet = xxxclub.resolve_magnet(item["details_url"], config=config)
+            if not magnet:
+                logger.warning(f"Failed to extract magnet from {item['details_url']}")
+                continue
+            
+            if dry_run:
+                logger.info(f"[Dry-run] Would add magnet: {magnet[:50]}...")
+            else:
+                if tx_client:
+                    tx_client.add_torrent(magnet)
+                db.add_history(item["id"], item["title"], source=source, magnet_url=magnet)
+                logger.info(f"Added to Transmission & DB: {item['title']}")
+            
+            added_count += 1
+            if idx < len(items) and delay > 0:
+                time.sleep(delay)
+    else:
+        # Interactive mode
+        print(f"\nFound {len(items)} items:")
+        for idx, item in enumerate(items, 1):
+            status = "[Downloaded]" if db.is_downloaded(item["id"]) else "[New]"
+            print(f" {idx:2d}. {status} {item['title']} ({item['size']}, S:{item['seeders']} L:{item['leechers']})")
+        
+        user_input = input("\nEnter item numbers to download (e.g. 1,3-5, all, or q to quit): ").strip()
+        if not user_input or user_input.lower() == 'q':
+            logger.info("Search cancelled.")
+            return 0
+
+        selected_indices = parse_selection_indices(user_input, len(items))
+        for idx in selected_indices:
+            item = items[idx - 1]
+            if db.is_downloaded(item["id"]):
+                print(f"Skip downloaded: {item['title']}")
+                continue
+            
+            print(f"Fetching magnet for: {item['title']}...")
+            magnet = xxxclub.resolve_magnet(item["details_url"], config=config)
+            if not magnet:
+                print(f"Failed to fetch magnet for {item['title']}")
+                continue
+            
+            if dry_run:
+                print(f"[Dry-run] Would add: {item['title']}")
+            else:
+                if tx_client:
+                    tx_client.add_torrent(magnet)
+                db.add_history(item["id"], item["title"], source=source, magnet_url=magnet)
+                print(f"Successfully added: {item['title']}")
+            added_count += 1
+
+    return added_count
+
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Meridian-X - 미디어 분류 및 수집 도구",
@@ -61,7 +176,7 @@ Examples:
     
     parser.add_argument(
         "command",
-        choices=["classify", "filter", "label", "pipeline", "report", "sync", "tidy", "transmission"],
+        choices=["classify", "filter", "label", "pipeline", "report", "search", "sync", "tidy", "transmission"],
         help="실행할 명령"
     )
     
@@ -102,6 +217,33 @@ Examples:
         "--lookup-jav",
         action="store_true",
         help="JPN 폴더 내 파일 JAV 웹 조회를 통한 배우 폴더 2차 분류"
+    )
+
+    parser.add_argument(
+        "--query", "-q",
+        type=str,
+        default=None,
+        help="검색 키워드 (search 전용)"
+    )
+
+    parser.add_argument(
+        "--category",
+        type=str,
+        default="1080p",
+        help="검색 카테고리 (기본: 1080p)"
+    )
+
+    parser.add_argument(
+        "--auto",
+        action="store_true",
+        help="자동 검색 다운로드 모드 (지연시간 적용)"
+    )
+
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=5.0,
+        help="자동 모드 요청 간 지연 시간(초, 기본: 5.0)"
     )
 
     args = parser.parse_args()
@@ -295,6 +437,21 @@ Examples:
         else:
             count = client.label_existing()
             logger.info(f"=== Label Completed ({count} torrents labeled) ===")
+
+    elif args.command == "search":
+        if not args.query:
+            logger.error("--query option is required for search command")
+            sys.exit(1)
+        source = args.source or "xxxclub"
+        run_search(
+            query=args.query,
+            category=args.category,
+            source=source,
+            auto=args.auto,
+            delay=args.delay,
+            dry_run=args.dry_run
+        )
+
 
 
 if __name__ == "__main__":
