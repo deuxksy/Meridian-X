@@ -19,6 +19,8 @@ uv run meridian transmission --source xxxclub
 uv run meridian filter
 uv run meridian label
 uv run meridian sync
+uv run meridian search "Dakota Doll" --category 1080p
+uv run meridian search "Dakota Doll" --auto --delay 5
 uv run meridian tidy --dry-run
 uv run meridian tidy
 uv run meridian classify --dry-run
@@ -46,7 +48,7 @@ uv run pytest tests/ -v
 ```text
 src/
 ├── meridian_x/
-│   ├── cli.py            # CLI 진입점 (classify, filter, label, pipeline, report, sync, tidy, transmission)
+│   ├── cli.py            # CLI 진입점 (classify, filter, label, pipeline, report, search, sync, tidy, transmission)
 │   ├── collect.py        # Multi-source 수집 오케스트레이터
 │   ├── sources/          # onejav, xxxclub source 모듈
 │   ├── transmission.py   # Transmission RPC 클라이언트

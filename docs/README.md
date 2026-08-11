@@ -12,7 +12,7 @@ Meridian-X 프로젝트의 사람용 문서 허브입니다. 문서는 Diátaxis
 
 ### 2. 💡 How-To Guides (사용법 가이드)
 - [How-To Hub](./how-to/README.md): 특정 운영 작업 수행 절차
-- [CLI 사용 설명서](../README.md#-주요-기능-features): `collect`, `filter`, `label`, `sync`, `tidy`, `classify`, `pipeline`, `report` 개별 명령어 가이드
+- [CLI 사용 설명서](../README.md#-주요-기능-features): `collect`, `search`, `filter`, `label`, `sync`, `tidy`, `classify`, `pipeline`, `report` 개별 명령어 가이드
 - [URL Resolver 사용법](../README.md#-사용법-usage): `url-resolver` 단축링크 우회 및 aria2 자동 전송 가이드
 - [Security Scan 구현](./how-to/security-scan-implementation.md): 보안 스캔 CI/CD 파이프라인 구축 계획
 

@@ -131,6 +131,12 @@ Multi-source RSS 수집 → Transmission RPC 전송.
 - **Source 선택:** `--source`로 특정 source만 실행
 - **히스토리 관리:** `{source}:{id}` 형태로 중복 수집 방지
 
+### Search (검색 및 수집)
+XXXClub 1080p 카테고리 키워드 검색 → 대화형/자동 선택 수집.
+- **대화형 모드 (기본):** 검색 결과를 번호로 나열하여 사용자가 원하는 토렌트 선택 다운로드
+- **자동 모드 (`--auto`):** 검색 결과 전체 순차 수집 + 요청 간격 delay (`--delay 5.0`)로 IP 차단 방지
+- **중복 검사:** DB 수집 히스토리를 확인하여 이미 수집된 항목 자동 스킵
+
 ### Tidy (원격 정리)
 SSH 기반 원격 파일 정리 (heritage 서버). tidy → classify 워크플로우의 첫 단계.
 - **정크 삭제:** Jellyfin API로 키워드/확장자 기반 정크 파일 삭제
@@ -169,6 +175,10 @@ uv run meridian transmission                      # 전체 source 수집 (최대
 uv run meridian transmission --source onejav      # onejav만
 uv run meridian transmission --source xxxclub     # xxxclub만
 uv run meridian transmission --max-downloads 50   # 최대 50개 (전체 source 합산)
+
+# ========== Search (키워드 검색 및 수집) ==========
+uv run meridian search "Dakota Doll"               # 대화형 선택 다운로드 (기본: 1080p 카테고리)
+uv run meridian search "Dakota Doll" --auto --delay 5 # 자동 전체 수집 (요청 간격 5초 delay)
 
 # ========== Filter (기존 토렌트 필터링) ==========
 uv run meridian filter                  # 기존 토렌트 광고 파일 일괄 제외
@@ -211,6 +221,14 @@ uv run url-resolver crawl "https://cosplaytele.com/category/byoru/" --pages 2 --
 | `--dry-run` | 실제 전송 없이 수집 항목만 출력 | - |
 | `--source NAME` | 수집 source 지정 (onejav, xxxclub) | 전체 |
 | `--max-downloads N` | 최대 다운로드 수 (전체 source 합산) | 30 |
+
+### search
+| 옵션 | 설명 | 기본값 |
+| :--- | :--- | :--- |
+| `--category CAT` | 검색 대상 카테고리 | 1080p |
+| `--source NAME` | 검색 대상 source | xxxclub |
+| `--auto` | 자동 전체 다운로드 모드 (비대화형) | off (대화형) |
+| `--delay SEC` | 자동 모드 요청 간격 delay (초) | 5.0 |
 
 ### filter / label
 | 옵션 | 설명 | 비고 |
