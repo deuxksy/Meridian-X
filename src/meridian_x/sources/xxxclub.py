@@ -5,7 +5,9 @@ RSS 수집 → magnet link 직접 추출
 import html
 import logging
 import re
+from urllib.parse import quote, urljoin
 
+from bs4 import BeautifulSoup
 import requests
 from meridian_x.classify import (
     _normalize_name,
@@ -14,6 +16,8 @@ from meridian_x.classify import (
 )
 
 logger = logging.getLogger(__name__)
+
+BASE_URL = "https://xxxclub.to"
 
 
 def is_whitelisted_title(title: str, config: dict) -> bool:
@@ -96,3 +100,81 @@ def _parse_rss(rss_content: str) -> list[dict]:
             "description": ""
         })
     return links
+
+
+def search(query: str, category: str = "1080p", config: dict = None) -> list[dict]:
+    """XXXClub 카테고리/키워드 검색 결과 반환."""
+    if config is None:
+        config = {}
+
+    encoded_query = quote(query)
+    search_url = f"{BASE_URL}/search/{category}/{encoded_query}"
+
+    user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    timeout = config.get("request_timeout", 30)
+
+    try:
+        response = requests.get(search_url, headers={"User-Agent": user_agent}, timeout=timeout)
+        response.raise_for_status()
+    except Exception as e:
+        logger.error(f"XXXClub search request failed for '{query}': {e}")
+        return []
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    items = []
+
+    # tr parsing (or specific row selectors based on site structure)
+    for row in soup.select("tr.torrents-row, table tr"):
+        name_elem = row.select_one("td.name a, a[href*='/details/']")
+        if not name_elem or not name_elem.get("href"):
+            continue
+
+        href = name_elem.get("href")
+        details_url = urljoin(BASE_URL, href)
+        title = name_elem.get_text(strip=True)
+
+        # Torrent ID generation
+        hash_match = re.search(r'/details/([^/]+)', href)
+        slug_id = hash_match.group(1) if hash_match else title
+        torrent_id = f"xxxclub:{slug_id}"
+
+        size_elem = row.select_one("td.size, td:nth-of-type(4)")
+        seed_elem = row.select_one("td.seeders, td:nth-of-type(5)")
+        leech_elem = row.select_one("td.leechers, td:nth-of-type(6)")
+
+        size = size_elem.get_text(strip=True) if size_elem else ""
+        seeders = seed_elem.get_text(strip=True) if seed_elem else "0"
+        leechers = leech_elem.get_text(strip=True) if leech_elem else "0"
+
+        items.append({
+            "id": torrent_id,
+            "title": title,
+            "details_url": details_url,
+            "size": size,
+            "seeders": seeders,
+            "leechers": leechers,
+        })
+
+    return items
+
+
+def resolve_magnet(details_url: str, config: dict = None) -> str | None:
+    """상세 페이지 URL에서 magnet link 추출."""
+    if config is None:
+        config = {}
+
+    user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    timeout = config.get("request_timeout", 30)
+
+    try:
+        response = requests.get(details_url, headers={"User-Agent": user_agent}, timeout=timeout)
+        response.raise_for_status()
+    except Exception as e:
+        logger.error(f"XXXClub details fetch failed for {details_url}: {e}")
+        return None
+
+    match = re.search(r'href=["\'](magnet:\?xt=urn:btih:[^"\']+)["\']', response.text, re.IGNORECASE)
+    if match:
+        return html.unescape(match.group(1))
+    return None
+
