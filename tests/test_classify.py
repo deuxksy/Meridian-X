@@ -279,6 +279,25 @@ def test_classify_filename_with_metadata_west_no_lookup(mock_west_meta):
     mock_west_meta.assert_not_called()
 
 
+def test_clean_prefix_stripped_for_jpn_pattern():
+    """clean_prefixes가 붙은 파일명도 JPN으로 정확히 분류해야 함."""
+    config = {
+        "classify": {
+            "artist_folders": [],
+            "clean_prefixes": ["hhd800.com@", "4k688.com@"],
+            "studio_folders": []
+        }
+    }
+    # 4k688 접두사 붙어도 JPN → West로 잘못 가면 안 됨
+    assert classify_filename("4k688.com@BASJ-047.mp4", config) == "JPN"
+    assert classify_filename("4k688.com@NGHJ-071.mp4", config) == "JPN"
+    # hhd800도 동일
+    assert classify_filename("hhd800.com@START-551.mp4", config) == "JPN"
+    # 접두사 없으면 기존 동작 그대로
+    assert classify_filename("BASJ-047.mp4", config) == "JPN"
+    assert classify_filename("random_western_file.mp4", config) == "West"
+
+
 def test_strict_metadata_classification_favorited_only(monkeypatch):
     config = {
         "classify": {

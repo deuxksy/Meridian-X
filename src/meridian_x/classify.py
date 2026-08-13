@@ -146,6 +146,12 @@ def classify_filename(filename: str, config: dict) -> str:
     파일명 → 목적지 폴더 결정 (순수 Python 매칭, 테스트 가능).
     우선순위: 배우 > 스튜디오 > 장르 > JPN > FC2 > West
     """
+    # clean_prefixes 제거 (예: 4k688.com@, hhd800.com@)
+    for prefix in config.get("classify", {}).get("clean_prefixes", []):
+        if filename.startswith(prefix):
+            filename = filename[len(prefix):]
+            break
+
     f_lower = filename.lower()
     f_norm = _normalize_name(filename)
 
