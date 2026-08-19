@@ -119,3 +119,7 @@ data/*.db-shm
 logs/*.db
 logs/*.db-wal
 logs/*.db-shm
+
+# Scratch & Agent state
+.mimosa/
+scratch/
