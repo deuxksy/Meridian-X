@@ -102,13 +102,35 @@ def _parse_rss(rss_content: str) -> list[dict]:
     return links
 
 
+CATEGORY_MAP = {
+    "all": "all",
+    "480p": "0",
+    "sd": "0",
+    "720p": "1",
+    "hd": "1",
+    "1080p": "2",
+    "fhd": "2",
+    "fullhd": "2",
+    "dvd": "3",
+    "movie": "3",
+    "movies": "3",
+    "2160p": "4",
+    "uhd": "4",
+    "4k": "4",
+    "imageset": "5",
+    "vr": "6",
+    "pack": "7",
+}
+
+
 def search(query: str, category: str = "1080p", config: dict = None) -> list[dict]:
     """XXXClub 카테고리/키워드 검색 결과 반환."""
     if config is None:
         config = {}
 
+    cat_code = CATEGORY_MAP.get(category.lower(), category) if category else "2"
     encoded_query = quote(query)
-    search_url = f"{BASE_URL}/search/{category}/{encoded_query}"
+    search_url = f"{BASE_URL}/torrents/search/{cat_code}/{encoded_query}"
 
     user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
     timeout = config.get("request_timeout", 30)
@@ -123,37 +145,71 @@ def search(query: str, category: str = "1080p", config: dict = None) -> list[dic
     soup = BeautifulSoup(response.text, "html.parser")
     items = []
 
-    # tr parsing (or specific row selectors based on site structure)
-    for row in soup.select("tr.torrents-row, table tr"):
-        name_elem = row.select_one("td.name a, a[href*='/details/']")
-        if not name_elem or not name_elem.get("href"):
-            continue
+    # 1. ul.tsearch li parsing (live site structure)
+    tsearch = soup.find("ul", class_="tsearch")
+    if tsearch:
+        for li in tsearch.find_all("li"):
+            links = li.select("span.toral a[href*='/details/']")
+            name_elem = None
+            for a in links:
+                if "-99999px" not in a.get("style", ""):
+                    name_elem = a
+                    break
+            if not name_elem or not name_elem.get("href"):
+                continue
 
-        href = name_elem.get("href")
-        details_url = urljoin(BASE_URL, href)
-        title = name_elem.get_text(strip=True)
+            href = name_elem.get("href")
+            details_url = urljoin(BASE_URL, href)
+            title = name_elem.get_text(strip=True)
 
-        # Torrent ID generation
-        hash_match = re.search(r'/details/([^/]+)', href)
-        slug_id = hash_match.group(1) if hash_match else title
-        torrent_id = f"xxxclub:{slug_id}"
+            hash_match = re.search(r'/details/([^/]+)', href)
+            slug_id = hash_match.group(1) if hash_match else title
+            torrent_id = f"xxxclub:{slug_id}"
 
-        size_elem = row.select_one("td.size, td:nth-of-type(4)")
-        seed_elem = row.select_one("td.seeders, td:nth-of-type(5)")
-        leech_elem = row.select_one("td.leechers, td:nth-of-type(6)")
+            size_elem = li.select_one("span.siz")
+            seed_elem = li.select_one("span.see")
+            leech_elem = li.select_one("span.lee")
 
-        size = size_elem.get_text(strip=True) if size_elem else ""
-        seeders = seed_elem.get_text(strip=True) if seed_elem else "0"
-        leechers = leech_elem.get_text(strip=True) if leech_elem else "0"
+            items.append({
+                "id": torrent_id,
+                "title": title,
+                "details_url": details_url,
+                "size": size_elem.get_text(strip=True) if size_elem else "",
+                "seeders": seed_elem.get_text(strip=True) if seed_elem else "0",
+                "leechers": leech_elem.get_text(strip=True) if leech_elem else "0",
+            })
 
-        items.append({
-            "id": torrent_id,
-            "title": title,
-            "details_url": details_url,
-            "size": size,
-            "seeders": seeders,
-            "leechers": leechers,
-        })
+    # 2. tr parsing (table fallback / mock compatibility)
+    if not items:
+        for row in soup.select("tr.torrents-row, table tr"):
+            name_elem = row.select_one("td.name a, a[href*='/details/']")
+            if not name_elem or not name_elem.get("href"):
+                continue
+
+            href = name_elem.get("href")
+            details_url = urljoin(BASE_URL, href)
+            title = name_elem.get_text(strip=True)
+
+            hash_match = re.search(r'/details/([^/]+)', href)
+            slug_id = hash_match.group(1) if hash_match else title
+            torrent_id = f"xxxclub:{slug_id}"
+
+            size_elem = row.select_one("td.size, td:nth-of-type(4)")
+            seed_elem = row.select_one("td.seeders, td:nth-of-type(5)")
+            leech_elem = row.select_one("td.leechers, td:nth-of-type(6)")
+
+            size = size_elem.get_text(strip=True) if size_elem else ""
+            seeders = seed_elem.get_text(strip=True) if seed_elem else "0"
+            leechers = leech_elem.get_text(strip=True) if leech_elem else "0"
+
+            items.append({
+                "id": torrent_id,
+                "title": title,
+                "details_url": details_url,
+                "size": size,
+                "seeders": seeders,
+                "leechers": leechers,
+            })
 
     return items
 

@@ -86,7 +86,7 @@ def test_run_search_auto_mode():
         
         assert count == 1
         mock_tx.add_torrent.assert_called_once_with("magnet:?xt=urn:btih:mockhash")
-        mock_db.add_history.assert_called_once()
+        mock_db.add_download_history.assert_called_once_with(["xxxclub:12345"])
 
 
 def test_parse_selection_indices():
@@ -133,5 +133,5 @@ def test_run_search_interactive_mode():
 
         assert count == 1
         mock_tx.add_torrent.assert_called_once_with("magnet:?xt=urn:btih:mockhash")
-        mock_db.add_history.assert_called_once()
+        mock_db.add_download_history.assert_called_once_with(["xxxclub:12345"])
 

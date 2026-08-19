@@ -108,7 +108,7 @@ def run_search(query: str, category: str = "1080p", source: str = "xxxclub", aut
             else:
                 if tx_client:
                     tx_client.add_torrent(magnet)
-                db.add_history(item["id"], item["title"], source=source, magnet_url=magnet)
+                db.add_download_history([item["id"]])
                 logger.info(f"Added to Transmission & DB: {item['title']}")
             
             added_count += 1
@@ -144,7 +144,7 @@ def run_search(query: str, category: str = "1080p", source: str = "xxxclub", aut
             else:
                 if tx_client:
                     tx_client.add_torrent(magnet)
-                db.add_history(item["id"], item["title"], source=source, magnet_url=magnet)
+                db.add_download_history([item["id"]])
                 print(f"Successfully added: {item['title']}")
             added_count += 1
 
