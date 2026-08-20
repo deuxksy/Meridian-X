@@ -93,6 +93,7 @@ src/
 - **JAV 메타데이터**: FANZA → JavBus/Jav321 → OneJAV 순서로 필드 단위 병합 후 DB 캐시.
 - **West 메타데이터**: StashDB GraphQL API 조회 후 배우/스튜디오/태그를 Jellyfin 및 분류에 사용.
 - **URL Resolver**: misskon/cosplaytele 게시글에서 host link 추출 → ouo bypass/mediafire direct URL resolve → aria2 전송.
+- **화질 필터링**: 모든 미디어 소스는 `is_fhd_or_higher()`를 통해 저화질(720p/SD) 및 8K/VR을 배제하고 FHD(1080p) 및 4K(2160p)만 수신한다.
 
 ## Verification
 
@@ -101,6 +102,7 @@ src/
 - 대표 검증:
   - `uv run pytest tests/test_db.py -v`
   - `uv run pytest tests/test_cli.py tests/test_misskon_parser.py tests/test_cosplaytele.py -v`
+  - `uv run pytest tests/test_sukebei.py tests/test_torrentgalaxy.py -v`
   - `uv run pytest tests/ -v`
 
 ## Gotchas
@@ -111,7 +113,7 @@ src/
 - 모든 meridian 명령은 import 시점에 `logs/YYMMDD/hhmmss.log`를 생성할 수 있다.
 - Jellyfin 204 응답은 body가 없다. REST helper에서 content 존재 여부를 확인해야 한다.
 - heritage 서버는 unprivileged LXC 권한 매핑 때문에 반드시 `media` UID 1000 계정으로 SSH 조작한다.
-- onejav는 Cloudflare 차단 회피를 위해 `sources.onejav.remote.ssh_alias` 경유 원격 `curl -sL`을 사용한다.
+- `onejav`, `sukebei`, `torrentgalaxy`는 ISP/Cloudflare 차단 회피를 위해 `sources.<name>.remote.ssh_alias: "lt"` 경유 원격 curl을 사용한다.
 - tidy shell script 테스트는 `_build_*_script()` 빌더를 로컬 `bash -c`로 검증한다.
 - macOS 기본 APFS는 case-insensitive일 수 있어 case-dup 테스트가 skip될 수 있다.
 
