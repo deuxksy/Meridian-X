@@ -34,7 +34,7 @@
 ```mermaid
 graph TB
     subgraph Collect[수집 - Collect]
-        RSS[RSS 피드] --> SRC[Multi-source - onejav/xxxclub]
+        RSS[RSS 피드] --> SRC[Multi-source - onejav/sukebei/xxxclub/torrentgalaxy]
         SRC --> TX[Transmission RPC]
         TX --> FIL[filter - 광고 파일 제외]
         FIL --> LAB[label - 자동 라벨링]
@@ -86,7 +86,7 @@ Meridian-X/
 └── src/meridian_x/
     ├── cli.py                 # CLI 진입점
     ├── collect.py             # Multi-source 수집 오케스트레이터
-    ├── sources/               # 수집 source 모듈 (onejav, xxxclub)
+    ├── sources/               # 수집 source 모듈 (onejav, sukebei, xxxclub, torrentgalaxy)
     ├── transmission.py        # Transmission RPC 클라이언트
     ├── jellyfin.py            # Jellyfin REST API 클라이언트
     ├── tidy.py                # 원격 파일 정리 (SSH)
@@ -96,7 +96,7 @@ Meridian-X/
     ├── jav_metadata.py        # JAV 메타데이터 통합 Resolver (FANZA -> JavBus -> OneJAV)
     ├── west_metadata.py       # StashDB GraphQL API West 메타데이터 Resolver
     ├── jav_lookup.py          # JAV 배우 2차 분류 조회
-    └── core.py                # 공통 함수 (설정/히스토리)
+    └── core.py                # 공통 함수 (설정/히스토리/화질필터)
 ```
 
 ---
@@ -109,7 +109,7 @@ Meridian-X/
 
 | 키 | 용도 |
 | :--- | :--- |
-| `sources` | 수집 source 설정 (onejav, xxxclub — RSS URL, SSH 우회 등) |
+| `sources` | 수집 source 설정 (onejav, sukebei, xxxclub, torrentgalaxy — RSS URL, 미러, SSH 우회 등) |
 | `transmission` | Transmission RPC 연결 (`rpc_url`, 인증, `stop_after_download`) |
 | `jellyfin` | Jellyfin REST API (`url`, `api_key`) |
 | `remote` | 원격 서버 SSH (`host`, `user`, `ssh_key`, `path`) — tidy/classify 대상 |
@@ -125,14 +125,15 @@ Meridian-X/
 
 ### Collect (수집)
 Multi-source RSS 수집 → Transmission RPC 전송.
-- **Multi-source:** onejav(RSS → 페이지 방문 → `.torrent`), xxxclub(RSS → magnet 직접 전송)
+- **Multi-source:** onejav(RSS → .torrent), sukebei(RSS/검색 → magnet), xxxclub(RSS/검색 → magnet), torrentgalaxy(RSS/JSON API 검색 → magnet)
+- **엄격한 화질 선별:** 저화질(720p/SD) 및 8K/VR을 배제하고 **FHD(1080p) 및 4K(2160p)** 고화질만 선별 다운로드
 - **Selective download:** 광고 파일 자동 제외 (확장자/키워드/최소 크기 필터)
 - **자동 라벨링:** torrent name에서 메이커 코드/스튜디오/배우 추출
 - **Source 선택:** `--source`로 특정 source만 실행
 - **히스토리 관리:** `{source}:{id}` 형태로 중복 수집 방지
 
 ### Search (검색 및 수집)
-XXXClub 1080p 카테고리 키워드 검색 → 대화형/자동 선택 수집.
+멀티 소스(XXXClub, Sukebei, TorrentGalaxy) 키워드 검색 → 대화형/자동 선택 수집.
 - **대화형 모드 (기본):** 검색 결과를 번호로 나열하여 사용자가 원하는 토렌트 선택 다운로드
 - **자동 모드 (`--auto`):** 검색 결과 전체 순차 수집 + 요청 간격 delay (`--delay 5.0`)로 IP 차단 방지
 - **중복 검사:** DB 수집 히스토리를 확인하여 이미 수집된 항목 자동 스킵
@@ -173,11 +174,15 @@ cp config/settings.json.example config/settings.json
 uv run meridian transmission --dry-run            # 항상 먼저 미리보기 (권장)
 uv run meridian transmission                      # 전체 source 수집 (최대 30개)
 uv run meridian transmission --source onejav      # onejav만
+uv run meridian transmission --source sukebei     # sukebei만
 uv run meridian transmission --source xxxclub     # xxxclub만
+uv run meridian transmission --source tgx         # torrentgalaxy만
 uv run meridian transmission --max-downloads 50   # 최대 50개 (전체 source 합산)
 
 # ========== Search (키워드 검색 및 수집) ==========
 uv run meridian search "Dakota Doll"               # 대화형 선택 다운로드 (기본: 1080p 카테고리)
+uv run meridian search "MINAMO" --source sukebei   # Sukebei JAV 검색
+uv run meridian search "Angela White" --source tgx # TorrentGalaxy 서양 고화질 검색
 uv run meridian search "Dakota Doll" --auto --delay 5 # 자동 전체 수집 (요청 간격 5초 delay)
 
 # ========== Filter (기존 토렌트 필터링) ==========
@@ -219,14 +224,14 @@ uv run url-resolver crawl "https://cosplaytele.com/category/byoru/" --pages 2 --
 | 옵션 | 설명 | 기본값 |
 | :--- | :--- | :--- |
 | `--dry-run` | 실제 전송 없이 수집 항목만 출력 | - |
-| `--source NAME` | 수집 source 지정 (onejav, xxxclub) | 전체 |
+| `--source NAME` | 수집 source 지정 (onejav, sukebei, xxxclub, torrentgalaxy/tgx) | 전체 |
 | `--max-downloads N` | 최대 다운로드 수 (전체 source 합산) | 30 |
 
 ### search
 | 옵션 | 설명 | 기본값 |
 | :--- | :--- | :--- |
 | `--category CAT` | 검색 대상 카테고리 | 1080p |
-| `--source NAME` | 검색 대상 source | xxxclub |
+| `--source NAME` | 검색 대상 source (xxxclub, sukebei, torrentgalaxy/tgx) | xxxclub |
 | `--auto` | 자동 전체 다운로드 모드 (비대화형) | off (대화형) |
 | `--delay SEC` | 자동 모드 요청 간격 delay (초) | 5.0 |
 
