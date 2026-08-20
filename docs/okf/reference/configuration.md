@@ -26,11 +26,12 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
 | 최상위 키 | 필수 여부 | 설명 |
 | :--- | :---: | :--- |
 | `sources` | 필수 | 수집 대상 소스(OneJAV, Sukebei, XXXClub, TorrentGalaxy) 설정 (RSS URL, 미러, 프록시 우회) |
-| `transmission` | 필수 | Transmission RPC 데몬 연결 정보 (`rpc_url`, `rpc_user`, `rpc_password`, `stop_after_download`) |
-| `jellyfin` | 필수 | Jellyfin 미디어 서버 REST API 연결 정보 (`url`, `api_key`, `libraries`) |
-| `remote` | 필수 | SSH 대상 원격 미디어 서버 (`host`, `user`, `ssh_key`, `path`) |
-| `collection` | 선택 | 기본 수집 정책 (`max_downloads`, `history_file`, `request_timeout`, `user_agent`) |
-| `classify` | 필수 | 미디어 자동 분류 규칙 (`artists`, `studios`, `source_path`, `work_path`) |
+| `transmission` | 필수 | Transmission RPC 데몬 연결 정보 (`rpc_url`, `rpc_user`, `rpc_password`, `stop_after_download`, `filters`) |
+| `jellyfin` | 필수 | Jellyfin 미디어 서버 REST API 연결 정보 (`url`, `api_key`, `timeout`) |
+| `remote` | 필수 | SSH 대상 원격 미디어 서버 (`host`, `user`, `path`) |
+| `fanza` | 선택 | 공식 JAV 메타데이터 조회용 FANZA API (`api_id`, `affiliate_id`) |
+| `stashdb` | 선택 | 서양 미디어 메타데이터 조회용 StashDB GraphQL API (`api_key`) |
+| `classify` | 필수 | 미디어 자동 분류 규칙 (`artists`, `studios`, `delete_keywords`, `delete_extensions`, `clean_prefixes`) |
 | `genres` | 선택 | 장르별 키워드 및 접두사 매핑 규칙 |
 
 ---
@@ -42,19 +43,29 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
 {
   "sources": {
     "onejav": {
-      "rss_url": "https://onejav.com/rss",
+      "enabled": true,
+      "base_url": "https://onejav.com",
+      "rss_url": "https://onejav.com/feeds/",
       "remote": { "ssh_alias": "lt" }
     },
     "sukebei": {
-      "rss_url": "https://sukebei.nyaa.si/?page=rss",
+      "enabled": true,
+      "base_url": "https://sukebei.nyaa.si",
+      "rss_url": "https://sukebei.nyaa.si/?page=rss&c=2_2",
+      "default_category": "2_2",
       "remote": { "ssh_alias": "lt" }
     },
     "xxxclub": {
-      "rss_url": "https://xxxclub.to/rss",
-      "search_url": "https://xxxclub.to/torrents/search"
+      "enabled": true,
+      "rss_url": "https://xxxclub.to/feed/1080p.FullHD.xml",
+      "selective_only": true
     },
     "torrentgalaxy": {
+      "enabled": true,
+      "base_url": "https://torrentgalaxy.to",
       "mirrors": ["https://torrentgalaxy.one", "https://tgx.rs"],
+      "rss_url": "https://torrentgalaxy.to/rss?cat=42",
+      "default_category": "42",
       "remote": { "ssh_alias": "lt" }
     }
   }
@@ -68,11 +79,13 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
     "rpc_url": "http://127.0.0.1:9091/transmission/rpc",
     "rpc_user": "media",
     "rpc_password": "YOUR_PASSWORD",
+    "download_dir": null,
     "timeout": 10,
     "stop_after_download": true,
     "filters": {
-      "unwanted_extensions": [".txt", ".url", ".exe", ".jpg", ".png"],
-      "min_file_size_mb": 50
+      "exclude_extensions": [".html", ".url", ".txt", ".nfo"],
+      "exclude_keywords": ["sample", "trailer", "preview"],
+      "min_file_size_mb": 100
     }
   }
 }
