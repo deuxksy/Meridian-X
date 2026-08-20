@@ -1,6 +1,6 @@
 # Meridian-X Common Agent Rules (Single Source of Truth)
 
-미디어 컬렉션 자동화 큐레이션 및 URL 직링크 추출/aria2 전송 스위트. 모든 AI runtime은 이 파일을 공통 프로젝트 instruction의 기준으로 사용한다.
+프라이빗 미디어 컬렉션 자동 수집, 정리, 분류, 메타데이터 및 Jellyfin 동기화 자동화 스위트. 모든 AI runtime은 이 파일을 공통 프로젝트 instruction의 기준으로 사용한다.
 
 ## Commands
 
@@ -87,7 +87,7 @@ src/
 - 원격/외부 시스템 변경 전에는 가능한 dry-run을 먼저 사용한다.
 - 대표 검증:
   - `uv run pytest tests/test_db.py -v`
-  - `uv run pytest tests/test_cli.py tests/test_misskon_parser.py tests/test_cosplaytele.py -v`
+  - `uv run pytest tests/test_core.py -v`
   - `uv run pytest tests/test_sukebei.py tests/test_torrentgalaxy.py -v`
   - `uv run pytest tests/ -v`
 
