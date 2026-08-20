@@ -41,7 +41,7 @@
     }
   },
   "transmission": {
-    "rpc_url": "https://heritage.bun-bull.ts.net/transmission/rpc",
+    "rpc_url": "http://127.0.0.1:9091/transmission/rpc",
     "rpc_user": null,
     "rpc_password": null,
     "download_dir": null,
@@ -50,20 +50,24 @@
     "use_env_auth": true,
     "filters": {
       "exclude_extensions": [".html", ".url", ".txt", ".nfo"],
-      "exclude_keywords": ["sample", "trailer", "preview", "996gg"],
+      "exclude_keywords": ["sample", "trailer", "preview"],
       "min_file_size_mb": 100
     }
   },
   "jellyfin": {
-    "url": "https://heritage.bun-bull.ts.net/jellyfin",
+    "url": "http://127.0.0.1:8096",
     "api_key": null,
     "timeout": 10
   },
   "remote": {
-    "host": "100.96.115.19",
-    "user": "media",
-    "ssh_key": "~/.ssh/id_ed25519",
-    "path": "/mnt/data1/torrent/complete"
+    "host": "",
+    "user": "",
+    "ssh_key": "",
+    "path": ""
+  },
+  "fanza": {
+    "api_id": null,
+    "affiliate_id": null
   },
   "stashdb": {
     "api_key": null
@@ -74,77 +78,15 @@
     "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
   },
   "classify": {
-    "source_path": "/path/to/source",
-    "work_path": "/path/to/work",
-    "target_dirs": ["target1", "target2"],
+    "source_path": "",
+    "work_path": "",
+    "target_dirs": [],
     "artists": {
-      "WEST": [
-        "Dakota Doll",
-        "Molli Little",
-        "Lulu Sweety",
-        "Kiki Cali",
-        "Coco Lovelock",
-        "Remi Raw",
-        "Lola Valentine",
-        "Blake Blossom"
-      ],
-      "JPN": [
-        "MINAMO",
-        "Rena Miyashita",
-        "Rima Arai",
-        "Umi Yatsugake",
-        "佐野葉月",
-        "博多彩葉",
-        "川越にこ",
-        "日向由奈",
-        "白花にあ",
-        "雛形みくる",
-        "白月さとみ",
-        "美月結衣",
-        "来栖唯希",
-        "篠宮るい",
-        "彩月七緒",
-        "桜ゆの",
-        "赤名いと",
-        "白石透羽",
-        "倉木華",
-        "Ranran Fujii",
-        "柴崎はる",
-        "瀬戸環奈",
-        "松永あかり",
-        "岬さくら"
-      ]
+      "WEST": [],
+      "JPN": []
     },
     "studios": {
-      "WEST": {
-        "Vixen": ["vixen", "tushy", "blacked", "slayed", "deeper"],
-        "Nubile": [
-          "nubile",
-          "nubilefilms",
-          "nubiles",
-          "fit18",
-          "stepsiblings",
-          "sisswap",
-          "sheseducedme",
-          "mywifeshotfriend",
-          "myfriendshotmom",
-          "mysistershotfriend",
-          "pervtherapy",
-          "sweetsinner"
-        ],
-        "TeamSkeet": ["teamskeet", "teamskeetsingles", "tiny4k", "rim4k", "rkprime", "povmasters"],
-        "MetArtX": ["metartx", "metart", "sexart"],
-        "X-Art": ["xart", "x-art"],
-        "TheLifeErotic": ["thelifeerotic"],
-        "JoyMii": ["joymii"],
-        "Wowgirls": ["wowgirls"],
-        "ExxxtraSmall": ["exxxtrasmall"],
-        "AngelsLove": ["angelslove"],
-        "UltraFilms": ["ultrafilms"],
-        "ALSScan": ["alsscan"],
-        "FTV": ["ftv", "ftvgirls", "ftvmilfs"],
-        "Cartoon": ["cartoon", "3dcartoon", "animation", "3dhentai"]
-      },
+      "WEST": {},
       "JPN": {}
     },
     "delete_keywords": ["sample", "trailer", "preview"],
