@@ -13,7 +13,9 @@
 | **v0.3** | ✅ Done | JAV 하이브리드 메타데이터 엔진 (FANZA + JavBus + OneJAV) & Jellyfin 태그 동기화 | `2026-08-09-jpn-classification-and-metadata` |
 | **v0.4** | ✅ Done | West 미디어 StashDB GraphQL 연동 & 배우/스튜디오 분류 | `2026-08-09-stashdb-west-classification-and-metadata` |
 | **v0.5** | ✅ Done | SQLite3 데이터베이스 (`meridian.db`) 통합 & 레거시 캐시 마이그레이션 | `2026-08-09-sqlite-metadata-store` |
-| **v0.6** | 🛠️ Planned | Dry-Run 미리보기 강화 & 라이브러리 정리 최적화 | - |
+| **v0.6** | ✅ Done | Sukebei & TorrentGalaxy 4대 소스 통합, 다중 미러 복원력 & 원격 프록시 우회 | `2026-08-20-sukebei-source`<br>`2026-08-20-torrentgalaxy-source` |
+| **v0.7** | ✅ Done | 엄격한 FHD/4K 화질 필터링, 안정 릴 그룹(WRB/XC) 우선순위 중복 선별 & URL Resolver 연동 | `2026-08-20-fhd-quality-deduplication` |
+| **v0.8** | 🛠️ Planned | Dry-Run 미리보기 강화 & Stalled 토렌트 정리 자동화 | - |
 
 ---
 
@@ -52,13 +54,23 @@
   - `west_metadata` (West StashDB 메타데이터 DB 저장)
 - [x] **레거시 이관 및 `.bak` 자동 백업**: 기존 `downloaded_history.txt`, `logs/*_cache.json` 읽은 후 `.bak` 백업 전환으로 파일 I/O 오버헤드 완벽 제거
 
+### 6. Multi-Source Extension & Resilience (v0.6)
+- [x] **Sukebei Nyaa 소스 연동 (`sukebei.py`)**: JAV/신사 전용 RSS 수집, 키워드 검색, 다이렉트 마그넷 파싱 및 Oracle Cloud KR 프록시 (`lt`) 연동
+- [x] **TorrentGalaxy 소스 연동 (`torrentgalaxy.py`)**: 초고속 JSON Search API 및 HTML table fallback 듀얼 엔진, 다중 미러 도메인(`torrentgalaxy.one`, `tgx.rs` 등) 자동 순차 우회
+- [x] **CLI 서치 확장**: `meridian search <QUERY> --source [xxxclub|sukebei|tgx]` 단일 명령어로 소스별 통합 검색 및 자동 다운로드 지원
+
+### 7. Quality Enforcement & Deduplication Engine (v0.7)
+- [x] **엄격한 FHD/4K 화질 선별 (`is_fhd_or_higher`)**: 8K/VR 및 720p/SD/DVD를 배제하고 표준 2D FHD(1080p) 및 4K(2160p)만 수신
+- [x] **스마트 릴리스 랭킹 & 중복 선별 (`deduplicate_releases`)**: 동일 에피소드 다중 릴리스 중 1080p(FHD) 최우선 + 안정적인 릴 그룹(`WRB`/`XC` > `TRB` > `P2P`) 자동 선별
+- [x] **URL Resolver 통합**: MissKon/CosplayTele 직링크 추출, ouo 단축링크 우회 및 aria2 RPC 전송 스위트 통합
+- [x] **전체 회귀 테스트 스위트 (140개 테스트) 100% 통과**
+
 ---
 
-## 🔮 Future Roadmap (v0.6+)
+## 🔮 Future Roadmap (v0.8+)
 
 ### 🎯 Short-Term (다음 단계)
 - [ ] **Dry-Run 미리보기 강화**: `filter`, `label`, `classify` 실행 전 영향받는 파일 목록 및 분류 예정 디렉토리 상술 표시
-- [ ] **미사용 의존성 정리**: `pyproject.toml` 내 사용 중단된 `playwright` 의존성 완전 제거
 - [ ] **Stalled 토렌트 정리 자동화**: 미완료 + N일 경과 + 송신 피어 0 (`peersSendingToUs`) 토렌트 탐지/삭제 서브커맨드 추가. `--dry-run` 기본, 삭제 시 데이터 포함 여부 옵션 (`peersSendingToUs == 0` and `addedDate > N days` 기준)
 
 ### 🌐 Long-Term (향후 확장)

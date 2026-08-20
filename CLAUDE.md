@@ -14,5 +14,5 @@
 ## Project notes
 
 - pipeline 마지막 단계의 `report`는 디스크 사용량과 Transmission 토렌트 상태를 출력한다.
-- `playwright>=1.40`은 `pyproject.toml`에 남아 있으나 onejav SSH 경유 전환 이후 제거 후보로 관리한다.
+- `playwright>=1.40`은 `url-resolver` 모듈의 단축링크(`ouo.py`) 브라우저 우회에 사용된다.
 - README와 문서 구조는 `docs/README.md`의 Diátaxis 인덱스를 기준으로 유지한다.
