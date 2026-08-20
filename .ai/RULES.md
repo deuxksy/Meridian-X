@@ -36,13 +36,6 @@ uv run meridian pipeline
 uv run meridian pipeline --no-refresh
 uv run meridian report
 
-# URL Resolver Commands (Shortener Bypass & Direct Link Extraction)
-uv run url-resolver parse "https://misskon.com/114764-..."
-uv run url-resolver crawl "https://misskon.com/tag/you-shui-ling-yi/" --pages 0
-uv run url-resolver crawl "https://cosplaytele.com/category/byoru/" --pages 2 --extract-only
-uv run url-resolver clip --extract-only
-uv run url-resolver batch urls.txt --extract-only
-
 # Tests
 uv run pytest tests/ -v
 ```
@@ -51,32 +44,26 @@ uv run pytest tests/ -v
 
 ```text
 src/
-├── meridian_x/
-│   ├── cli.py            # CLI 진입점 (classify, filter, label, pipeline, report, search, sync, tidy, transmission)
-│   ├── collect.py        # Multi-source 수집 오케스트레이터
-│   ├── sources/          # onejav, sukebei, xxxclub, torrentgalaxy source 모듈
-│   ├── transmission.py   # Transmission RPC 클라이언트
-│   ├── jellyfin.py       # Jellyfin REST API 클라이언트
-│   ├── tidy.py           # 원격 파일 정리 (SSH)
-│   ├── classify.py       # 원격 파일 분류 (SSH)
-│   ├── report.py         # disk/토렌트 상태 리포트
-│   ├── db.py             # SQLite 저장소(download_history, jav_metadata, west_metadata)
-│   ├── fanza.py          # FANZA API 클라이언트
-│   ├── jav_lookup.py     # JavBus/Jav321 및 OneJAV SSH 조회
-│   ├── jav_metadata.py   # JAV 메타데이터 통합 Resolver + DB 캐시
-│   ├── west_metadata.py  # StashDB GraphQL API Resolver + DB 캐시
-│   └── core.py           # 설정/히스토리 공통 함수
-└── url_resolver/
-    ├── cli.py            # url-resolver CLI 진입점 (parse, crawl, clip, batch)
-    ├── models.py         # DownloadMetadata
-    ├── config.py         # ~/.config/url-resolver/config.toml 설정 로더
-    ├── extractors/       # misskon, cosplaytele, mediafire, ouo parser/resolver
-    └── dispatchers/      # aria2p RPC 디스패처
+└── meridian_x/
+    ├── cli.py            # CLI 진입점 (classify, filter, label, pipeline, report, search, sync, tidy, transmission)
+    ├── collect.py        # Multi-source 수집 오케스트레이터
+    ├── sources/          # onejav, sukebei, xxxclub, torrentgalaxy source 모듈
+    ├── transmission.py   # Transmission RPC 클라이언트
+    ├── jellyfin.py       # Jellyfin REST API 클라이언트
+    ├── tidy.py           # 원격 파일 정리 (SSH)
+    ├── classify.py       # 원격 파일 분류 (SSH)
+    ├── report.py         # disk/토렌트 상태 리포트
+    ├── db.py             # SQLite 저장소(download_history, jav_metadata, west_metadata)
+    ├── fanza.py          # FANZA API 클라이언트
+    ├── jav_lookup.py     # JavBus/Jav321 및 OneJAV SSH 조회
+    ├── jav_metadata.py   # JAV 메타데이터 통합 Resolver + DB 캐시
+    ├── west_metadata.py  # StashDB GraphQL API Resolver + DB 캐시
+    └── core.py           # 설정/히스토리/화질필터/중복선별 공통 함수
 ```
 
 ## Configuration
 
-- `pyproject.toml`: Python 3.12+, hatchling build, `meridian`/`url-resolver` console scripts.
+- `pyproject.toml`: Python 3.12+, hatchling build, `meridian` console script.
 - `config/settings.json`: 메인 설정. gitignored.
 - `config/settings.json.example`: 설정 템플릿.
 - `config/settings.json.sops`: sops+age 암호화 추적본.
@@ -92,8 +79,7 @@ src/
 - **tidy → classify 순서 유지**: tidy가 flatten/파일명 정리 후 classify가 배우/스튜디오/장르/JPN/FC2/West로 분류한다.
 - **JAV 메타데이터**: FANZA → JavBus/Jav321 → OneJAV 순서로 필드 단위 병합 후 DB 캐시.
 - **West 메타데이터**: StashDB GraphQL API 조회 후 배우/스튜디오/태그를 Jellyfin 및 분류에 사용.
-- **URL Resolver**: misskon/cosplaytele 게시글에서 host link 추출 → ouo bypass/mediafire direct URL resolve → aria2 전송.
-- **화질 필터링**: 모든 미디어 소스는 `is_fhd_or_higher()`를 통해 저화질(720p/SD) 및 8K/VR을 배제하고 FHD(1080p) 및 4K(2160p)만 수신한다.
+- **화질 필터링 & 중복 선별**: 모든 미디어 소스는 `is_fhd_or_higher()` 및 `deduplicate_releases()`를 통해 FHD(1080p) 및 안정적 릴 그룹(`WRB`/`XC`)을 최우선 선별한다.
 
 ## Verification
 

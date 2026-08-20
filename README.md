@@ -4,7 +4,7 @@
 
 *품격 있는 디지털 수집가를 위한 우아한 솔루션*
 
-**Meridian-X**는 프라이빗 미디어 컬렉션을 자동 수집·정리·분류·동기화하는 Python 자동화 스위트입니다. RSS 기반 Transmission 수집, 광고 파일 정리, JAV/West 메타데이터 조회, Jellyfin 태그 동기화, URL Resolver 기반 직링크 추출과 aria2 전송을 하나의 운영 흐름으로 제공합니다.
+**Meridian-X**는 프라이빗 미디어 컬렉션을 자동 수집·정리·분류·동기화하는 Python 자동화 스위트입니다. 4대 미디어 소스(OneJAV, Sukebei, XXXClub, TorrentGalaxy) 기반 고화질(FHD/4K) 수집, 광고 파일 정리, JAV/West 메타데이터 조회, Jellyfin 태그 동기화 및 SSH 원격 분류를 하나의 운영 흐름으로 제공합니다.
 
 ---
 
@@ -209,11 +209,6 @@ uv run meridian pipeline                # stop→filter→label→sync→tidy→
 
 # ========== Report (상태 조회) ==========
 uv run meridian report                  # disk 사용량 + Transmission 토렌트 상태
-
-# ========== URL Resolver (직링크 추출 및 aria2 전송) ==========
-uv run url-resolver parse "https://misskon.com/114764-..."            # 단일 게시글 직링크 추출 & aria2 전송
-uv run url-resolver crawl "https://misskon.com/tag/you-shui-ling-yi/"  # 카테고리/태그 전체 순차 수집
-uv run url-resolver crawl "https://cosplaytele.com/category/byoru/" --pages 2 --extract-only # 직링크만 추출
 ```
 
 ---
