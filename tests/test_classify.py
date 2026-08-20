@@ -339,5 +339,26 @@ def test_strict_metadata_classification_favorited_only(monkeypatch):
     assert classify_filename_with_metadata("SSIS-789.mp4", config) == "JPN"
 
 
+def test_classify_ssh_calls_run_remote_ssh():
+    from unittest.mock import patch
+    import subprocess
+    import meridian_x.classify as classify_mod
+
+    remote = {"host": "nas.host", "user": "media", "path": "/p"}
+    with patch("meridian_x.classify.run_remote_ssh") as mock_run_ssh:
+        mock_run_ssh.return_value = subprocess.CompletedProcess(
+            args=["ssh"], returncode=0, stdout="files\n", stderr=""
+        )
+        ok, output = classify_mod._ssh(remote, "ls -la")
+        assert ok is True
+        assert output == "files\n"
+        mock_run_ssh.assert_called_once_with(
+            host="nas.host",
+            command="ls -la",
+            user="media",
+            timeout=60,
+        )
+
+
 
 

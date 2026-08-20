@@ -9,6 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 from .core import load_config
+from .remote import run_remote_ssh
 
 logger = logging.getLogger(__name__)
 
@@ -26,20 +27,13 @@ TR_STATUS = {
 
 def _ssh(remote: dict, cmd: str) -> tuple[bool, str]:
     """SSH 명령 실행. tidy.py/classify.py와 동일 패턴."""
-    try:
-        result = subprocess.run(
-            [
-                "ssh", "-i", remote["ssh_key"],
-                "-o", "ConnectTimeout=5",
-                "-o", "StrictHostKeyChecking=no",
-                f'{remote["user"]}@{remote["host"]}',
-                cmd,
-            ],
-            capture_output=True, text=True, timeout=60,
-        )
-        return result.returncode == 0, result.stdout + result.stderr
-    except Exception as e:
-        return False, str(e)
+    res = run_remote_ssh(
+        host=remote.get("host", ""),
+        command=cmd,
+        user=remote.get("user"),
+        timeout=60,
+    )
+    return res.returncode == 0, res.stdout + res.stderr
 
 
 def _humanize(num: float) -> str:

@@ -216,6 +216,28 @@ class TestSshDryRun:
         assert output == ""
         assert calls == []
 
+    def test_ssh_execution_calls_run_remote_ssh(self):
+        with pytest.MonkeyPatch.context() as mp:
+            from unittest.mock import patch
+            with patch("meridian_x.tidy.run_remote_ssh") as mock_run_ssh:
+                mock_run_ssh.return_value = tidy.subprocess.CompletedProcess(
+                    args=["ssh"], returncode=0, stdout="cleaned\n", stderr=""
+                )
+                ok, output = tidy._ssh(
+                    {"host": "nas.host", "user": "media", "path": "/p"},
+                    "find . -delete",
+                    dry_run=False,
+                )
+                assert ok is True
+                assert output == "cleaned\n"
+                mock_run_ssh.assert_called_once_with(
+                    host="nas.host",
+                    command="find . -delete",
+                    user="media",
+                    timeout=60,
+                    dry_run=False,
+                )
+
 
 class TestRunDryRun:
     """run(dry_run=True): 외부 상태 변경이 없어야 한다."""

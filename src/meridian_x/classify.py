@@ -12,6 +12,7 @@ import subprocess
 from .core import load_config
 from .jav_lookup import extract_jav_code, lookup_jav_actresses
 from .jav_metadata import get_jav_metadata
+from .remote import run_remote_ssh
 from .west_metadata import get_west_metadata
 
 logger = logging.getLogger(__name__)
@@ -23,20 +24,13 @@ JPN_PATTERN = r"^[A-Z0-9]{3,7}-\d{2,5}[-\.\s]"
 
 def _ssh(remote: dict, cmd: str) -> tuple[bool, str]:
     """SSH 명령 실행. tidy.py와 동일 패턴."""
-    try:
-        result = subprocess.run(
-            [
-                "ssh", "-i", remote["ssh_key"],
-                "-o", "ConnectTimeout=5",
-                "-o", "StrictHostKeyChecking=no",
-                f'{remote["user"]}@{remote["host"]}',
-                cmd,
-            ],
-            capture_output=True, text=True, timeout=60,
-        )
-        return result.returncode == 0, result.stdout + result.stderr
-    except Exception as e:
-        return False, str(e)
+    res = run_remote_ssh(
+        host=remote.get("host", ""),
+        command=cmd,
+        user=remote.get("user"),
+        timeout=60,
+    )
+    return res.returncode == 0, res.stdout + res.stderr
 
 
 def _list_files(remote: dict, video_extensions: tuple, simulation_files: list[str] = None) -> list[str]:

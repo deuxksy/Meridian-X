@@ -8,6 +8,8 @@ import subprocess
 
 import requests
 
+from .remote import run_remote_ssh
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,20 +18,14 @@ def _ssh(remote: dict, cmd: str, dry_run: bool = False) -> tuple[bool, str]:
     if dry_run:
         logger.info(f"[Dry-run SSH] 실행 생략: {cmd[:200]}")
         return True, ""
-    try:
-        result = subprocess.run(
-            [
-                "ssh", "-i", remote["ssh_key"],
-                "-o", "ConnectTimeout=5",
-                "-o", "StrictHostKeyChecking=no",
-                f'{remote["user"]}@{remote["host"]}',
-                cmd,
-            ],
-            capture_output=True, text=True, timeout=60,
-        )
-        return result.returncode == 0, result.stdout + result.stderr
-    except Exception as e:
-        return False, str(e)
+    res = run_remote_ssh(
+        host=remote.get("host", ""),
+        command=cmd,
+        user=remote.get("user"),
+        timeout=60,
+        dry_run=dry_run,
+    )
+    return res.returncode == 0, res.stdout + res.stderr
 
 
 def delete_junk_jellyfin(jf_config: dict, filters: dict, dry_run: bool = False) -> int:
