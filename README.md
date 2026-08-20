@@ -8,20 +8,6 @@
 
 ---
 
-## 목차
-
-- [철학 (Philosophy)](#-철학-philosophy)
-- [워크플로우 (Workflow)](#-워크플로우-workflow)
-- [프로젝트 구조](#-프로젝트-구조)
-- [설정 (Configuration)](#-설정-configuration)
-- [주요 기능 (Features)](#-주요-기능-features)
-- [사용법 (Usage)](#-사용법-usage)
-- [명령어 옵션](#-명령어-옵션)
-- [문서 (Documents)](#-문서-documents)
-- [라이선스 (License)](#-라이선스-license)
-
----
-
 ## 🧐 철학 (Philosophy)
 신사의 서재는 언제나 정갈해야 합니다. **Meridian-X**는 보이지 않는 곳에서 다음과 같이 봉사합니다:
 - **수집 (Collect):** Whisparr가 수집할 수 없는 특별한 작품들을 신사의 취향에 맞추어 우아하게 수집합니다.
