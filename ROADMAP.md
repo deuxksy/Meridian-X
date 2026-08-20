@@ -14,7 +14,7 @@
 | **v0.4** | ✅ Done | West 미디어 StashDB GraphQL 연동 & 배우/스튜디오 분류 | `2026-08-09-stashdb-west-classification-and-metadata` |
 | **v0.5** | ✅ Done | SQLite3 데이터베이스 (`meridian.db`) 통합 & 레거시 캐시 마이그레이션 | `2026-08-09-sqlite-metadata-store` |
 | **v0.6** | ✅ Done | Sukebei & TorrentGalaxy 4대 소스 통합, 다중 미러 복원력 & 원격 프록시 우회 | `2026-08-20-sukebei-source`<br>`2026-08-20-torrentgalaxy-source` |
-| **v0.7** | ✅ Done | 엄격한 FHD/4K 화질 필터링, 안정 릴 그룹(WRB/XC) 우선순위 중복 선별 & URL Resolver 연동 | `2026-08-20-fhd-quality-deduplication` |
+| **v0.7** | ✅ Done | 엄격한 FHD/4K 화질 필터링, 안정 릴 그룹(WRB/XC) 우선순위 선별 & URL Resolver 독립 프로젝트(Vesper-X) 분리 | `2026-08-20-fhd-quality-deduplication` |
 | **v0.8** | 🛠️ Planned | Dry-Run 미리보기 강화 & Stalled 토렌트 정리 자동화 | - |
 
 ---
@@ -65,12 +65,12 @@
 - [x] **TorrentGalaxy 소스 연동 (`torrentgalaxy.py`)**: 초고속 JSON Search API 및 HTML table fallback 듀얼 엔진, 다중 미러 도메인(`torrentgalaxy.one`, `tgx.rs` 등) 자동 순차 우회
 - [x] **CLI 서치 확장**: `meridian search <QUERY> --source [xxxclub|sukebei|tgx]` 단일 명령어로 소스별 통합 검색 및 자동 다운로드 지원
 
-### 7. Quality Enforcement & Deduplication Engine (v0.7)
+### 7. Quality Enforcement & Vesper-X Separation (v0.7)
 
 - [x] **엄격한 FHD/4K 화질 선별 (`is_fhd_or_higher`)**: 8K/VR 및 720p/SD/DVD를 배제하고 표준 2D FHD(1080p) 및 4K(2160p)만 수신
 - [x] **스마트 릴리스 랭킹 & 중복 선별 (`deduplicate_releases`)**: 동일 에피소드 다중 릴리스 중 1080p(FHD) 최우선 + 안정적인 릴 그룹(`WRB`/`XC` > `TRB` > `P2P`) 자동 선별
-- [x] **URL Resolver 통합**: MissKon/CosplayTele 직링크 추출, ouo 단축링크 우회 및 aria2 RPC 전송 스위트 통합
-- [x] **전체 회귀 테스트 스위트 (140개 테스트) 100% 통과**
+- [x] **Vesper-X 독립 프로젝트 분리**: URL Resolver(MissKon, CosplayTele, ouo 우회, aria2 RPC)를 독립 레포지토리(`/Users/crong/git/Vesper-X`)로 분리하고 Playwright 등 무거운 의존성을 제거하여 Meridian-X 경량화 및 테스트 0.4초대 달성
+- [x] **전체 회귀 테스트 스위트 (166개 테스트) 100% 통과**
 
 ---
 
