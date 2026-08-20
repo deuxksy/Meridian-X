@@ -183,6 +183,84 @@ def resolve_magnet(details_url: str, config: dict = None) -> str | None:
         return None
 
     match = re.search(r'href=["\'](magnet:\?xt=urn:btih:[^"\']+)["\']', html_text, re.IGNORECASE)
+    if not match:
+        match = re.search(r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)', html_text, re.IGNORECASE)
     if match:
         return html.unescape(match.group(1))
     return None
+
+
+def search(query: str, category: str = "2_2", config: dict = None) -> list[dict]:
+    """Sukebei 키워드 및 카테고리 검색 결과 반환."""
+    if config is None:
+        config = {}
+
+    cat = category if category else "2_2"
+    encoded_query = quote(query)
+    search_url = f"{BASE_URL}/?f=0&c={cat}&q={encoded_query}&s=seeders&o=desc"
+
+    ok, html_text = _fetch_url(search_url, config)
+    if not ok or not html_text:
+        logger.error(f"Sukebei search fetch failed for '{query}': {html_text[:200] if html_text else 'empty response'}")
+        return []
+
+    soup = BeautifulSoup(html_text, "html.parser")
+    items = []
+
+    rows = soup.select("table.torrent-list tbody tr")
+    if not rows:
+        rows = soup.select("table.torrent-list tr, table tr")
+
+    for row in rows:
+        # Title & details_url from td a[href*='/view/'] (skip a.comments)
+        view_links = [
+            a for a in row.select("a[href*='/view/']")
+            if "comments" not in a.get("class", []) and "#comments" not in a.get("href", "")
+        ]
+        if not view_links:
+            continue
+
+        title_elem = view_links[0]
+        title = title_elem.get("title", "").strip() or title_elem.get_text(strip=True)
+        href = title_elem.get("href", "").strip()
+        details_url = urljoin(BASE_URL, href)
+
+        match = re.search(r'/view/(\d+)', href)
+        sukebei_id = match.group(1) if match else href.split("/")[-1]
+        torrent_id = f"sukebei:{sukebei_id}"
+
+        magnet_elem = row.select_one('a[href^="magnet:"]')
+        magnet_url = html.unescape(magnet_elem.get("href", "").strip()) if magnet_elem else ""
+
+        tds = row.find_all("td")
+        size = ""
+        seeders = "0"
+        leechers = "0"
+
+        if len(tds) >= 7:
+            size = tds[3].get_text(strip=True)
+            seeders = tds[5].get_text(strip=True)
+            leechers = tds[6].get_text(strip=True)
+        else:
+            size_elem = row.select_one("td.size, td:nth-of-type(4)")
+            seed_elem = row.select_one("td.seeders, td:nth-of-type(6)")
+            leech_elem = row.select_one("td.leechers, td:nth-of-type(7)")
+            if size_elem:
+                size = size_elem.get_text(strip=True)
+            if seed_elem:
+                seeders = seed_elem.get_text(strip=True)
+            if leech_elem:
+                leechers = leech_elem.get_text(strip=True)
+
+        items.append({
+            "id": torrent_id,
+            "title": title,
+            "details_url": details_url,
+            "magnet_url": magnet_url,
+            "size": size,
+            "seeders": seeders,
+            "leechers": leechers,
+        })
+
+    return items
+
