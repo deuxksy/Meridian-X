@@ -8,7 +8,7 @@
 
 ## 1. Overview & Goals
 
-Meridian-X에 성인 실사(JAV/FC2/무수정) P2P 인덱서인 **Sukebei (`sukebei.nyaa.si`)** 소스를 추가한다.
+Meridian-X에 신사 실사(JAV/FC2/무수정) P2P 인덱서인 **Sukebei (`sukebei.nyaa.si`)** 소스를 추가한다.
 기존 `onejav` 및 `xxxclub`과 100% 호환되는 소스 표준 인터페이스를 구현하여 다음 두 가지 기능을 완벽히 지원한다:
 
 1. **자동 수집 (`meridian transmission --source sukebei`)**: Sukebei RSS 피드(`?page=rss&c=2_2`)에서 신작을 탐색하고, 관심 배우/스튜디오 및 정규 JPN 품번 패턴과 일치하는 항목을 선별하여 Transmission에 자동 전송.
