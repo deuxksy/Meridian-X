@@ -68,7 +68,9 @@ def test_japanese_artists_classification():
 
 
 def test_japanese_artists_favorite_list():
-    config = load_config("config/settings.json")
+    import os
+    config_path = "config/settings.json.example" if os.path.exists("config/settings.json.example") else "config/settings.json"
+    config = load_config(config_path)
     expected = [
         "MINAMO",
         "Rena Miyashita",
