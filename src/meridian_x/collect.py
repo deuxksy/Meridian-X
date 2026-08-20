@@ -3,8 +3,10 @@ Meridian-X Collect Module
 Multi-source RSS 수집 → Transmission RPC 전송
 """
 import logging
+from pathlib import Path
 
-from .core import load_config, load_downloaded_history, save_downloaded_history
+from .core import load_config
+from .db import MeridianDB
 from .sources import SOURCES
 from .transmission import TransmissionClient
 
@@ -53,8 +55,11 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
     logger.info("=== Meridian-X Collect Started ===")
     logger.info(f"Sources: {list(active_sources.keys())}")
 
-    # history 로드
-    history = load_downloaded_history(history_file)
+    # history 로드 (MeridianDB 사용)
+    db = MeridianDB()
+    if history_file and Path(history_file).exists():
+        db.migrate_history_txt(history_file)
+    history = db.get_download_history()
 
     remaining = max_count
     total_count = 0
@@ -127,6 +132,7 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
 
                     if ok:
                         logger.info(f"  [Sent] {item_id}")
+                        db.add_download_history([item_id])
                         history.add(item_id)
                         count += 1
                     else:
@@ -143,6 +149,4 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
             logger.error(f"Source {src_name} failed: {e}")
             continue
 
-    # history 저장
-    save_downloaded_history(history_file, history)
     logger.info(f"=== Meridian-X Collect Completed ({total_count} total) ===")

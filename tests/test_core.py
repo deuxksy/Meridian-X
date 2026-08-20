@@ -3,7 +3,27 @@ import shutil
 import subprocess
 from pathlib import Path
 import pytest
-from meridian_x.core import load_config
+from meridian_x.core import (
+    load_config,
+    extract_page_links,
+    is_fhd_or_higher,
+    extract_scene_key,
+    score_release,
+    deduplicate_releases,
+)
+
+
+def test_load_config_plain_json(tmp_path):
+    config_file = tmp_path / "settings.json"
+    config_file.write_text('{"app": "meridian_x", "sources": {"onejav": {"enabled": true}}}', encoding="utf-8")
+    loaded = load_config(config_file)
+    assert loaded == {"app": "meridian_x", "sources": {"onejav": {"enabled": True}}}
+
+
+def test_load_config_not_found(tmp_path):
+    missing_file = tmp_path / "non_existent.json"
+    with pytest.raises(FileNotFoundError):
+        load_config(missing_file)
 
 
 def test_load_config_encrypted(tmp_path):
@@ -45,27 +65,35 @@ def test_load_config_encrypted(tmp_path):
     assert loaded == {"sources": {"test": {"enabled": True}}}
 
 
-def test_downloaded_history_integration(tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-    from meridian_x.core import load_downloaded_history, save_downloaded_history
+def test_extract_page_links():
+    sample_rss = """<?xml version="1.0" encoding="utf-8"?>
+    <rss version="2.0">
+      <channel>
+        <item>
+          <title><![CDATA[MIAA-001 Sample Title]]></title>
+          <link>https://onejav.com/torrent/200GANA3353</link>
+          <description><![CDATA[Sample description text]]></description>
+        </item>
+        <item>
+          <title>STARS-999 Another Title</title>
+          <link>https://onejav.com/torrent/STARS999</link>
+          <description>Simple description</description>
+        </item>
+      </channel>
+    </rss>"""
 
-    txt_file = tmp_path / "downloaded_history.txt"
-    txt_file.write_text("SNOS100\nxxxclub:HASH123\n", encoding="utf-8")
+    links = extract_page_links(sample_rss)
+    assert len(links) == 2
+    assert links[0]["id"] == "200GANA3353"
+    assert links[0]["title"] == "MIAA-001 Sample Title"
+    assert links[0]["page_url"] == "https://onejav.com/torrent/200GANA3353"
+    assert links[0]["description"] == "Sample description text"
 
-    # Loading should migrate legacy txt into DB and return set
-    history = load_downloaded_history(str(txt_file))
-    assert history == {"onejav:SNOS100", "xxxclub:HASH123"}
-
-    # Saving additional items updates DB
-    save_downloaded_history(str(txt_file), {"onejav:SNOS100", "xxxclub:HASH123", "onejav:SNOS101"})
-
-    history_after = load_downloaded_history(str(txt_file))
-    assert history_after == {"onejav:SNOS100", "xxxclub:HASH123", "onejav:SNOS101"}
+    assert links[1]["id"] == "STARS999"
+    assert links[1]["title"] == "STARS-999 Another Title"
 
 
 def test_is_fhd_or_higher():
-    from meridian_x.core import is_fhd_or_higher
-
     # High res passes (FHD / 4K)
     assert is_fhd_or_higher("+++ [FHD] START-591 MINAMO") is True
     assert is_fhd_or_higher("[4K] START-406 MINAMO") is True
@@ -86,9 +114,43 @@ def test_is_fhd_or_higher():
     assert is_fhd_or_higher("") is True
 
 
-def test_deduplicate_releases_1080p_and_release_group_priority():
-    from meridian_x.core import deduplicate_releases, extract_scene_key, score_release
+def test_extract_scene_key():
+    # West pattern
+    key1 = extract_scene_key("Tiny4K 26 08 06 Hazel Heart XXX 1080p MP4-WRB [XC]")
+    assert key1.startswith("west_tiny4k_260806_hazel_heart")
 
+    # JAV pattern
+    key2 = extract_scene_key("[FHD] SONE-446 Minamo Special")
+    assert key2 == "jav_sone_446"
+
+    key3 = extract_scene_key("ipx 123 1080p")
+    assert key3 == "jav_ipx_123"
+
+    # Other general pattern
+    key4 = extract_scene_key("Random Video Presentation 2026")
+    assert key4.startswith("other_random_video_presentation")
+
+
+def test_score_release():
+    item_1080p_wrb = {"title": "Sample 1080p WRB", "seeders": "25"}
+    item_4k_trb = {"title": "Sample 4K TRB", "seeders": "100"}
+    item_p2p = {"title": "Sample 720p P2P", "seeders": "10"}
+
+    score1 = score_release(item_1080p_wrb)
+    score2 = score_release(item_4k_trb)
+    score3 = score_release(item_p2p)
+
+    # 1080p (1000) + WRB (300) + 25 = 1325
+    assert score1 == 1325
+    # 4K (500) + TRB (200) + 50 (max cap) = 750
+    assert score2 == 750
+    # Other (100) + P2P (100) + 10 = 210
+    assert score3 == 210
+
+    assert score1 > score2 > score3
+
+
+def test_deduplicate_releases_1080p_and_release_group_priority():
     items = [
         {"id": "tgx:1", "title": "Tiny4K 26 08 06 Hazel Heart XXX 2160p MP4 WRB XC", "seeders": "17"},
         {"id": "tgx:2", "title": "Tiny4K.26.08.06.Hazel.Heart.XXX.1080p.MP4-TRB", "seeders": "5"},

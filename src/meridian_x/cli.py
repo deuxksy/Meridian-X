@@ -61,7 +61,7 @@ def parse_selection_indices(input_str: str, max_count: int) -> list[int]:
 
 def run_search(
     query: str,
-    category: str = None,
+    category: str | None = None,
     source: str = "xxxclub",
     auto: bool = False,
     delay: float = 5.0,
@@ -119,38 +119,62 @@ def run_search(
         )
 
     def _get_magnet(item: dict) -> str | None:
-        magnet = item.get("magnet_url")
-        if not magnet and hasattr(src_module, "resolve_magnet") and item.get("details_url"):
+        if item.get("magnet_url"):
+            return item["magnet_url"]
+        if hasattr(src_module, "resolve_magnet") and item.get("details_url"):
             magnet = src_module.resolve_magnet(item["details_url"], config=config)
-        elif not magnet and hasattr(src_module, "resolve"):
+            if magnet:
+                return magnet
+        if hasattr(src_module, "resolve"):
             payload = src_module.resolve(item, config)
             if payload and payload.get("type") == "magnet":
-                magnet = payload.get("data")
-        return magnet
+                return payload.get("data")
+        return None
+
+    def _process_download(item: dict, is_interactive: bool = False) -> bool:
+        item_id = item["id"]
+        title = item.get("title", item_id)
+        if db.is_downloaded(item_id):
+            if is_interactive:
+                print(f"Skip downloaded: {title}")
+            else:
+                logger.info(f"Skip already downloaded: {title}")
+            return False
+
+        if is_interactive:
+            print(f"Fetching magnet for: {title}...")
+        else:
+            logger.info(f"Fetching details: {title}")
+
+        magnet = _get_magnet(item)
+        if not magnet:
+            if is_interactive:
+                print(f"Failed to fetch magnet for {title}")
+            else:
+                logger.warning(f"Failed to extract magnet from {item.get('details_url', item_id)}")
+            return False
+
+        if dry_run:
+            if is_interactive:
+                print(f"[Dry-run] Would add: {title}")
+            else:
+                logger.info(f"[Dry-run] Would add magnet: {magnet[:50]}...")
+        else:
+            if tx_client:
+                tx_client.add_torrent(magnet)
+            db.add_download_history([item_id])
+            if is_interactive:
+                print(f"Successfully added: {title}")
+            logger.info(f"Added to Transmission & DB: {title}")
+
+        return True
 
     added_count = 0
     if auto:
         logger.info(f"Auto mode enabled. Processing {len(items)} items with delay={delay}s...")
         for idx, item in enumerate(items, 1):
-            if db.is_downloaded(item["id"]):
-                logger.info(f"[{idx}/{len(items)}] Skip already downloaded: {item['title']}")
-                continue
-
-            logger.info(f"[{idx}/{len(items)}] Fetching details: {item['title']}")
-            magnet = _get_magnet(item)
-            if not magnet:
-                logger.warning(f"Failed to extract magnet from {item.get('details_url', item.get('id'))}")
-                continue
-
-            if dry_run:
-                logger.info(f"[Dry-run] Would add magnet: {magnet[:50]}...")
-            else:
-                if tx_client:
-                    tx_client.add_torrent(magnet)
-                db.add_download_history([item["id"]])
-                logger.info(f"Added to Transmission & DB: {item['title']}")
-
-            added_count += 1
+            if _process_download(item, is_interactive=False):
+                added_count += 1
             if idx < len(items) and delay > 0:
                 time.sleep(delay)
     else:
@@ -158,7 +182,7 @@ def run_search(
         print(f"\nFound {len(items)} items:")
         for idx, item in enumerate(items, 1):
             status = "[Downloaded]" if db.is_downloaded(item["id"]) else "[New]"
-            print(f" {idx:2d}. {status} {item['title']} ({item['size']}, S:{item['seeders']} L:{item['leechers']})")
+            print(f" {idx:2d}. {status} {item['title']} ({item.get('size', 'N/A')}, S:{item.get('seeders', 0)} L:{item.get('leechers', 0)})")
 
         try:
             user_input = input("\nEnter item numbers to download (e.g. 1,3-5, all, or q to quit): ").strip()
@@ -174,24 +198,8 @@ def run_search(
         selected_indices = parse_selection_indices(user_input, len(items))
         for idx in selected_indices:
             item = items[idx - 1]
-            if db.is_downloaded(item["id"]):
-                print(f"Skip downloaded: {item['title']}")
-                continue
-
-            print(f"Fetching magnet for: {item['title']}...")
-            magnet = _get_magnet(item)
-            if not magnet:
-                print(f"Failed to fetch magnet for {item['title']}")
-                continue
-
-            if dry_run:
-                print(f"[Dry-run] Would add: {item['title']}")
-            else:
-                if tx_client:
-                    tx_client.add_torrent(magnet)
-                db.add_download_history([item["id"]])
-                print(f"Successfully added: {item['title']}")
-            added_count += 1
+            if _process_download(item, is_interactive=True):
+                added_count += 1
 
     return added_count
 

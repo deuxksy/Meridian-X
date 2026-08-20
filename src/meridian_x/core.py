@@ -9,22 +9,22 @@ import os
 import re
 import shutil
 import subprocess
+from collections import defaultdict
 from pathlib import Path
-from typing import List, Set
+from typing import Any
 
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
 
-def load_config(config_path: str | Path | None = None) -> dict:
-    """
-    config/settings.json에서 설정을 로드합니다.
+def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
+    """config/settings.json 또는 sops 암호화 파일에서 설정을 로드합니다.
+
     일반 JSON 및 sops 바이너리 암호화 파일을 모두 지원합니다.
     """
     load_dotenv()
     if config_path is None:
-
         base_config_dir = Path(__file__).parent.parent.parent / "config"
         if (base_config_dir / "settings.json").exists():
             config_path = base_config_dir / "settings.json"
@@ -84,42 +84,16 @@ def load_config(config_path: str | Path | None = None) -> dict:
             raise ValueError(f"Decrypted config is not valid JSON: {e}")
 
 
-def load_downloaded_history(history_file: str = "downloaded_history.txt") -> Set[str]:
-    """
-    이미 다운로드한 토렌트 ID 목록을 로드합니다.
-    (MeridianDB 백엔드를 사용하며 legacy txt 파일이 존재하면 자동으로 마이그레이션합니다)
-    """
-    from .db import MeridianDB
-
-    db = MeridianDB()
-    if Path(history_file).exists():
-        db.migrate_history_txt(history_file)
-    return db.get_download_history()
-
-
-def save_downloaded_history(history_file: str, downloaded: Set[str]) -> None:
-    """
-    다운로드한 토렌트 ID 목록을 저장합니다. (MeridianDB에 추가)
-    """
-    from .db import MeridianDB
-
-    db = MeridianDB()
-    db.add_download_history(downloaded)
-
-
-
-def extract_page_links(rss_content: str) -> List[dict]:
-    """
-    RSS 피드에서 페이지 링크를 추출합니다.
-    """
-    links = []
+def extract_page_links(rss_content: str) -> list[dict[str, str]]:
+    """RSS 피드 XML 문자열에서 페이지 링크 및 메타데이터를 추출합니다."""
+    links: list[dict[str, str]] = []
 
     # RSS에서 <item> 태그 찾기
     item_pattern = re.compile(
         r"<item>.*?<title>(?:<!\[CDATA\[)?(.+?)(?:\]\]>)?</title>.*?"
         r"<link>(.+?)</link>.*?"
         r"<description>(?:<!\[CDATA\[)?(.+?)(?:\]\]>)?</description>.*?</item>",
-        re.DOTALL
+        re.DOTALL,
     )
 
     for match in item_pattern.finditer(rss_content):
@@ -134,7 +108,7 @@ def extract_page_links(rss_content: str) -> List[dict]:
             "id": torrent_id,
             "title": title,
             "page_url": link,
-            "description": description
+            "description": description,
         })
 
     return links
@@ -152,6 +126,7 @@ EXCLUDE_QUALITY_PATTERN = re.compile(
 
 def is_fhd_or_higher(title: str) -> bool:
     """제목에서 화질을 판별하여 FHD(1080p) 및 4K(2160p) 규격인지 검사 (VR/8K 및 720p/SD 제외).
+
     - 8K/VR 및 720p/SD/DVD 키워드가 포함되어 있으면 False
     - FHD/4K 키워드가 포함되어 있으면 True
     - 화질 태그가 없으면 기본 True
@@ -176,9 +151,12 @@ def extract_scene_key(title: str) -> str:
     date_m = re.search(r"\b(\d{2,4})\s+(\d{2})\s+(\d{2})\b", clean)
     if date_m:
         date_str = "".join(date_m.groups())
-        prefix = clean[:date_m.start()].strip().split()
-        suffix = clean[date_m.end():].strip().split()
-        noise = {"1080p", "2160p", "4k", "720p", "mp4", "mkv", "xxx", "wrb", "trb", "xc", "p2p", "xvid", "av1", "xfans", "h264", "h265", "hevc"}
+        prefix = clean[: date_m.start()].strip().split()
+        suffix = clean[date_m.end() :].strip().split()
+        noise = {
+            "1080p", "2160p", "4k", "720p", "mp4", "mkv", "xxx",
+            "wrb", "trb", "xc", "p2p", "xvid", "av1", "xfans", "h264", "h265", "hevc"
+        }
         words = [w for w in (prefix + suffix) if w not in noise]
         w0 = words[0] if words else ""
         w1 = words[1] if len(words) > 1 else ""
@@ -191,11 +169,14 @@ def extract_scene_key(title: str) -> str:
         return f"jav_{jav_m.group(1)}_{jav_m.group(2)}"
 
     # 기타 일반 제목
-    words = [w for w in clean.split() if w not in {"1080p", "2160p", "4k", "720p", "mp4", "mkv", "xxx", "wrb", "trb", "xc", "p2p", "xvid", "av1", "xfans"}]
+    words = [
+        w for w in clean.split()
+        if w not in {"1080p", "2160p", "4k", "720p", "mp4", "mkv", "xxx", "wrb", "trb", "xc", "p2p", "xvid", "av1", "xfans"}
+    ]
     return "other_" + "_".join(words[:4])
 
 
-def score_release(item: dict) -> int:
+def score_release(item: dict[str, Any]) -> int:
     """릴리스 우선순위 점수 계산: 1080p 우선 > 안정적 릴 그룹(WRB/XC > TRB > P2P) > 시더 수."""
     title = (item.get("title") or "").lower()
     score = 0
@@ -226,16 +207,15 @@ def score_release(item: dict) -> int:
     return score
 
 
-def deduplicate_releases(items: list[dict]) -> list[dict]:
+def deduplicate_releases(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """동일 에피소드/작품 중 가장 우선순위가 높은(1080p, 안정적 릴 그룹) 릴리스만 단일 선별."""
-    from collections import defaultdict
-    grouped = defaultdict(list)
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for item in items:
         key = extract_scene_key(item.get("title", ""))
         grouped[key].append(item)
 
-    best_items = []
-    for key, group in grouped.items():
+    best_items: list[dict[str, Any]] = []
+    for _key, group in grouped.items():
         sorted_group = sorted(group, key=score_release, reverse=True)
         best_items.append(sorted_group[0])
 
