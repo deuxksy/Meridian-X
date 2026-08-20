@@ -72,10 +72,72 @@ def save_cache(cache_path: str, cache: dict) -> None:
             db.save_west_metadata(k, v)
 
 
+class StashDBClient:
+    """StashDB GraphQL API 클라이언트"""
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        timeout: int = 10,
+        endpoint: str = STASHDB_GRAPHQL_URL,
+    ):
+        self.api_key = api_key
+        self.timeout = timeout
+        self.endpoint = endpoint
+        self.session = requests.Session()
+        headers = {"Content-Type": "application/json"}
+        if self.api_key:
+            headers["ApiKey"] = self.api_key
+        self.session.headers.update(headers)
+
+    def query_scene(self, term: str) -> dict | None:
+        """StashDB에 term으로 씬 검색 후 최상위 씬 정보 반환"""
+        query = """
+        query QueryScenes($input: SceneQueryInput!) {
+          queryScenes(input: $input) {
+            count
+            scenes {
+              id
+              title
+              date
+              studio {
+                name
+              }
+              performers {
+                performer {
+                  name
+                }
+              }
+              tags {
+                name
+              }
+            }
+          }
+        }
+        """
+        try:
+            resp = self.session.post(
+                self.endpoint,
+                json={"query": query, "variables": {"input": {"text": term, "page": 1, "per_page": 5}}},
+                timeout=self.timeout,
+            )
+            if resp.status_code == 200:
+                res_json = resp.json()
+                data = res_json.get("data") or {}
+                qs = data.get("queryScenes") or {}
+                scenes = qs.get("scenes") or []
+                if scenes:
+                    return scenes[0]
+        except Exception as e:
+            logger.warning(f"[StashDB API Error] {term}: {e}")
+        return None
+
+
 def get_west_metadata(
     filename: str,
     config: dict | None = None,
     api_key: str | None = None,
+    client: StashDBClient | None = None,
 ) -> dict:
     """StashDB GraphQL API를 통해 West 미디어 메타데이터 수집."""
     if config is None:
@@ -101,33 +163,10 @@ def get_west_metadata(
 
     api_key = api_key or os.getenv("STASHDB_API_KEY") or config.get("stashdb", {}).get("api_key")
 
-    headers = {"Content-Type": "application/json"}
-    if api_key:
-        headers["ApiKey"] = api_key
+    if client is None:
+        client = StashDBClient(api_key=api_key)
 
-    query = """
-    query QueryScenes($input: SceneQueryInput!) {
-      queryScenes(input: $input) {
-        count
-        scenes {
-          id
-          title
-          date
-          studio {
-            name
-          }
-          performers {
-            performer {
-              name
-            }
-          }
-          tags {
-            name
-          }
-        }
-      }
-    }
-    """
+    scene = client.query_scene(term)
 
     performers = []
     studio = None
@@ -136,36 +175,21 @@ def get_west_metadata(
     date = None
     source = "none"
 
-    try:
-        resp = requests.post(
-            STASHDB_GRAPHQL_URL,
-            json={"query": query, "variables": {"input": {"text": term, "page": 1, "per_page": 5}}},
-            headers=headers,
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            res_json = resp.json()
-            data = res_json.get("data") or {}
-            qs = data.get("queryScenes") or {}
-            scenes = qs.get("scenes") or []
-            if scenes:
-                first_scene = scenes[0]
-                title = first_scene.get("title")
-                date = first_scene.get("date")
-                st_data = first_scene.get("studio")
-                if st_data and isinstance(st_data, dict):
-                    studio = st_data.get("name")
-                for p in first_scene.get("performers", []):
-                    p_name = p.get("performer", {}).get("name")
-                    if p_name and p_name not in performers:
-                        performers.append(p_name)
-                for t in first_scene.get("tags", []):
-                    t_name = t.get("name")
-                    if t_name and t_name not in tags:
-                        tags.append(t_name)
-                source = "stashdb"
-    except Exception as e:
-        logger.warning(f"[StashDB API Error] {term}: {e}")
+    if scene:
+        title = scene.get("title")
+        date = scene.get("date")
+        st_data = scene.get("studio")
+        if st_data and isinstance(st_data, dict):
+            studio = st_data.get("name")
+        for p in scene.get("performers", []):
+            p_name = p.get("performer", {}).get("name")
+            if p_name and p_name not in performers:
+                performers.append(p_name)
+        for t in scene.get("tags", []):
+            t_name = t.get("name")
+            if t_name and t_name not in tags:
+                tags.append(t_name)
+        source = "stashdb"
 
     metadata = {
         "query_term": term,

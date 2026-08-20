@@ -2,6 +2,61 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from meridian_x.jellyfin import JellyfinClient, sync_tags
+import requests
+
+
+def test_jellyfin_client_session_init():
+    client = JellyfinClient("http://localhost:8096", "test_key")
+    assert isinstance(client.session, requests.Session)
+    assert client.session.headers["X-Emby-Token"] == "test_key"
+    assert client.session.headers["Content-Type"] == "application/json"
+
+
+def test_jellyfin_client_get():
+    client = JellyfinClient("http://localhost:8096", "test_key")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"Items": []}
+    with patch.object(client.session, "get", return_value=mock_resp) as mock_get:
+        res = client._get("/Items", {"Recursive": "true"})
+        mock_get.assert_called_once_with(
+            "http://localhost:8096/Items",
+            params={"Recursive": "true"},
+            timeout=10,
+        )
+        assert res == {"Items": []}
+
+
+def test_jellyfin_client_post():
+    client = JellyfinClient("http://localhost:8096", "test_key")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.content = b'{"success": true}'
+    mock_resp.json.return_value = {"success": True}
+    with patch.object(client.session, "post", return_value=mock_resp) as mock_post:
+        res = client._post("/Library/Refresh", {})
+        mock_post.assert_called_once_with(
+            "http://localhost:8096/Library/Refresh",
+            json={},
+            timeout=10,
+        )
+        assert res == {"success": True}
+
+
+def test_jellyfin_client_delete():
+    client = JellyfinClient("http://localhost:8096", "test_key")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 204
+    mock_resp.content = b""
+    with patch.object(client.session, "delete", return_value=mock_resp) as mock_del:
+        res = client._delete("/Items/123")
+        mock_del.assert_called_once_with(
+            "http://localhost:8096/Items/123",
+            params=None,
+            timeout=10,
+        )
+        assert res == {}
+
 
 
 @patch.object(JellyfinClient, "_post")

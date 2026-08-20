@@ -23,11 +23,17 @@ class JellyfinClient:
         self._base_url = base_url.rstrip('/')
         self._api_key = api_key
         self._timeout = timeout
-        self._session = requests.Session()
-        self._session.headers.update({"X-Emby-Token": api_key})
+        self.base_url = self._base_url
+        self.api_key = api_key
+        self.session = requests.Session()
+        self.session.headers.update({
+            "X-Emby-Token": api_key,
+            "Content-Type": "application/json",
+        })
+        self._session = self.session
 
     def _get(self, path: str, params: dict = None) -> dict:
-        resp = self._session.get(
+        resp = self.session.get(
             f"{self._base_url}{path}",
             params=params,
             timeout=self._timeout,
@@ -36,9 +42,20 @@ class JellyfinClient:
         return resp.json()
 
     def _post(self, path: str, data: dict) -> dict:
-        resp = self._session.post(
+        resp = self.session.post(
             f"{self._base_url}{path}",
             json=data,
+            timeout=self._timeout,
+        )
+        resp.raise_for_status()
+        if resp.status_code == 204 or not resp.content:
+            return {}
+        return resp.json()
+
+    def _delete(self, path: str, params: dict = None) -> dict:
+        resp = self.session.delete(
+            f"{self._base_url}{path}",
+            params=params,
             timeout=self._timeout,
         )
         resp.raise_for_status()

@@ -56,6 +56,8 @@ def extract_jav_code(filename: str) -> str | None:
 class FanzaClient:
     """FANZA(DMM) Affiliate API 클라이언트"""
 
+    BASE_URL = FANZA_API_URL
+
     def __init__(
         self,
         api_id: str,
@@ -68,8 +70,32 @@ class FanzaClient:
         self._timeout = timeout
         self._rate_limit = rate_limit
         self._last_request_time = 0.0
-        self._session = requests.Session()
+        self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+        })
+        self._session = self.session
         self._cache: dict = {}
+
+    def search_item(self, keyword: str, hits: int = 1) -> dict | None:
+        """아이템 검색 API 호출"""
+        params = {
+            "api_id": self._api_id,
+            "affiliate_id": self._affiliate_id,
+            "site": "FANZA",
+            "service": "digital",
+            "floor": "videoa",
+            "keyword": keyword,
+            "hits": hits,
+            "output": "json",
+        }
+        resp = self.session.get(self.BASE_URL, params=params, timeout=self._timeout)
+        resp.raise_for_status()
+        return resp.json()
+
+    def get_item_details(self, content_id: str) -> dict | None:
+        """아이템 상세 조회 (content_id/keyword 기반)"""
+        return self.search_item(content_id, hits=1)
 
     def fetch_metadata(self, jav_code: str) -> dict | None:
         """JAV 코드로 메타데이터 조회. 캐시 우선."""
@@ -110,8 +136,8 @@ class FanzaClient:
         for attempt in range(max_retries):
             self._wait_rate_limit()
             try:
-                response = self._session.get(
-                    FANZA_API_URL, params=params, timeout=self._timeout
+                response = self.session.get(
+                    self.BASE_URL, params=params, timeout=self._timeout
                 )
                 if response.status_code == 429:
                     wait = 2**attempt
