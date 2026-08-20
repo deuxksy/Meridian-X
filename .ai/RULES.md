@@ -17,12 +17,14 @@ uv run meridian transmission
 uv run meridian transmission --source onejav
 uv run meridian transmission --source sukebei
 uv run meridian transmission --source xxxclub
+uv run meridian transmission --source torrentgalaxy
 uv run meridian filter
 uv run meridian label
 uv run meridian sync
 uv run meridian search "Dakota Doll" --category 1080p
 uv run meridian search "Dakota Doll" --auto --delay 5
 uv run meridian search "MINAMO" --source sukebei
+uv run meridian search "Angela White" --source tgx
 uv run meridian tidy --dry-run
 uv run meridian tidy
 uv run meridian classify --dry-run
@@ -52,7 +54,7 @@ src/
 ├── meridian_x/
 │   ├── cli.py            # CLI 진입점 (classify, filter, label, pipeline, report, search, sync, tidy, transmission)
 │   ├── collect.py        # Multi-source 수집 오케스트레이터
-│   ├── sources/          # onejav, sukebei, xxxclub source 모듈
+│   ├── sources/          # onejav, sukebei, xxxclub, torrentgalaxy source 모듈
 │   ├── transmission.py   # Transmission RPC 클라이언트
 │   ├── jellyfin.py       # Jellyfin REST API 클라이언트
 │   ├── tidy.py           # 원격 파일 정리 (SSH)

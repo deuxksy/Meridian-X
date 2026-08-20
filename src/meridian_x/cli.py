@@ -80,6 +80,8 @@ def run_search(
             category = "2_2"
         elif source == "xxxclub":
             category = "1080p"
+        elif source in ("torrentgalaxy", "tgx"):
+            category = "42"
         else:
             category = ""
 
@@ -199,6 +201,7 @@ Examples:
   %(prog)s transmission --source onejav  # OneJAV만
   %(prog)s transmission --source xxxclub # XXXClub만
   %(prog)s transmission --source sukebei # Sukebei만
+  %(prog)s transmission --source torrentgalaxy # TorrentGalaxy만
   %(prog)s transmission --dry-run  # 미리보기
   %(prog)s filter                 # 기존 토렌트 파일 필터링 (광고 제외)
   %(prog)s label                  # 기존 토렌트에 메이커 코드 labels 설정
@@ -210,6 +213,7 @@ Examples:
   %(prog)s pipeline --dry-run    # 미리보기
   %(prog)s report                # disk 사용량 + Transmission 상태 리포트
   %(prog)s search "MINAMO" --source sukebei # Sukebei 검색
+  %(prog)s search "Angela White" --source tgx # TorrentGalaxy 검색
         """
     )
     
@@ -256,7 +260,7 @@ Examples:
         "--source",
         type=str,
         default=None,
-        help="수집/검색 source 지정 (onejav, xxxclub, sukebei). transmission은 미지정 시 전체 실행, search는 기본: xxxclub"
+        help="수집/검색 source 지정 (onejav, xxxclub, sukebei, torrentgalaxy/tgx). transmission은 미지정 시 전체 실행, search는 기본: xxxclub"
     )
 
     parser.add_argument(
@@ -276,7 +280,7 @@ Examples:
         "--category",
         type=str,
         default=None,
-        help="검색 카테고리 (기본: xxxclub은 1080p, sukebei는 2_2)"
+        help="검색 카테고리 (기본: xxxclub은 1080p, sukebei는 2_2, torrentgalaxy/tgx는 42)"
     )
 
     parser.add_argument(

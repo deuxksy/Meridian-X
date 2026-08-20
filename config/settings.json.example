@@ -23,6 +23,21 @@
       },
       "request_timeout": 30,
       "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    "torrentgalaxy": {
+      "enabled": true,
+      "base_url": "https://torrentgalaxy.to",
+      "mirrors": [
+        "https://tgx.rs",
+        "https://torrentgalaxy.mx"
+      ],
+      "rss_url": "https://torrentgalaxy.to/rss?cat=42",
+      "default_category": "42",
+      "remote": {
+        "ssh_alias": "lt"
+      },
+      "request_timeout": 30,
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
   },
   "transmission": {

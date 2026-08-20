@@ -239,3 +239,98 @@ def test_tgx_resolve_magnet_failure():
     assert tgx.resolve_magnet({}) is None
     assert tgx.resolve_magnet("") is None
 
+
+def test_run_search_tgx_auto_mode():
+    from meridian_x.cli import run_search
+
+    mock_results = [{
+        "id": "tgx:160001",
+        "title": "Vixen 26 08 20 Angela White Passionate Night XXX 1080p MP4",
+        "details_url": "https://torrentgalaxy.to/torrent/160001/Vixen-26-08-20-Angela-White",
+        "magnet_url": "magnet:?xt=urn:btih:TGXSEARCHHASH1&dn=Vixen+Angela+White+1080p",
+        "size": "2.85 GB",
+        "seeders": "150",
+        "leechers": "12",
+    }]
+
+    with patch("meridian_x.sources.torrentgalaxy.search", return_value=mock_results) as mock_search, \
+         patch("meridian_x.db.MeridianDB") as mock_db_cls, \
+         patch("meridian_x.transmission.TransmissionClient") as mock_tx_cls, \
+         patch("time.sleep"):
+
+        mock_db = MagicMock()
+        mock_db.is_downloaded.return_value = False
+        mock_db_cls.return_value = mock_db
+
+        mock_tx = MagicMock()
+        mock_tx_cls.return_value = mock_tx
+
+        count = run_search(
+            query="Angela White",
+            source="tgx",
+            auto=True,
+            delay=1.0,
+            dry_run=False,
+        )
+
+        assert count == 1
+        mock_search.assert_called_once()
+        # Default category for tgx must be "42"
+        assert mock_search.call_args[1].get("category") == "42" or mock_search.call_args[0][1] == "42"
+        mock_tx.add_torrent.assert_called_once_with("magnet:?xt=urn:btih:TGXSEARCHHASH1&dn=Vixen+Angela+White+1080p")
+        mock_db.add_download_history.assert_called_once_with(["tgx:160001"])
+
+
+def test_run_search_torrentgalaxy_interactive_mode():
+    from meridian_x.cli import run_search
+
+    mock_results = [{
+        "id": "tgx:160001",
+        "title": "Vixen 26 08 20 Angela White Passionate Night XXX 1080p MP4",
+        "details_url": "https://torrentgalaxy.to/torrent/160001/Vixen-26-08-20-Angela-White",
+        "magnet_url": "magnet:?xt=urn:btih:TGXSEARCHHASH1&dn=Vixen+Angela+White+1080p",
+        "size": "2.85 GB",
+        "seeders": "150",
+        "leechers": "12",
+    }]
+
+    with patch("meridian_x.sources.torrentgalaxy.search", return_value=mock_results) as mock_search, \
+         patch("meridian_x.db.MeridianDB") as mock_db_cls, \
+         patch("meridian_x.transmission.TransmissionClient") as mock_tx_cls, \
+         patch("builtins.input", return_value="1"):
+
+        mock_db = MagicMock()
+        mock_db.is_downloaded.return_value = False
+        mock_db_cls.return_value = mock_db
+
+        mock_tx = MagicMock()
+        mock_tx_cls.return_value = mock_tx
+
+        count = run_search(
+            query="Angela White",
+            source="torrentgalaxy",
+            auto=False,
+            dry_run=False,
+        )
+
+        assert count == 1
+        assert mock_search.call_args[1].get("category") == "42" or mock_search.call_args[0][1] == "42"
+        mock_tx.add_torrent.assert_called_once_with("magnet:?xt=urn:btih:TGXSEARCHHASH1&dn=Vixen+Angela+White+1080p")
+        mock_db.add_download_history.assert_called_once_with(["tgx:160001"])
+
+
+def test_run_search_tgx_custom_category():
+    from meridian_x.cli import run_search
+
+    mock_results = []
+    with patch("meridian_x.sources.torrentgalaxy.search", return_value=mock_results) as mock_search:
+        count = run_search(
+            query="test",
+            category="41",
+            source="tgx",
+            auto=True,
+        )
+        assert count == 0
+        assert mock_search.call_args[1].get("category") == "41" or mock_search.call_args[0][1] == "41"
+
+
