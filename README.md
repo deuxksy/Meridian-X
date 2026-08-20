@@ -224,14 +224,15 @@ uv run meridian report                  # disk 사용량 + Transmission 토렌�
 
 | 분류 (Diátaxis) | 문서 | 설명 |
 | :--- | :--- | :--- |
-| Tutorials | [Tutorials Hub](./docs/tutorials/README.md) | 입문 및 첫 실행 가이드 |
-| How-To | [How-To Hub](./docs/how-to/README.md) | 특정 운영 작업 수행 절차 |
-| Reference | [Reference Hub](./docs/reference/README.md) | 설정, CLI, 문서 구조 참조 |
-| Reference | [Documentation Hub](./docs/README.md) | `docs/` 디렉터리 구조 및 문서 분류 안내 |
+| Framework | [OKF Hub](./docs/okf/README.md) | 사람 중심 공식 지식 프레임워크 허브 |
+| Tutorials | [Tutorials Hub](./docs/okf/tutorials/README.md) | 입문 및 첫 실행 가이드 |
+| How-To | [How-To Hub](./docs/okf/how-to/README.md) | 특정 운영 작업 수행 절차 |
+| Reference | [Reference Hub](./docs/okf/reference/README.md) | 설정, CLI, 문서 구조 참조 |
+| Reference | [Documentation Hub](./docs/README.md) | `docs/` 전체 디렉터리(OKF/Archive/Superpowers) 안내 |
 | Explanation | [Roadmap](./ROADMAP.md) | 버전별 현황과 향후 계획 |
-| Explanation | [Explanation Hub](./docs/explanation/README.md) | 아키텍처, 설계 결정, 배경 설명 |
-| Explanation | [Security Scan 설계](./docs/explanation/security-scan-design.md) | 보안 스캔 도입 배경과 설계 결정 |
-| How-To | [Security Scan 구현](./docs/how-to/security-scan-implementation.md) | 보안 스캔 구현 단계 계획 |
+| Explanation | [Explanation Hub](./docs/okf/explanation/README.md) | 아키텍처, 설계 결정, 배경 설명 |
+| Explanation | [Security Scan 설계](./docs/okf/explanation/security-scan-design.md) | 보안 스캔 도입 배경과 설계 결정 |
+| How-To | [Security Scan 구현](./docs/okf/how-to/security-scan-implementation.md) | 보안 스캔 구현 단계 계획 |
 
 ---
 
