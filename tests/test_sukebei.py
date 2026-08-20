@@ -80,12 +80,11 @@ def test_sukebei_fetch_url_remote():
         "remote": {"ssh_alias": "lt"},
         "request_timeout": 20,
     }
-    with patch.object(sukebei, "_ssh", return_value=(True, "response_text")) as mock_ssh:
+    with patch("meridian_x.sources.sukebei.fetch_remote_curl", return_value="response_text") as mock_fetch:
         ok, text = sukebei._fetch_url("https://sukebei.nyaa.si/test", config)
         assert ok is True
         assert text == "response_text"
-        mock_ssh.assert_called_once()
-        assert "curl -4 -sL --max-time 20" in mock_ssh.call_args[0][1]
+        mock_fetch.assert_called_once_with("https://sukebei.nyaa.si/test", ssh_alias="lt", timeout=20)
 
 
 def test_sukebei_fetch_url_direct_and_proxy():

@@ -17,8 +17,12 @@ from meridian_x.classify import (
     get_artist_folders,
     get_studio_mappings,
 )
+from ..remote import fetch_remote_curl
 
 logger = logging.getLogger(__name__)
+
+# Backwards compatibility alias
+fetch_url_remote = fetch_remote_curl
 
 BASE_URL = "https://sukebei.nyaa.si"
 NYAA_NS = {"nyaa": "https://nyaa.si/xmlns/nyaa"}
@@ -74,8 +78,11 @@ def _fetch_url(url: str, config: dict) -> tuple[bool, str]:
     timeout = _safe_timeout(config)
     remote = _sukebei_remote(config)
     if remote and (remote.get("ssh_alias") or remote.get("host")):
-        curl_cmd = f"curl -4 -sL --max-time {timeout} {shlex.quote(url)}"
-        return _ssh(remote, curl_cmd, timeout + 10)
+        ssh_alias = remote.get("ssh_alias", "lt")
+        out = fetch_remote_curl(url, ssh_alias=ssh_alias, timeout=timeout)
+        if out:
+            return True, out
+        return False, "fetch_remote_curl failed"
 
     user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
     proxies = config.get("proxies") or ({"http": config["proxy"], "https": config["proxy"]} if config.get("proxy") else None)

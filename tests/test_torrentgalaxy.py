@@ -73,6 +73,21 @@ def test_tgx_remote_config():
     cfg3 = {"remote": {"ssh_alias": "lt-global"}}
     assert tgx._tgx_remote(cfg3) == {"ssh_alias": "lt-global"}
 
+def test_tgx_fetch_url_remote():
+    from meridian_x.remote import fetch_remote_curl
+    assert tgx.fetch_url_remote is fetch_remote_curl
+
+    config = {
+        "remote": {"ssh_alias": "lt"},
+        "request_timeout": 25,
+    }
+    with patch("meridian_x.sources.torrentgalaxy.fetch_remote_curl", return_value="<rss>sample</rss>") as mock_fetch:
+        ok, content = tgx._fetch_url("https://torrentgalaxy.to/rss?cat=42", config)
+        assert ok is True
+        assert content == "<rss>sample</rss>"
+        mock_fetch.assert_called_once_with("https://torrentgalaxy.to/rss?cat=42", ssh_alias="lt", timeout=25)
+
+
 def test_tgx_fetch_url_mirror_fallback():
     config = {
         "sources": {

@@ -11,9 +11,14 @@ import shlex
 import subprocess
 from urllib.parse import urljoin, urlparse
 
+from ..remote import fetch_remote_curl
+
 logger = logging.getLogger(__name__)
 
 ALLOWED_HOSTS = {"onejav.com", "www.onejav.com"}
+
+# Backwards compatibility alias
+fetch_url_remote = fetch_remote_curl
 
 
 def _validate_url(url: str) -> bool:
@@ -94,13 +99,11 @@ def discover(config: dict) -> list[dict]:
     if not _validate_url(rss_url):
         logger.error(f"Invalid RSS URL (allowlist check failed): {rss_url[:100]}")
         return []
-    ok, output = _ssh(
-        remote,
-        f"curl -4 -sL --max-time {timeout} --proto =http,https --proto-redir =http,https {shlex.quote(rss_url)}",
-        timeout + 10,
-    )
-    if not ok or not output:
-        logger.error(f"OneJAV RSS fetch failed: {output[:200]}")
+
+    ssh_alias = remote.get("ssh_alias", "lt")
+    output = fetch_remote_curl(rss_url, ssh_alias=ssh_alias, timeout=timeout)
+    if not output:
+        logger.error("OneJAV RSS fetch failed")
         return []
 
     return _parse_rss(output)
@@ -121,13 +124,11 @@ def resolve(item: dict, config: dict) -> dict | None:
     if not _validate_url(page_url):
         logger.warning(f"URL validation failed, skipping: {page_url[:100]}")
         return None
-    ok, html = _ssh(
-        remote,
-        f"curl -4 -sL --max-time {timeout} --proto =http,https --proto-redir =http,https {shlex.quote(page_url)}",
-        timeout + 10,
-    )
-    if not ok or not html:
-        logger.error(f"OneJAV page fetch failed: {html[:200]}")
+
+    ssh_alias = remote.get("ssh_alias", "lt")
+    html = fetch_remote_curl(page_url, ssh_alias=ssh_alias, timeout=timeout)
+    if not html:
+        logger.error(f"OneJAV page fetch failed for {page_url}")
         return None
 
     match = re.search(r'href="(/torrent/[^/]+/download/\d+/[^"]+\.torrent)"', html)

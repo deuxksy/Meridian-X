@@ -19,8 +19,12 @@ from meridian_x.classify import (
     get_studio_mappings,
 )
 from meridian_x.core import is_fhd_or_higher
+from ..remote import fetch_remote_curl
 
 logger = logging.getLogger(__name__)
+
+# Backwards compatibility alias
+fetch_url_remote = fetch_remote_curl
 
 DEFAULT_BASE_URL = "https://torrentgalaxy.one"
 DEFAULT_MIRRORS = [
@@ -103,11 +107,11 @@ def _fetch_url(url: str, config: dict, candidate_urls: list[str] = None) -> tupl
 
     for target_url in urls:
         if remote and (remote.get("ssh_alias") or remote.get("host")):
-            curl_cmd = f"curl -4 -sL --max-time {timeout} {shlex.quote(target_url)}"
-            ok, out = _ssh(remote, curl_cmd, timeout + 10)
-            if ok and out.strip():
+            ssh_alias = remote.get("ssh_alias", "lt")
+            out = fetch_remote_curl(target_url, ssh_alias=ssh_alias, timeout=timeout)
+            if out and out.strip():
                 return True, out
-            logger.warning(f"TorrentGalaxy fetch failed on {target_url[:60]} via remote: {out[:100]}")
+            logger.warning(f"TorrentGalaxy fetch failed on {target_url[:60]} via remote")
         else:
             try:
                 resp = requests.get(target_url, headers={"User-Agent": user_agent}, proxies=proxies, timeout=timeout)
