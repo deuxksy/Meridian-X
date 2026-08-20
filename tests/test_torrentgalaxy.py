@@ -192,7 +192,37 @@ def test_tgx_parse_search_html_allow_all_quality():
     assert items[2]["leechers"] == "2"
 
 
-def test_tgx_search():
+SAMPLE_SEARCH_JSON = """{
+  "results": [
+    {
+      "pk": "160001",
+      "n": "Vixen Angela White Passionate Night 1080p",
+      "h": "HASH1080P",
+      "s": 2684354560,
+      "se": 450,
+      "le": 12
+    },
+    {
+      "pk": "160002",
+      "n": "Brazzers Angela White 4K Special",
+      "h": "HASH4K",
+      "s": 6979321856,
+      "se": 300,
+      "le": 25
+    },
+    {
+      "pk": "160003",
+      "n": "Angela White Old Clip 720p",
+      "h": "HASH720P",
+      "s": 891289600,
+      "se": 40,
+      "le": 2
+    }
+  ]
+}"""
+
+
+def test_tgx_search_json_api():
     config = {
         "sources": {
             "torrentgalaxy": {
@@ -201,10 +231,30 @@ def test_tgx_search():
             }
         }
     }
-    with patch.object(tgx, "_fetch_url", return_value=(True, SAMPLE_SEARCH_HTML)) as mock_fetch:
+    with patch.object(tgx, "_fetch_url", return_value=(True, SAMPLE_SEARCH_JSON)) as mock_fetch:
         items = tgx.search("Angela White", category="42", config=config)
         assert len(items) == 2
+        assert items[0]["id"] == "tgx:160001"
+        assert items[0]["size"] == "2.50 GB"
+        assert items[0]["seeders"] == "450"
+        assert items[0]["magnet_url"].startswith("magnet:?xt=urn:btih:HASH1080P")
         mock_fetch.assert_called_once()
+
+
+def test_tgx_search_html_fallback():
+    config = {
+        "sources": {
+            "torrentgalaxy": {
+                "base_url": "https://torrentgalaxy.to",
+                "mirrors": ["https://tgx.rs"],
+            }
+        }
+    }
+    # First JSON call returns HTML (triggering fallback), second call returns SAMPLE_SEARCH_HTML
+    with patch.object(tgx, "_fetch_url", side_effect=[(True, "<!DOCTYPE html>"), (True, SAMPLE_SEARCH_HTML)]) as mock_fetch:
+        items = tgx.search("Angela White", category="42", config=config)
+        assert len(items) == 2
+        assert mock_fetch.call_count == 2
         called_url = mock_fetch.call_args[0][0]
         assert "torrentgalaxy.to/torrents.php?search=Angela+White&cat=42&sort=seeders&order=desc" in called_url
         candidate_urls = mock_fetch.call_args[1].get("candidate_urls") or mock_fetch.call_args[0][2]

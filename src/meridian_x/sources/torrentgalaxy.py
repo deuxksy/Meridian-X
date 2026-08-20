@@ -22,8 +22,14 @@ from meridian_x.core import is_fhd_or_higher
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BASE_URL = "https://torrentgalaxy.to"
-DEFAULT_MIRRORS = ["https://tgx.rs", "https://torrentgalaxy.mx", "https://torrentgalaxy.one"]
+DEFAULT_BASE_URL = "https://torrentgalaxy.one"
+DEFAULT_MIRRORS = [
+    "https://torrentgalaxy.one",
+    "https://torrentgalaxy.hair",
+    "https://torrentgalaxy.to",
+    "https://tgx.rs",
+    "https://torrentgalaxy.mx",
+]
 DEFAULT_CATEGORY = "42"
 
 
@@ -212,7 +218,7 @@ def _parse_search_html(html_content: str, base_url: str, allow_all_quality: bool
         rows = soup.select("table.tgxtable tr, table tr")
 
     for row in rows:
-        link_elem = row.select_one("a[href*='/torrent/']")
+        link_elem = row.select_one("a[href*='/post-detail/'], a[href*='/torrent/'], a.txlight")
         if not link_elem:
             continue
 
@@ -226,7 +232,7 @@ def _parse_search_html(html_content: str, base_url: str, allow_all_quality: bool
 
         details_url = urljoin(base_url, href)
 
-        match = re.search(r'/torrent/(\d+)', href)
+        match = re.search(r'/(?:torrent|post-detail)/([a-zA-Z0-9_-]+)', href)
         tgx_id = match.group(1) if match else href.rstrip("/").split("/")[-1]
         torrent_id = f"tgx:{tgx_id}"
 
@@ -266,8 +272,58 @@ def _parse_search_html(html_content: str, base_url: str, allow_all_quality: bool
     return items
 
 
+def _format_size(size_bytes: int) -> str:
+    if size_bytes >= 1024**4:
+        return f"{size_bytes / (1024**4):.2f} TB"
+    if size_bytes >= 1024**3:
+        return f"{size_bytes / (1024**3):.2f} GB"
+    if size_bytes >= 1024**2:
+        return f"{size_bytes / (1024**2):.1f} MB"
+    if size_bytes >= 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes} B"
+
+
+def _parse_json_results(json_data: list, base_url: str, allow_all_quality: bool = False) -> list[dict]:
+    items = []
+    for entry in json_data:
+        pk = str(entry.get("pk") or "").strip()
+        name = str(entry.get("n") or "").strip()
+        if not pk or not name:
+            continue
+
+        info_hash = str(entry.get("h") or "").strip()
+        encoded_name = quote_plus(name)
+        magnet_url = f"magnet:?xt=urn:btih:{info_hash}&dn={encoded_name}" if info_hash else ""
+
+        size_bytes = entry.get("s") or 0
+        size_str = _format_size(size_bytes) if size_bytes else ""
+
+        seeders = str(entry.get("se") or "0")
+        leechers = str(entry.get("le") or "0")
+
+        slug = re.sub(r'[^a-zA-Z0-9_-]+', '-', name).strip('-').lower()
+        details_url = f"{base_url.rstrip('/')}/post-detail/{pk}/{slug}/"
+
+        items.append({
+            "id": f"tgx:{pk}",
+            "title": name,
+            "details_url": details_url,
+            "magnet_url": magnet_url,
+            "size": size_str,
+            "seeders": seeders,
+            "leechers": leechers,
+        })
+
+    if not allow_all_quality:
+        items = [item for item in items if is_fhd_or_higher(item["title"])]
+    return items
+
+
 def search(query: str, category: str = DEFAULT_CATEGORY, config: dict = None) -> list[dict]:
-    """TorrentGalaxy 키워드 및 카테고리 검색 결과 반환."""
+    """TorrentGalaxy 키워드 및 카테고리 검색 결과 반환 (JSON API 우선, HTML fallback)."""
+    import json
+
     if config is None:
         config = {}
 
@@ -284,8 +340,26 @@ def search(query: str, category: str = DEFAULT_CATEGORY, config: dict = None) ->
         or DEFAULT_MIRRORS
     )
 
-    cat = category if category is not None else DEFAULT_CATEGORY
+    allow_all_quality = config.get("allow_all_quality", False)
     encoded_query = quote_plus(query)
+
+    # 1. JSON API 검색 시도
+    json_path = f"/get-posts/keywords:{encoded_query}:format:json/"
+    json_url = f"{base_url.rstrip('/')}{json_path}"
+    candidate_json = [json_url] + [f"{m.rstrip('/')}{json_path}" for m in mirrors]
+
+    ok, content = _fetch_url(json_url, config, candidate_urls=candidate_json)
+    if ok and content and (content.strip().startswith("[") or content.strip().startswith("{")):
+        try:
+            data = json.loads(content)
+            results = data if isinstance(data, list) else data.get("results", [])
+            if results:
+                return _parse_json_results(results, base_url, allow_all_quality=allow_all_quality)
+        except Exception as e:
+            logger.debug(f"TGx JSON parse fallback to HTML: {e}")
+
+    # 2. HTML 검색 fallback
+    cat = category if category is not None else DEFAULT_CATEGORY
     search_path = f"/torrents.php?search={encoded_query}&cat={cat}&sort=seeders&order=desc"
     search_url = f"{base_url.rstrip('/')}{search_path}"
     candidate_urls = [search_url] + [f"{m.rstrip('/')}{search_path}" for m in mirrors]
@@ -295,7 +369,6 @@ def search(query: str, category: str = DEFAULT_CATEGORY, config: dict = None) ->
         logger.error(f"TorrentGalaxy search fetch failed for '{query}': {content[:200] if content else 'empty'}")
         return []
 
-    allow_all_quality = config.get("allow_all_quality", False)
     return _parse_search_html(content, base_url, allow_all_quality=allow_all_quality)
 
 
