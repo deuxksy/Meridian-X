@@ -12,6 +12,14 @@
       "enabled": true,
       "rss_url": "https://xxxclub.to/feed/1080p.FullHD.xml",
       "selective_only": true
+    },
+    "sukebei": {
+      "enabled": true,
+      "base_url": "https://sukebei.nyaa.si",
+      "rss_url": "https://sukebei.nyaa.si/?page=rss&c=2_2",
+      "default_category": "2_2",
+      "request_timeout": 30,
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
   },
   "transmission": {

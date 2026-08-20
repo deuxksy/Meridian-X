@@ -261,3 +261,96 @@ def test_sukebei_resolve_magnet_from_page():
         magnet = sukebei.resolve_magnet("https://sukebei.nyaa.si/view/1234567", config=config)
         assert magnet is None
 
+
+def test_run_search_sukebei_auto_mode():
+    from meridian_x.cli import run_search
+
+    mock_results = [{
+        "id": "sukebei:1234567",
+        "title": "[FHD/3.2GB] MIAA-001 MINAMO Special Debut",
+        "details_url": "https://sukebei.nyaa.si/view/1234567",
+        "magnet_url": "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=MIAA-001",
+        "size": "3.2 GiB",
+        "seeders": "45",
+        "leechers": "5",
+    }]
+
+    with patch("meridian_x.sources.sukebei.search", return_value=mock_results) as mock_search, \
+         patch("meridian_x.db.MeridianDB") as mock_db_cls, \
+         patch("meridian_x.transmission.TransmissionClient") as mock_tx_cls, \
+         patch("time.sleep") as mock_sleep:
+
+        mock_db = MagicMock()
+        mock_db.is_downloaded.return_value = False
+        mock_db_cls.return_value = mock_db
+
+        mock_tx = MagicMock()
+        mock_tx_cls.return_value = mock_tx
+
+        count = run_search(
+            query="MIAA-001",
+            source="sukebei",
+            auto=True,
+            delay=1.0,
+            dry_run=False,
+        )
+
+        assert count == 1
+        mock_search.assert_called_once()
+        assert mock_search.call_args[1].get("category") == "2_2" or mock_search.call_args[0][1] == "2_2"
+        mock_tx.add_torrent.assert_called_once_with("magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=MIAA-001")
+        mock_db.add_download_history.assert_called_once_with(["sukebei:1234567"])
+
+
+def test_run_search_sukebei_interactive_mode():
+    from meridian_x.cli import run_search
+
+    mock_results = [{
+        "id": "sukebei:1234567",
+        "title": "[FHD/3.2GB] MIAA-001 MINAMO Special Debut",
+        "details_url": "https://sukebei.nyaa.si/view/1234567",
+        "magnet_url": "magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=MIAA-001",
+        "size": "3.2 GiB",
+        "seeders": "45",
+        "leechers": "5",
+    }]
+
+    with patch("meridian_x.sources.sukebei.search", return_value=mock_results) as mock_search, \
+         patch("meridian_x.db.MeridianDB") as mock_db_cls, \
+         patch("meridian_x.transmission.TransmissionClient") as mock_tx_cls, \
+         patch("builtins.input", return_value="1"):
+
+        mock_db = MagicMock()
+        mock_db.is_downloaded.return_value = False
+        mock_db_cls.return_value = mock_db
+
+        mock_tx = MagicMock()
+        mock_tx_cls.return_value = mock_tx
+
+        count = run_search(
+            query="MIAA-001",
+            source="sukebei",
+            auto=False,
+            dry_run=False,
+        )
+
+        assert count == 1
+        mock_tx.add_torrent.assert_called_once_with("magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567&dn=MIAA-001")
+        mock_db.add_download_history.assert_called_once_with(["sukebei:1234567"])
+
+
+def test_run_search_sukebei_custom_category():
+    from meridian_x.cli import run_search
+
+    mock_results = []
+    with patch("meridian_x.sources.sukebei.search", return_value=mock_results) as mock_search:
+        count = run_search(
+            query="test",
+            category="2_1",
+            source="sukebei",
+            auto=True,
+        )
+        assert count == 0
+        assert mock_search.call_args[1].get("category") == "2_1" or mock_search.call_args[0][1] == "2_1"
+
+

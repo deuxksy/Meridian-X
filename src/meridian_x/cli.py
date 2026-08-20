@@ -59,21 +59,42 @@ def parse_selection_indices(input_str: str, max_count: int) -> list[int]:
     return sorted(list(indices))
 
 
-def run_search(query: str, category: str = "1080p", source: str = "xxxclub", auto: bool = False, delay: float = 5.0, dry_run: bool = False) -> int:
+def run_search(
+    query: str,
+    category: str = None,
+    source: str = "xxxclub",
+    auto: bool = False,
+    delay: float = 5.0,
+    dry_run: bool = False,
+) -> int:
     import time
     from .core import load_config
     from .db import MeridianDB
     from .transmission import TransmissionClient
-    from .sources import xxxclub
+    from .sources import SOURCES
 
     config = load_config()
+
+    if not category:
+        if source == "sukebei":
+            category = "2_2"
+        elif source == "xxxclub":
+            category = "1080p"
+        else:
+            category = ""
+
     logger.info(f"=== Search: query='{query}', category='{category}', source='{source}' ===")
-    
-    if source != "xxxclub":
-        logger.error(f"Search only supported for source 'xxxclub', got '{source}'")
+
+    if source not in SOURCES:
+        logger.error(f"Search only supported for sources {list(SOURCES.keys())}, got '{source}'")
         return 0
 
-    items = xxxclub.search(query, category=category, config=config)
+    src_module = SOURCES[source]
+    if not hasattr(src_module, "search"):
+        logger.error(f"Search not supported for source '{source}'")
+        return 0
+
+    items = src_module.search(query, category=category, config=config)
     if not items:
         logger.info("No items found.")
         return 0
@@ -89,6 +110,16 @@ def run_search(query: str, category: str = "1080p", source: str = "xxxclub", aut
             timeout=tx_config.get("timeout", 10),
         )
 
+    def _get_magnet(item: dict) -> str | None:
+        magnet = item.get("magnet_url")
+        if not magnet and hasattr(src_module, "resolve_magnet") and item.get("details_url"):
+            magnet = src_module.resolve_magnet(item["details_url"], config=config)
+        elif not magnet and hasattr(src_module, "resolve"):
+            payload = src_module.resolve(item, config)
+            if payload and payload.get("type") == "magnet":
+                magnet = payload.get("data")
+        return magnet
+
     added_count = 0
     if auto:
         logger.info(f"Auto mode enabled. Processing {len(items)} items with delay={delay}s...")
@@ -96,13 +127,13 @@ def run_search(query: str, category: str = "1080p", source: str = "xxxclub", aut
             if db.is_downloaded(item["id"]):
                 logger.info(f"[{idx}/{len(items)}] Skip already downloaded: {item['title']}")
                 continue
-            
+
             logger.info(f"[{idx}/{len(items)}] Fetching details: {item['title']}")
-            magnet = xxxclub.resolve_magnet(item["details_url"], config=config)
+            magnet = _get_magnet(item)
             if not magnet:
-                logger.warning(f"Failed to extract magnet from {item['details_url']}")
+                logger.warning(f"Failed to extract magnet from {item.get('details_url', item.get('id'))}")
                 continue
-            
+
             if dry_run:
                 logger.info(f"[Dry-run] Would add magnet: {magnet[:50]}...")
             else:
@@ -110,7 +141,7 @@ def run_search(query: str, category: str = "1080p", source: str = "xxxclub", aut
                     tx_client.add_torrent(magnet)
                 db.add_download_history([item["id"]])
                 logger.info(f"Added to Transmission & DB: {item['title']}")
-            
+
             added_count += 1
             if idx < len(items) and delay > 0:
                 time.sleep(delay)
@@ -120,7 +151,7 @@ def run_search(query: str, category: str = "1080p", source: str = "xxxclub", aut
         for idx, item in enumerate(items, 1):
             status = "[Downloaded]" if db.is_downloaded(item["id"]) else "[New]"
             print(f" {idx:2d}. {status} {item['title']} ({item['size']}, S:{item['seeders']} L:{item['leechers']})")
-        
+
         user_input = input("\nEnter item numbers to download (e.g. 1,3-5, all, or q to quit): ").strip()
         if not user_input or user_input.lower() == 'q':
             logger.info("Search cancelled.")
@@ -132,13 +163,13 @@ def run_search(query: str, category: str = "1080p", source: str = "xxxclub", aut
             if db.is_downloaded(item["id"]):
                 print(f"Skip downloaded: {item['title']}")
                 continue
-            
+
             print(f"Fetching magnet for: {item['title']}...")
-            magnet = xxxclub.resolve_magnet(item["details_url"], config=config)
+            magnet = _get_magnet(item)
             if not magnet:
                 print(f"Failed to fetch magnet for {item['title']}")
                 continue
-            
+
             if dry_run:
                 print(f"[Dry-run] Would add: {item['title']}")
             else:
@@ -161,6 +192,7 @@ Examples:
   %(prog)s transmission           # 전체 source Transmission RPC 전송
   %(prog)s transmission --source onejav  # OneJAV만
   %(prog)s transmission --source xxxclub # XXXClub만
+  %(prog)s transmission --source sukebei # Sukebei만
   %(prog)s transmission --dry-run  # 미리보기
   %(prog)s filter                 # 기존 토렌트 파일 필터링 (광고 제외)
   %(prog)s label                  # 기존 토렌트에 메이커 코드 labels 설정
@@ -171,6 +203,7 @@ Examples:
   %(prog)s pipeline              # filter → label → sync → tidy → classify 한 번에
   %(prog)s pipeline --dry-run    # 미리보기
   %(prog)s report                # disk 사용량 + Transmission 상태 리포트
+  %(prog)s search "MINAMO" --source sukebei # Sukebei 검색
         """
     )
     
@@ -210,7 +243,7 @@ Examples:
         "--source",
         type=str,
         default=None,
-        help="수집 source 지정 (onejav, xxxclub). 없으면 전체 실행"
+        help="수집/검색 source 지정 (onejav, xxxclub, sukebei). transmission은 미지정 시 전체 실행, search는 기본: xxxclub"
     )
 
     parser.add_argument(
@@ -229,8 +262,8 @@ Examples:
     parser.add_argument(
         "--category",
         type=str,
-        default="1080p",
-        help="검색 카테고리 (기본: 1080p)"
+        default=None,
+        help="검색 카테고리 (기본: xxxclub은 1080p, sukebei는 2_2)"
     )
 
     parser.add_argument(
