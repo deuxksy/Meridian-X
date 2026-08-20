@@ -63,9 +63,16 @@ def _ssh(remote: dict, cmd: str, timeout: int = 60) -> tuple[bool, str]:
         return False, str(e)
 
 
+def _sukebei_remote(config: dict) -> dict:
+    return (
+        config.get("sources", {}).get("sukebei", {}).get("remote")
+        or config.get("remote", {})
+    )
+
+
 def _fetch_url(url: str, config: dict) -> tuple[bool, str]:
     timeout = _safe_timeout(config)
-    remote = config.get("remote", {})
+    remote = _sukebei_remote(config)
     if remote and (remote.get("ssh_alias") or remote.get("host")):
         curl_cmd = f"curl -4 -sL --max-time {timeout} {shlex.quote(url)}"
         return _ssh(remote, curl_cmd, timeout + 10)

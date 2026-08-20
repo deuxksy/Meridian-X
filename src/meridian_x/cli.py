@@ -152,7 +152,13 @@ def run_search(
             status = "[Downloaded]" if db.is_downloaded(item["id"]) else "[New]"
             print(f" {idx:2d}. {status} {item['title']} ({item['size']}, S:{item['seeders']} L:{item['leechers']})")
 
-        user_input = input("\nEnter item numbers to download (e.g. 1,3-5, all, or q to quit): ").strip()
+        try:
+            user_input = input("\nEnter item numbers to download (e.g. 1,3-5, all, or q to quit): ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            logger.info("Search cancelled.")
+            return 0
+
         if not user_input or user_input.lower() == 'q':
             logger.info("Search cancelled.")
             return 0
@@ -211,6 +217,13 @@ Examples:
         "command",
         choices=["classify", "filter", "label", "pipeline", "report", "search", "sync", "tidy", "transmission"],
         help="실행할 명령"
+    )
+
+    parser.add_argument(
+        "query_pos",
+        nargs="?",
+        default=None,
+        help="검색 키워드 (search 전용)"
     )
     
     parser.add_argument(
@@ -472,12 +485,13 @@ Examples:
             logger.info(f"=== Label Completed ({count} torrents labeled) ===")
 
     elif args.command == "search":
-        if not args.query:
-            logger.error("--query option is required for search command")
+        query = args.query or args.query_pos
+        if not query:
+            logger.error("Query is required for search command (e.g. meridian search 'MINAMO' or --query 'MINAMO')")
             sys.exit(1)
         source = args.source or "xxxclub"
         run_search(
-            query=args.query,
+            query=query,
             category=args.category,
             source=source,
             auto=args.auto,
