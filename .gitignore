@@ -1,14 +1,10 @@
-# Environment
+# Environment & Secrets
 .env
 .env.local
 .env.*.local
 !.env.example
-
-# System Files
-.DS_Store
-._*
-Thumbs.db
-Desktop.ini
+config/settings.json
+keys.txt
 
 # Python
 __pycache__/
@@ -20,8 +16,6 @@ __pycache__/
 .eggs/
 dist/
 build/
-eggs/
-.eggs/
 *.manifest
 *.spec
 pip-log.txt
@@ -32,38 +26,26 @@ venv/
 ENV/
 env/
 
-# Testing
+# Testing & Coverage
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
 .nox/
 
-# IDE / Editor
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-.project
-.pydevproject
-.settings/
+# Database & Local Data Store
+data/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
 
-# Tool versions
-.tool-versions
-.python-version
-
-# Logs
+# Logs & Diagnostics
 logs/
 *.log
 
-# Torrent & Downloads
-*.part
-*.!qB
-*.crdownload
-*.torrent
-
-# Media Files
+# Media & Binary Downloads
 *.mp4
 *.mkv
 *.avi
@@ -77,49 +59,41 @@ logs/
 *.png
 *.gif
 *.webp
+*.part
+*.!qB
+*.crdownload
+*.torrent
 
-# Archives
+# Archives & Junk Files
 *.zip
 *.rar
 *.7z
 *.tar
 *.gz
-
-# Junk Files
 *.nfo
 *.url
 *.lnk
 *.tmp
 *.dat
-*.html
-#config/settings.json
 
-.omc
+# IDE & OS System Files
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.tool-versions
+.python-version
 
-# Code analysis tools
-.understand-anything/
-
-# Operational state (OMC variant)
-.omx/
-
-# npm stubs (Python 프로젝트, 미사용)
-package.json
-package-lock.json
-
-config/settings.json
-.serena
-
-keys.txt
+# Agent & Ephemeral Workspaces
 .superpowers/
-
-# SQLite Database Files
-data/*.db
-data/*.db-wal
-data/*.db-shm
-logs/*.db
-logs/*.db-wal
-logs/*.db-shm
-
-# Scratch & Agent state
+.omc/
+.omx/
+.serena/
 .mimosa/
+.understand-anything/
 scratch/
