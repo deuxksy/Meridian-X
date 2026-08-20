@@ -68,7 +68,7 @@ def run_search(
     dry_run: bool = False,
 ) -> int:
     import time
-    from .core import load_config
+    from .core import load_config, deduplicate_releases
     from .db import MeridianDB
     from .transmission import TransmissionClient
     from .sources import SOURCES
@@ -100,6 +100,12 @@ def run_search(
     if not items:
         logger.info("No items found.")
         return 0
+
+    # 동일 영상 중복 제거 (1080p 및 안정적 릴 그룹 우선 선별)
+    raw_count = len(items)
+    items = deduplicate_releases(items)
+    if len(items) < raw_count:
+        logger.info(f"Deduplicated {raw_count} items -> {len(items)} unique releases (1080p & best release priority)")
 
     db = MeridianDB()
     tx_config = config.get("transmission", {})

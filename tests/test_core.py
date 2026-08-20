@@ -86,3 +86,28 @@ def test_is_fhd_or_higher():
     assert is_fhd_or_higher("") is True
 
 
+def test_deduplicate_releases_1080p_and_release_group_priority():
+    from meridian_x.core import deduplicate_releases, extract_scene_key, score_release
+
+    items = [
+        {"id": "tgx:1", "title": "Tiny4K 26 08 06 Hazel Heart XXX 2160p MP4 WRB XC", "seeders": "17"},
+        {"id": "tgx:2", "title": "Tiny4K.26.08.06.Hazel.Heart.XXX.1080p.MP4-TRB", "seeders": "5"},
+        {"id": "tgx:3", "title": "Tiny4K 26 08 06 Hazel Heart XXX 1080p MP4-WRB [XC]", "seeders": "24"},
+        {"id": "tgx:4", "title": "Tiny4K 26 06 25 Violet Moon Critical Hit XXX 2160p MP4-WRB [XC]", "seeders": "10"},
+        {"id": "tgx:5", "title": "Tiny4K 26 06 25 Violet Moon Critical Hit XXX 1080p MP4 WRB XC", "seeders": "10"},
+        {"id": "sukebei:10", "title": "[4K] START-591 MINAMO", "seeders": "15"},
+        {"id": "sukebei:11", "title": "[FHD] START-591 MINAMO", "seeders": "40"},
+    ]
+
+    deduped = deduplicate_releases(items)
+    assert len(deduped) == 3
+
+    # Hazel Heart: 1080p WRB [XC] wins over 2160p and TRB
+    assert deduped[0]["id"] == "tgx:3"
+    # Violet Moon: 1080p WRB XC wins over 2160p
+    assert deduped[1]["id"] == "tgx:5"
+    # JAV START-591: [FHD] wins over [4K]
+    assert deduped[2]["id"] == "sukebei:11"
+
+
+

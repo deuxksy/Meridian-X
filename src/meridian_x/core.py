@@ -164,3 +164,82 @@ def is_fhd_or_higher(title: str) -> bool:
         return True
     return True
 
+
+def extract_scene_key(title: str) -> str:
+    """토렌트/게시글 제목에서 동일 에피소드 식별 키 추출 (릴 그룹 및 화질 태그 제거)."""
+    clean = title.replace(".", " ").replace("_", " ").replace("-", " ")
+    clean = re.sub(r"\[.*?\]", " ", clean)
+    clean = re.sub(r"\(.*?\)", " ", clean)
+    clean = re.sub(r"\s+", " ", clean).strip().lower()
+
+    # West 날짜 패턴 (YY MM DD, YYYY MM DD)
+    date_m = re.search(r"\b(\d{2,4})\s+(\d{2})\s+(\d{2})\b", clean)
+    if date_m:
+        date_str = "".join(date_m.groups())
+        prefix = clean[:date_m.start()].strip().split()
+        suffix = clean[date_m.end():].strip().split()
+        noise = {"1080p", "2160p", "4k", "720p", "mp4", "mkv", "xxx", "wrb", "trb", "xc", "p2p", "xvid", "av1", "xfans", "h264", "h265", "hevc"}
+        words = [w for w in (prefix + suffix) if w not in noise]
+        w0 = words[0] if words else ""
+        w1 = words[1] if len(words) > 1 else ""
+        w2 = words[2] if len(words) > 2 else ""
+        return f"west_{w0}_{date_str}_{w1}_{w2}"
+
+    # JAV 메이커 코드 패턴 (예: SONE-446, IPX-123)
+    jav_m = re.search(r"\b([a-z]{3,7})\s+(\d{2,5})\b", clean)
+    if jav_m:
+        return f"jav_{jav_m.group(1)}_{jav_m.group(2)}"
+
+    # 기타 일반 제목
+    words = [w for w in clean.split() if w not in {"1080p", "2160p", "4k", "720p", "mp4", "mkv", "xxx", "wrb", "trb", "xc", "p2p", "xvid", "av1", "xfans"}]
+    return "other_" + "_".join(words[:4])
+
+
+def score_release(item: dict) -> int:
+    """릴리스 우선순위 점수 계산: 1080p 우선 > 안정적 릴 그룹(WRB/XC > TRB > P2P) > 시더 수."""
+    title = (item.get("title") or "").lower()
+    score = 0
+
+    # 1. 1080p (FHD) 최우선
+    if "1080p" in title or "1080i" in title or "fhd" in title:
+        score += 1000
+    elif "2160p" in title or "4k" in title or "uhd" in title:
+        score += 500
+    else:
+        score += 100
+
+    # 2. 안정적인 릴 그룹 (WRB / XC / XXXClub > TRB / theRarBg > P2P > 기타)
+    if "wrb" in title or "xc" in title or "xxxclub" in title:
+        score += 300
+    elif "trb" in title or "therarbg" in title:
+        score += 200
+    elif "p2p" in title or "nbq" in title:
+        score += 100
+
+    # 3. 시더 수 가산점 (최대 50점)
+    try:
+        seeders = int(re.sub(r"[^\d]", "", str(item.get("seeders") or "0")))
+        score += min(seeders, 50)
+    except Exception:
+        pass
+
+    return score
+
+
+def deduplicate_releases(items: list[dict]) -> list[dict]:
+    """동일 에피소드/작품 중 가장 우선순위가 높은(1080p, 안정적 릴 그룹) 릴리스만 단일 선별."""
+    from collections import defaultdict
+    grouped = defaultdict(list)
+    for item in items:
+        key = extract_scene_key(item.get("title", ""))
+        grouped[key].append(item)
+
+    best_items = []
+    for key, group in grouped.items():
+        sorted_group = sorted(group, key=score_release, reverse=True)
+        best_items.append(sorted_group[0])
+
+    orig_indices = {id(item): idx for idx, item in enumerate(items)}
+    best_items.sort(key=lambda item: orig_indices.get(id(item), 0))
+    return best_items
+
