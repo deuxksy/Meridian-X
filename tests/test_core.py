@@ -66,14 +66,15 @@ def test_downloaded_history_integration(tmp_path, monkeypatch):
 def test_is_fhd_or_higher():
     from meridian_x.core import is_fhd_or_higher
 
-    # High res passes
+    # High res passes (FHD / 4K)
     assert is_fhd_or_higher("+++ [FHD] START-591 MINAMO") is True
     assert is_fhd_or_higher("[4K] START-406 MINAMO") is True
-    assert is_fhd_or_higher("[8KVR] 3DSVR-2009 MINAMO") is True
     assert is_fhd_or_higher("MIAA-001 1080p BluRay") is True
     assert is_fhd_or_higher("STARS-999 2160P UHD") is True
 
-    # Low res rejected
+    # Low res & VR/8K rejected
+    assert is_fhd_or_higher("[8KVR] 3DSVR-2009 MINAMO") is False
+    assert is_fhd_or_higher("[8K HEVC] 3DSVR-1529 MINAMO") is False
     assert is_fhd_or_higher("[HD/720p] START-284 MINAMO") is False
     assert is_fhd_or_higher("[HD] STARS-412 MINAMO") is False
     assert is_fhd_or_higher("[SD] MIAA-123") is False

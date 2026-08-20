@@ -140,29 +140,27 @@ def extract_page_links(rss_content: str) -> List[dict]:
     return links
 
 
-HIGH_RES_PATTERN = re.compile(
-    r"(\[FHD\]|\[4K\]|\[8K\]|\b(fhd|1080p|1080i|fullhd|full-hd|4k|2160p|uhd|8k|8kvr|bluray|blu-ray|bdrip|bd-rip)\b)",
+FHD_4K_PATTERN = re.compile(
+    r"(\[FHD\]|\[4K\]|\[4K/2160p\]|\b(fhd|1080p|1080i|fullhd|full-hd|4k|2160p|uhd|bluray|blu-ray|bdrip|bd-rip)\b)",
     re.IGNORECASE,
 )
-LOW_RES_PATTERN = re.compile(
-    r"(\[HD/720p\]|\[720p\]|\[HD\]|\[SD\]|\b(720p|480p|360p|540p|576p|dvdrip|dvd-rip|dvdiso|dvd)\b)",
+EXCLUDE_QUALITY_PATTERN = re.compile(
+    r"(\[HD/720p\]|\[720p\]|\[HD\]|\[SD\]|\[8K\]|\[8KVR\]|\[8K\s+HEVC\]|\b(8k|8kvr|vr|3dsvr|3dvr|720p|480p|360p|540p|576p|dvdrip|dvd-rip|dvdiso|dvd)\b)",
     re.IGNORECASE,
 )
 
 
 def is_fhd_or_higher(title: str) -> bool:
-    """제목에서 화질을 판별하여 FHD(1080p) 이상인지 검사.
-    - FHD/4K/8K 등 고화질 키워드가 있으면 True
-    - HD/720p/SD/DVD 등 저화질 키워드만 있으면 False
-    - 화질 태그가 전혀 없으면 True(기본 허용)
+    """제목에서 화질을 판별하여 FHD(1080p) 및 4K(2160p) 규격인지 검사 (VR/8K 및 720p/SD 제외).
+    - 8K/VR 및 720p/SD/DVD 키워드가 포함되어 있으면 False
+    - FHD/4K 키워드가 포함되어 있으면 True
+    - 화질 태그가 없으면 기본 True
     """
     if not title:
         return True
-    has_high = bool(HIGH_RES_PATTERN.search(title))
-    has_low = bool(LOW_RES_PATTERN.search(title))
-    if has_high:
-        return True
-    if has_low:
+    if EXCLUDE_QUALITY_PATTERN.search(title):
         return False
+    if FHD_4K_PATTERN.search(title):
+        return True
     return True
 
