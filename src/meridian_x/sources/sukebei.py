@@ -89,7 +89,12 @@ def _fetch_url(url: str, config: dict) -> tuple[bool, str]:
 
 
 def is_whitelisted_title(title: str, config: dict) -> bool:
-    """Check if title contains registered JPN favorite artist, JPN studio, or JPN code pattern."""
+    """Check if title contains registered JPN favorite artist, JPN studio, or JPN code pattern AND is FHD+."""
+    from meridian_x.core import is_fhd_or_higher
+
+    if not is_fhd_or_higher(title):
+        return False
+
     keywords = set(get_artist_folders(config, region="JPN"))
     for studio, aliases in get_studio_mappings(config, region="JPN").items():
         keywords.add(studio)
@@ -268,6 +273,11 @@ def search(query: str, category: str = "2_2", config: dict = None) -> list[dict]
             "seeders": seeders,
             "leechers": leechers,
         })
+
+    from meridian_x.core import is_fhd_or_higher
+
+    if not config.get("allow_all_quality", False):
+        items = [item for item in items if is_fhd_or_higher(item["title"])]
 
     return items
 

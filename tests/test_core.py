@@ -58,6 +58,30 @@ def test_downloaded_history_integration(tmp_path, monkeypatch):
 
     # Saving additional items updates DB
     save_downloaded_history(str(txt_file), {"onejav:SNOS100", "xxxclub:HASH123", "onejav:SNOS101"})
+
     history_after = load_downloaded_history(str(txt_file))
     assert history_after == {"onejav:SNOS100", "xxxclub:HASH123", "onejav:SNOS101"}
+
+
+def test_is_fhd_or_higher():
+    from meridian_x.core import is_fhd_or_higher
+
+    # High res passes
+    assert is_fhd_or_higher("+++ [FHD] START-591 MINAMO") is True
+    assert is_fhd_or_higher("[4K] START-406 MINAMO") is True
+    assert is_fhd_or_higher("[8KVR] 3DSVR-2009 MINAMO") is True
+    assert is_fhd_or_higher("MIAA-001 1080p BluRay") is True
+    assert is_fhd_or_higher("STARS-999 2160P UHD") is True
+
+    # Low res rejected
+    assert is_fhd_or_higher("[HD/720p] START-284 MINAMO") is False
+    assert is_fhd_or_higher("[HD] STARS-412 MINAMO") is False
+    assert is_fhd_or_higher("[SD] MIAA-123") is False
+    assert is_fhd_or_higher("START-100 480p DVDRip") is False
+    assert is_fhd_or_higher("Sample 720p Video") is False
+
+    # Default without explicit resolution tags passes
+    assert is_fhd_or_higher("MIAA-001 MINAMO Special") is True
+    assert is_fhd_or_higher("") is True
+
 

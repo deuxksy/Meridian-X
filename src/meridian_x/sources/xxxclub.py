@@ -21,7 +21,12 @@ BASE_URL = "https://xxxclub.to"
 
 
 def is_whitelisted_title(title: str, config: dict) -> bool:
-    """Check if title contains any configured WEST artist, WEST studio, or genre keyword."""
+    """Check if title contains any configured WEST artist, WEST studio, or genre keyword AND is FHD+."""
+    from meridian_x.core import is_fhd_or_higher
+
+    if not is_fhd_or_higher(title):
+        return False
+
     genres = config.get("genres", {})
 
     keywords = set(get_artist_folders(config, region="WEST"))
