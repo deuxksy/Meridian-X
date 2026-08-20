@@ -1,181 +1,67 @@
-# ==============================================================================
-# Meridian-X .gitignore
-# Python, macOS, Windows, Linux, VSCode, PyCharm & Multi-Platform Standard
-# ==============================================================================
-
-# --- Environment & Secrets ---
-.env
-.env.local
-.env.*.local
+# --- Secrets & Private Config ---
+.env*
 !.env.example
 config/settings.json
 keys.txt
 
-# --- Python ---
+# --- Python & Build (uv / hatchling) ---
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-*.manifest
-*.spec
-pip-log.txt
-pip-delete-this-directory.txt
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-.ruff_cache/
-
-# Environments (Virtualenv, UV, Poetry, Pipenv)
 .venv/
-venv/
-ENV/
-env/
-env.bak/
-venv.bak/
-.python-version
-.tool-versions
-
-# --- Testing & Code Coverage ---
+dist/
+build/
+*.egg-info/
 .pytest_cache/
 .coverage
-.coverage.*
 htmlcov/
-.tox/
-.nox/
-.hypothesis/
-coverage.xml
-nosetests.xml
+.ruff_cache/
+.mypy_cache/
 
-# --- Database & Local Data Store ---
+# --- Database & Local Stores ---
 data/
 *.db
 *.db-wal
 *.db-shm
-*.sqlite
-*.sqlite3
-*.sqlite3-journal
+*.sqlite*
 
-# --- Logs & Diagnostics ---
+# --- Logs & Downloads ---
 logs/
 *.log
-*.log.*
+*.torrent
+*.part
+*.!qB
+*.crdownload
 
-# --- Media & Binary Downloads (Meridian-X Specific) ---
+# --- Media & Junk Files ---
 *.mp4
 *.mkv
 *.avi
 *.wmv
 *.mov
-*.flv
-*.m4v
-*.iso
-*.img
-*.jpg
-*.jpeg
-*.png
-*.gif
-*.webp
-*.part
-*.!qB
-*.crdownload
-*.torrent
-
-# --- Archives & Junk Files ---
 *.zip
 *.rar
 *.7z
-*.tar
-*.gz
-*.bz2
-*.xz
 *.nfo
 *.url
-*.lnk
 *.tmp
-*.dat
 
-# --- macOS System Files ---
+# --- OS System Files (macOS / Windows / Linux) ---
 .DS_Store
-.AppleDouble
-.LSOverride
-Icon
 ._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-# --- Windows System Files ---
 Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
+Desktop.ini
 $RECYCLE.BIN/
-*.cab
-*.msi
-*.msix
-*.msm
-*.msp
-
-# --- Linux System Files ---
 *~
-.fuse_hidden*
 .directory
-.Trash-*
-.nfs*
 
-# --- IDEs: VSCode & JetBrains/PyCharm ---
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
-.history/
-.ionide/
-
+# --- Editors (VSCode / JetBrains) ---
+.vscode/
 .idea/
-*.iws
-*.iml
-out/
-*.sublime-workspace
-*.sublime-project
 
-# --- Agent & Ephemeral Scratch Workspaces ---
+# --- Agent & Ephemeral Workspaces ---
 .superpowers/
 .omc/
 .omx/
 .serena/
 .mimosa/
-.understand-anything/
 scratch/
