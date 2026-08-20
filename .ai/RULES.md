@@ -58,6 +58,7 @@ src/
     ├── jav_lookup.py     # JavBus/Jav321 및 OneJAV SSH 조회
     ├── jav_metadata.py   # JAV 메타데이터 통합 Resolver + DB 캐시
     ├── west_metadata.py  # StashDB GraphQL API Resolver + DB 캐시
+    ├── remote.py         # SSH 원격 명령 및 프록시 curl 실행 전용 모듈
     └── core.py           # 설정/히스토리/화질필터/중복선별 공통 함수
 ```
 
@@ -80,6 +81,8 @@ src/
 - **JAV 메타데이터**: FANZA → JavBus/Jav321 → OneJAV 순서로 필드 단위 병합 후 DB 캐시.
 - **West 메타데이터**: StashDB GraphQL API 조회 후 배우/스튜디오/태그를 Jellyfin 및 분류에 사용.
 - **화질 필터링 & 중복 선별**: 모든 미디어 소스는 `is_fhd_or_higher()` 및 `deduplicate_releases()`를 통해 FHD(1080p) 및 안정적 릴 그룹(`WRB`/`XC`)을 최우선 선별한다.
+- **원격 SSH 및 프록시 실행**: `meridian_x.remote` 모듈(`run_remote_ssh`, `fetch_remote_curl`)을 통해 모든 원격 SSH 실행 및 ISP/Cloudflare 차단 회피용 curl 프록시 호출을 일원화 관리한다.
+- **HTTP 세션 풀링**: `JellyfinClient`, `FanzaClient`, `StashDBClient`, `XXXClubSource` 등 외부 HTTP API 통신 시 `requests.Session` 풀링을 사용하여 커넥션을 재사용하고 네트워크 오버헤드를 줄인다.
 
 ## Verification
 

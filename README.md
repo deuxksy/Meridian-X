@@ -82,7 +82,7 @@ Meridian-X/
 │   ├── settings.json          # 전체 설정 (git 제외)
 │   ├── settings.json.sops     # sops+age 암호화 추적본
 │   └── settings.json.example  # 설정 템플릿
-├── tests/                     # pytest 회귀 테스트 (9개 모듈)
+├── tests/                     # pytest 회귀 테스트 스위트 (19개 모듈)
 └── src/meridian_x/
     ├── cli.py                 # CLI 진입점
     ├── collect.py             # Multi-source 수집 오케스트레이터
@@ -92,11 +92,13 @@ Meridian-X/
     ├── tidy.py                # 원격 파일 정리 (SSH)
     ├── classify.py            # 원격 파일 분류 (SSH)
     ├── report.py              # disk/토렌트 상태 리포트
+    ├── db.py                  # SQLite 저장소 (download_history, jav_metadata, west_metadata)
     ├── fanza.py               # FANZA API 클라이언트
+    ├── jav_lookup.py          # JAV 배우 2차 분류 조회
     ├── jav_metadata.py        # JAV 메타데이터 통합 Resolver (FANZA -> JavBus -> OneJAV)
     ├── west_metadata.py       # StashDB GraphQL API West 메타데이터 Resolver
-    ├── jav_lookup.py          # JAV 배우 2차 분류 조회
-    └── core.py                # 공통 함수 (설정/히스토리/화질필터)
+    ├── remote.py              # SSH 원격 명령 및 프록시 curl 실행 전용 모듈
+    └── core.py                # 공통 함수 (설정/화질필터/중복선별)
 ```
 
 ---
