@@ -66,3 +66,24 @@ def test_is_whitelisted_title_west_only():
     # Unmatched title
     assert is_whitelisted_title("UnknownStudio.26.07.18.Random.mp4", config) is False
 
+
+def test_is_whitelisted_title_artist_matches_onlyfans():
+    config = {
+        "classify": {
+            "artists": {
+                "WEST": ["Dakota Doll"],
+            },
+            "studios": {
+                "WEST": {
+                    "Vixen": ["vixen"],
+                }
+            },
+        }
+    }
+    # OnlyFans with registered artist -> True (matched by artist)
+    assert is_whitelisted_title("OnlyFans Dakota Doll Solo 1080p", config) is True
+    # OnlyFans without registered artist -> False (not matched)
+    assert is_whitelisted_title("OnlyFans Random Creator Solo 1080p", config) is False
+
+
+
