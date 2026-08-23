@@ -2,6 +2,8 @@
 
 프라이빗 미디어 컬렉션 자동 수집, 정리, 분류, 메타데이터 및 Jellyfin 동기화 자동화 스위트. 모든 AI runtime은 이 파일을 공통 프로젝트 instruction의 기준으로 사용한다.
 
+웹 화보 및 단축링크 우회/직링크 추출은 자매 프로젝트 `Vesper-X`로 분리 관리한다.
+
 ## Commands
 
 ```bash
@@ -82,7 +84,9 @@ src/
 - **West 메타데이터**: StashDB GraphQL API 조회 후 배우/스튜디오/태그를 Jellyfin 및 분류에 사용.
 - **화질 필터링 & 중복 선별**: 모든 미디어 소스는 `is_fhd_or_higher()` 및 `deduplicate_releases()`를 통해 FHD(1080p) 및 안정적 릴 그룹(`WRB`/`XC`)을 최우선 선별한다.
 - **원격 SSH 및 프록시 실행**: `meridian_x.remote` 모듈(`run_remote_ssh`, `fetch_remote_curl`)을 통해 모든 원격 SSH 실행 및 ISP/Cloudflare 차단 회피용 curl 프록시 호출을 일원화 관리한다.
-- **HTTP 세션 풀링**: `JellyfinClient`, `FanzaClient`, `StashDBClient`, `XXXClubSource` 등 외부 HTTP API 통신 시 `requests.Session` 풀링을 사용하여 커넥션을 재사용하고 네트워크 오버헤드를 줄인다.
+- **HTTP 세션 풀링**: `JellyfinClient`, `FanzaClient`, `StashDBClient` 등 외부 HTTP API 통신 시 `requests.Session` 풀링을 사용하여 커넥션을 재사용하고 네트워크 오버헤드를 줄인다.
+- **리포트**: pipeline 마지막 단계의 `report`는 디스크 사용량과 Transmission 토렌트 상태를 출력한다.
+- **문서 구조**: README와 문서 구조는 `docs/README.md`의 Diátaxis 인덱스를 기준으로 유지한다.
 
 ## Verification
 

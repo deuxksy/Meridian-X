@@ -4,6 +4,5 @@
 
 ## Gemini / Antigravity Specific Instructions
 
-- Python 커맨드는 항상 `uv run`을 통해 가상환경 의존성 내에서 실행한다.
-- 새로운 CLI 기능 변경 시 관련 `tests/` 회귀 테스트를 먼저 수행한다.
-- 공통 프로젝트 규칙, command, architecture, verification, gotcha는 `.ai/RULES.md`를 기준으로 한다.
+- 이 저장소에는 프로젝트 MCP/도구 설정이 없으므로 파일·심볼 탐색과 셸 실행은 기본 쉘 도구로 수행한다.
+- headless(`agy -p`) 실행은 대화형 승인이 불가하므로 transmission, tidy, classify 등 원격 변경은 `--dry-run` 결과를 먼저 제시하고 실제 실행은 사용자 명령을 기다린다.
