@@ -116,6 +116,7 @@ uv run meridian pipeline                          # stop→filter→label→sync
 
 | 분류 (Diátaxis) | 문서 | 설명 |
 | :--- | :--- | :--- |
+| **Docs Hub** | [Documentation Hub](./docs/README.md) | docs/ 전체 구조 안내 (OKF, archive, superpowers) |
 | **Framework** | [OKF Hub](./docs/okf/README.md) | 사람 중심 공식 지식 프레임워크 허브 |
 | **How-To** | [CLI 운영 가이드](./docs/okf/how-to/cli-usage.md) | 수집, 검색, 8단계 파이프라인 등 전체 명령어 상세 가이드 |
 | **How-To** | [Security Scan 구축](./docs/okf/how-to/security-scan-implementation.md) | GitHub Actions 보안 스캔 파이프라인 구축 절차 |

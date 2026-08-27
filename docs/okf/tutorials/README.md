@@ -4,5 +4,5 @@
 
 ## 문서
 
-- [Quick Start Guide](../../../README.md#-사용법-usage) - 설치, 설정 파일 준비, dry-run 기반 첫 실행
+- [Quick Start Guide](../../../README.md#-빠른-시작-quick-start) - 설치, 설정 파일 준비, dry-run 기반 첫 실행
 - [OKF Documentation Hub](../README.md) - OKF 4분면 메인 인덱스
