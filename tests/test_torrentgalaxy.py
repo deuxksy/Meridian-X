@@ -3,24 +3,32 @@ from unittest.mock import patch, MagicMock
 from meridian_x.sources import SOURCES
 import meridian_x.sources.torrentgalaxy as tgx
 
-SAMPLE_RSS = """<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:torrent="https://torrentgalaxy.to">
-  <channel>
-    <title>TorrentGalaxy RSS</title>
-    <item>
-      <title>Vixen 26 08 20 Angela White Passionate Night XXX 1080p MP4-WRB</title>
-      <link>https://torrentgalaxy.to/torrent/150001/Vixen-26-08-20-Angela-White</link>
-      <enclosure url="magnet:?xt=urn:btih:TGXHASH1&amp;dn=Vixen+Angela+White" length="2500000000" type="application/x-bittorrent" />
-      <pubDate>Thu, 20 Aug 2026 12:00:00 +0000</pubDate>
-    </item>
-    <item>
-      <title>Random 720p Video Low Quality</title>
-      <link>https://torrentgalaxy.to/torrent/150002/Random-720p</link>
-      <enclosure url="magnet:?xt=urn:btih:TGXHASH2" length="1000000000" type="application/x-bittorrent" />
-    </item>
-  </channel>
-</rss>
-"""
+SAMPLE_LISTING_JSON = """{
+  "links": {"next": null, "previous": null},
+  "page_size": 50,
+  "count": 2,
+  "total": 2,
+  "results": [
+    {
+      "pk": "150001",
+      "n": "Vixen 26 08 20 Angela White Passionate Night XXX 1080p MP4-WRB",
+      "s": 2500000000,
+      "se": 10,
+      "le": 2,
+      "c": "XXX",
+      "h": "TGXHASH1"
+    },
+    {
+      "pk": "150002",
+      "n": "Random 720p Video Low Quality",
+      "s": 1000000000,
+      "se": 1,
+      "le": 0,
+      "c": "XXX",
+      "h": "TGXHASH2"
+    }
+  ]
+}"""
 
 def test_tgx_registration():
     assert "torrentgalaxy" in SOURCES
@@ -51,8 +59,9 @@ def test_tgx_discover_and_resolve():
             "studios": {"WEST": {"Vixen": ["vixen"]}}
         }
     }
-    with patch.object(tgx, "_fetch_url", return_value=(True, SAMPLE_RSS)):
+    with patch.object(tgx, "_fetch_url", return_value=(True, SAMPLE_LISTING_JSON)) as mock_fetch:
         items = tgx.discover(config)
+        assert mock_fetch.call_args[0][0].endswith("/get-posts/category:XXX:format:json/")
         assert len(items) == 1
         assert items[0]["id"] == "tgx:150001"
         assert "Angela White" in items[0]["title"]
@@ -62,6 +71,17 @@ def test_tgx_discover_and_resolve():
         assert resolved is not None
         assert resolved["magnet_url"] == items[0]["magnet_url"]
         assert resolved.get("type") == "magnet"
+
+def test_tgx_discover_rejects_html_response():
+    """회귀: /rss 폐기로 HTML이 반환돼도 XML/JSON 파싱 시도 없이 거부해야 한다."""
+    config = {
+        "classify": {
+            "artists": {"WEST": {"Angela White": ["angela white"]}},
+            "studios": {"WEST": {"Vixen": ["vixen"]}}
+        }
+    }
+    with patch.object(tgx, "_fetch_url", return_value=(True, "<!DOCTYPE html><html><head></head><body>blocked or moved</body></html>")):
+        assert tgx.discover(config) == []
 
 def test_tgx_remote_config():
     cfg1 = {"sources": {"torrentgalaxy": {"remote": {"ssh_alias": "lt"}}}}

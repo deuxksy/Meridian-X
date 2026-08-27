@@ -26,12 +26,12 @@
     },
     "torrentgalaxy": {
       "enabled": true,
-      "base_url": "https://torrentgalaxy.to",
+      "base_url": "https://torrentgalaxy.one",
       "mirrors": [
         "https://tgx.rs",
         "https://torrentgalaxy.mx"
       ],
-      "rss_url": "https://torrentgalaxy.to/rss?cat=42",
+      "category": "XXX",
       "default_category": "42",
       "remote": {
         "ssh_alias": "lt"

@@ -7,7 +7,6 @@ import logging
 import re
 import shlex
 import subprocess
-import xml.etree.ElementTree as ET
 from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests
@@ -35,6 +34,8 @@ DEFAULT_MIRRORS = [
     "https://torrentgalaxy.mx",
 ]
 DEFAULT_CATEGORY = "42"
+# 2026-08 플랫폼 마이그레이션으로 /rss?cat=<id> 폐기. 카테고리는 이름 기반 JSON API로 조회.
+DEFAULT_CATEGORY_NAME = "XXX"
 
 
 def _tgx_remote(config: dict) -> dict:
@@ -146,49 +147,15 @@ def is_whitelisted_title(title: str, config: dict) -> bool:
     return False
 
 
-def _parse_rss(rss_content: str) -> list[dict]:
-    """TorrentGalaxy RSS XML 파싱하여 title, page_url, magnet_url 추출."""
-    items = []
-    try:
-        root = ET.fromstring(rss_content)
-    except Exception as e:
-        logger.error(f"Failed to parse TorrentGalaxy RSS XML: {e}")
-        return []
-
-    channel = root.find("channel")
-    item_nodes = channel.findall("item") if channel is not None else root.findall(".//item")
-
-    for item_elem in item_nodes:
-        title_elem = item_elem.find("title")
-        link_elem = item_elem.find("link")
-        enclosure = item_elem.find("enclosure")
-        if title_elem is None or link_elem is None:
-            continue
-
-        title = (title_elem.text or "").strip()
-        link = (link_elem.text or "").strip()
-        magnet_url = enclosure.attrib.get("url", "") if enclosure is not None else ""
-
-        match = re.search(r'/torrent/(\d+)', link)
-        tgx_id = match.group(1) if match else link.split("/")[-1]
-        torrent_id = f"tgx:{tgx_id}"
-
-        items.append({
-            "id": torrent_id,
-            "title": title,
-            "page_url": link,
-            "magnet_url": html.unescape(magnet_url).strip(),
-        })
-    return items
-
-
 def discover(config: dict) -> list[dict]:
-    """TorrentGalaxy RSS에서 항목 수집 및 화이트리스트 필터링."""
-    rss_url = (
-        config.get("sources", {}).get("torrentgalaxy", {}).get("rss_url")
-        or config.get("sources", {}).get("tgx", {}).get("rss_url")
-        or config.get("rss_url")
-        or f"{DEFAULT_BASE_URL}/rss?cat={DEFAULT_CATEGORY}"
+    """TorrentGalaxy 최신 카테고리 항목 수집 (JSON API) 및 화이트리스트 필터링."""
+    import json
+
+    base_url = (
+        config.get("sources", {}).get("torrentgalaxy", {}).get("base_url")
+        or config.get("sources", {}).get("tgx", {}).get("base_url")
+        or config.get("base_url")
+        or DEFAULT_BASE_URL
     )
     mirrors = (
         config.get("sources", {}).get("torrentgalaxy", {}).get("mirrors")
@@ -196,14 +163,32 @@ def discover(config: dict) -> list[dict]:
         or config.get("mirrors")
         or DEFAULT_MIRRORS
     )
-    candidate_rss = [rss_url] + [f"{m.rstrip('/')}/rss?cat={DEFAULT_CATEGORY}" for m in mirrors]
+    category = (
+        config.get("sources", {}).get("torrentgalaxy", {}).get("category")
+        or config.get("sources", {}).get("tgx", {}).get("category")
+        or DEFAULT_CATEGORY_NAME
+    )
 
-    ok, content = _fetch_url(rss_url, config, candidate_urls=candidate_rss)
+    json_path = f"/get-posts/category:{category}:format:json/"
+    json_url = f"{base_url.rstrip('/')}{json_path}"
+    candidate_json = [json_url] + [f"{m.rstrip('/')}{json_path}" for m in mirrors]
+
+    ok, content = _fetch_url(json_url, config, candidate_urls=candidate_json)
     if not ok or not content:
-        logger.error(f"TorrentGalaxy RSS discover failed: {content}")
+        logger.error(f"TorrentGalaxy discover fetch failed: {content}")
+        return []
+    if not content.lstrip().startswith(("[", "{")):
+        logger.error("TorrentGalaxy discover response is not JSON (endpoint moved or blocked)")
         return []
 
-    parsed = _parse_rss(content)
+    try:
+        data = json.loads(content)
+    except Exception as e:
+        logger.error(f"Failed to parse TorrentGalaxy discover JSON: {e}")
+        return []
+    results = data if isinstance(data, list) else data.get("results", [])
+    parsed = _parse_json_results(results, base_url, allow_all_quality=True)
+
     if config.get("selective_only", True):
         return [item for item in parsed if is_whitelisted_title(item["title"], config)]
     return parsed

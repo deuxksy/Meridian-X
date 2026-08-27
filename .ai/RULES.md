@@ -107,6 +107,7 @@ src/
 - Jellyfin 204 응답은 body가 없다. REST helper에서 content 존재 여부를 확인해야 한다.
 - heritage 서버는 unprivileged LXC 권한 매핑 때문에 반드시 `media` UID 1000 계정으로 SSH 조작한다.
 - `onejav`, `sukebei`, `torrentgalaxy`는 ISP/Cloudflare 차단 회피를 위해 `sources.<name>.remote.ssh_alias: "lt"` 경유 원격 curl을 사용한다.
+- TorrentGalaxy는 2026-08 플랫폼 마이그레이션으로 `/rss?cat=<id>`와 `torrents.php`를 폐기했다 (302 → homepage). discover는 `/get-posts/category:XXX:format:json/` JSON API를 사용하며, 카테고리는 숫자 ID가 아닌 이름(`category:<name>`)으로 지정한다.
 - tidy shell script 테스트는 `_build_*_script()` 빌더를 로컬 `bash -c`로 검증한다.
 - macOS 기본 APFS는 case-insensitive일 수 있어 case-dup 테스트가 skip될 수 있다.
 
