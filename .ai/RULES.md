@@ -113,4 +113,4 @@ src/
 
 ## Roadmap
 
-향후 계획: [ROADMAP.md](../ROADMAP.md)
+향후 계획: [ROADMAP.md](../docs/okf/explanation/roadmap.md)

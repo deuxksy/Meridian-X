@@ -19,37 +19,7 @@
 
 ## 🔄 워크플로우 (Workflow)
 
-```mermaid
-graph TB
-    subgraph Ingest["1. 수집 단계 (Ingestion: transmission / search)"]
-        SRC["4대 소스 (OneJAV / Sukebei / XXXClub / TGx)"] --> DEDUP["화질 필터(FHD/4K) & 1080p 릴리스 우선순위 선별"]
-        DEDUP --> TX_ADD["Transmission RPC 토렌트 큐잉"]
-    end
-
-    subgraph Pipeline["2. 큐레이션 파이프라인 (Pipeline: 8단계 일괄 자동화)"]
-        TX_ADD -.-> S1
-        S1["1. Stop: 다운로드 완료 후 자동 정지"] --> S2["2. Filter: 불필요 광고 파일 제외"]
-        S2 --> S3["3. Label: 메이커 코드/배우 라벨 자동 설정"]
-        S3 --> S4["4. Sync: Transmission ➔ Jellyfin 태그 동기화"]
-        S4 --> S5["5. Tidy: SSH 정크삭제 ➔ 폴더 Flatten ➔ 파일명 정리"]
-        S5 --> S6["6. Classify: 하이브리드 메타데이터 조회 ➔ 우선순위 분류"]
-        S6 --> S7["7. Refresh: Jellyfin 라이브러리 일괄 갱신"]
-        S7 --> S8["8. Report: 스토리지 사용량 & 토렌트 상태 리포트"]
-    end
-
-    subgraph ClassifyPriority["분류 우선순위 (Classify Priority)"]
-        S6 --> P1["1. Artist (배우) ➔ Actors/{배우명}/"]
-        S6 --> P2["2. Studio (스튜디오) ➔ {스튜디오명}/"]
-        S6 --> P3["3. Genre (장르) ➔ {장르명}/"]
-        S6 --> P4["4. JPN (JAV 코드 매칭) ➔ JPN/"]
-        S6 --> P5["5. FC2 (FC2-PPV 매칭) ➔ FC2/"]
-        S6 --> P6["6. West (미분류 서양 미디어) ➔ West/"]
-    end
-
-    style Ingest fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style Pipeline fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
-    style ClassifyPriority fill:#fff3e0,stroke:#e65100,stroke-width:2px
-```
+수집(Ingestion) → 8단계 큐레이션 파이프라인 → 분류 우선순위 전체 흐름 다이어그램은 [아키텍처 & 워크플로우](./docs/okf/explanation/architecture-and-workflow.md) 참조.
 
 ---
 
@@ -58,7 +28,6 @@ graph TB
 ```text
 Meridian-X/
 ├── README.md
-├── ROADMAP.md
 ├── AGENTS.md
 ├── pyproject.toml
 ├── uv.lock
@@ -124,7 +93,7 @@ uv run meridian pipeline                          # stop→filter→label→sync
 | **Reference** | [CLI 옵션 레퍼런스](./docs/okf/reference/cli-options.md) | 모든 서브커맨드별 파라미터 및 옵션 상세 표 |
 | **Explanation** | [아키텍처 & 워크플로우](./docs/okf/explanation/architecture-and-workflow.md) | 2단계 아키텍처, 8단계 파이프라인 및 릴리스 선별 원리 |
 | **Explanation** | [Security Scan 설계](./docs/okf/explanation/security-scan-design.md) | 보안 스캔 도입 배경 및 설계 결정 |
-| **Explanation** | [로드맵 (Roadmap)](./ROADMAP.md) | 버전별 완성 현황 및 향후 계획 |
+| **Explanation** | [로드맵 (Roadmap)](./docs/okf/explanation/roadmap.md) | 버전별 완성 현황 및 향후 계획 |
 | **Archive** | [Docs Archive](./docs/archive/README.md) | 비관리형 과거 기획 및 외부 참조 자료 |
 
 ---

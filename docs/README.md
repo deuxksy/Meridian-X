@@ -29,4 +29,4 @@ docs/
   - 📖 [Reference](./okf/reference/README.md) — 설정 키 및 CLI 명세
   - 🧠 [Explanation](./okf/explanation/README.md) — 아키텍처 배경 및 설계 결정
 - **과거 산출물 보관소**: [Docs Archive](./archive/README.md)
-- **전체 프로젝트 로드맵**: [ROADMAP.md](../ROADMAP.md)
+- **전체 프로젝트 로드맵**: [로드맵](./okf/explanation/roadmap.md)
