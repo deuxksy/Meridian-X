@@ -55,6 +55,21 @@ def test_exxxtrasmall_studio_classification():
     assert classify_filename(filename, config) == "ExxxtraSmall"
 
 
+def test_sinfulxxx_studio_classification():
+    config = load_config("config/settings.json")
+    filename = "SinfulXXX.26.08.14.Girl.On.Girl.XXX.1080p.MP4-WRB.mp4"
+    assert "SinfulXXX" in get_studio_mappings(config)
+    assert classify_filename(filename, config) == "SinfulXXX"
+
+
+def test_slayed_maps_to_vixen_group():
+    config = load_config("config/settings.json")
+    filename = "Slayed.26.08.20.Girl.Name.XXX.1080p.MP4-WRB.mp4"
+    assert "Slayed" not in get_studio_mappings(config)
+    assert "slayed" in get_studio_mappings(config)["Vixen"]
+    assert classify_filename(filename, config) == "Vixen"
+
+
 
 def test_japanese_artists_classification():
     config = load_config("config/settings.json")
