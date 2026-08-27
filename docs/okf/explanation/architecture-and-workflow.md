@@ -8,29 +8,29 @@ Meridian-X의 설계 철학과 2단계 운영 아키텍처(수집 단계 및 8�
 
 ```mermaid
 graph TB
-    subgraph Ingest["1. 수집 단계 (Ingestion: transmission / search)"]
-        SRC["4대 소스 (OneJAV / Sukebei / XXXClub / TGx)"] --> DEDUP["화질 필터(FHD/4K) & 1080p 릴리스 우선순위 선별"]
-        DEDUP --> TX_ADD["Transmission RPC 토렌트 큐잉"]
+    subgraph Ingest[1. 수집 단계 - transmission/search]
+        SRC[4대 소스 - OneJAV/Sukebei/XXXClub/TGx] --> DEDUP[화질 필터 FHD/4K - 1080p 릴리스 우선순위 선별]
+        DEDUP --> TX_ADD[Transmission RPC 토렌트 큐잉]
     end
 
-    subgraph Pipeline["2. 큐레이션 파이프라인 (Pipeline: 8단계 일괄 자동화)"]
+    subgraph Pipeline[2. 큐레이션 파이프라인 - 8단계 일괄 자동화]
         TX_ADD -.-> S1
-        S1["1. Stop: 다운로드 완료 후 자동 정지"] --> S2["2. Filter: 불필요 광고 파일 제외"]
-        S2 --> S3["3. Label: 메이커 코드/배우 라벨 자동 설정"]
-        S3 --> S4["4. Sync: Transmission ➔ Jellyfin 태그 동기화"]
-        S4 --> S5["5. Tidy: SSH 정크삭제 ➔ 폴더 Flatten ➔ 파일명 정리"]
-        S5 --> S6["6. Classify: 하이브리드 메타데이터 조회 ➔ 우선순위 분류"]
-        S6 --> S7["7. Refresh: Jellyfin 라이브러리 일괄 갱신"]
-        S7 --> S8["8. Report: 스토리지 사용량 & 토렌트 상태 리포트"]
+        S1[1. Stop - 다운로드 완료 후 자동 정지] --> S2[2. Filter - 불필요 광고 파일 제외]
+        S2 --> S3[3. Label - 메이커 코드/배우 라벨 자동 설정]
+        S3 --> S4[4. Sync - Transmission에서 Jellyfin 태그 동기화]
+        S4 --> S5[5. Tidy - SSH 정크삭제 - 폴더 Flatten - 파일명 정리]
+        S5 --> S6[6. Classify - 하이브리드 메타데이터 조회 우선순위 분류]
+        S6 --> S7[7. Refresh - Jellyfin 라이브러리 일괄 갱신]
+        S7 --> S8[8. Report - 스토리지 사용량 토렌트 상태 리포트]
     end
 
-    subgraph ClassifyPriority["분류 우선순위 (Classify Priority)"]
-        S6 --> P1["1. Artist (배우) ➔ Actors/{배우명}/"]
-        S6 --> P2["2. Studio (스튜디오) ➔ {스튜디오명}/"]
-        S6 --> P3["3. Genre (장르) ➔ {장르명}/"]
-        S6 --> P4["4. JPN (JAV 코드 매칭) ➔ JPN/"]
-        S6 --> P5["5. FC2 (FC2-PPV 매칭) ➔ FC2/"]
-        S6 --> P6["6. West (미분류 서양 미디어) ➔ West/"]
+    subgraph ClassifyPriority[분류 우선순위 - Classify Priority]
+        S6 --> P1[1. Artist - Actors 배우명 폴더]
+        S6 --> P2[2. Studio - 스튜디오명 폴더]
+        S6 --> P3[3. Genre - 장르명 폴더]
+        S6 --> P4[4. JPN - JAV 코드 매칭]
+        S6 --> P5[5. FC2 - FC2-PPV 매칭]
+        S6 --> P6[6. West - 미분류 서양 미디어]
     end
 
     style Ingest fill:#e3f2fd,stroke:#1565c0,stroke-width:2px

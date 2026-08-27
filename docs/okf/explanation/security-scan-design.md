@@ -28,7 +28,7 @@ Meridian-X의 보안 스캔은 GitHub Actions에서 의존성 취약점, Python 
 ## 실행 흐름
 
 ```mermaid
-flowchart TD
+graph TD
     A[Checkout] --> B[Setup Python 3.12]
     B --> C[Install scan tools]
     C --> D[pip-audit]

@@ -1,6 +1,6 @@
 # Security Scan 구현 가이드
 
-이 문서는 Meridian-X의 GitHub Actions 보안 스캔 workflow를 확인·수정·검증하는 절차를 정리한다. 현재 구현 파일은 `.github/workflows/security-scan.yml`이다.
+이 문서는 Meridian-X의 GitHub Actions 보안 스캔 workflow를 확인·수정·검증하는 절차를 정리한다. 현재 구현 파일은 `.github/workflows/security-scan.yml`이다. 도입 배경과 설계 결정은 [Security Scan 설계](../explanation/security-scan-design.md) 참조.
 
 ## 전제 조건
 
@@ -115,10 +115,3 @@ uv run --with bandit bandit -r src -ll
 ```bash
 uv run --with pip-audit pip-audit -r requirements.txt
 ```
-
-## 개선 후보
-
-- `requirements.txt`를 `uv export` 산출물로 관리하여 `pyproject.toml`/`uv.lock`과 drift를 줄인다.
-- `pip-audit`와 `bandit`의 `|| true`를 제거해 PR 차단 정책을 강화한다.
-- `combined.sarif`를 단순 append가 아니라 JSON merge로 생성한다.
-- `github/codeql-action/upload-sarif`를 사용해 GitHub Code Scanning 탭에 업로드한다.
