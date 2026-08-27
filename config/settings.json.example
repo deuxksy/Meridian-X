@@ -32,7 +32,6 @@
         "https://torrentgalaxy.mx"
       ],
       "category": "XXX",
-      "default_category": "42",
       "remote": {
         "ssh_alias": "lt"
       },

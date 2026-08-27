@@ -62,15 +62,16 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
     },
     "torrentgalaxy": {
       "enabled": true,
-      "base_url": "https://torrentgalaxy.to",
-      "mirrors": ["https://torrentgalaxy.one", "https://tgx.rs"],
-      "rss_url": "https://torrentgalaxy.to/rss?cat=42",
-      "default_category": "42",
+      "base_url": "https://torrentgalaxy.one",
+      "mirrors": ["https://tgx.rs", "https://torrentgalaxy.mx"],
+      "category": "XXX",
       "remote": { "ssh_alias": "lt" }
     }
   }
 }
 ```
+
+> **TorrentGalaxy JSON API**: 2026-08 플랫폼 마이그레이션으로 `/rss?cat=<id>`를 폐기했다. discover는 `category` 키(이름 기반, 기본 `XXX`)로 `/get-posts/category:{name}:format:json/` JSON API를 사용한다.
 
 ### `transmission`
 ```json

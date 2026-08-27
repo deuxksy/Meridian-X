@@ -49,7 +49,7 @@ uv run meridian search <QUERY> [OPTIONS]
 | 옵션 | 설명 | 기본값 |
 | :--- | :--- | :--- |
 | `--source NAME` | 검색 대상 소스 (`xxxclub`, `sukebei`, `torrentgalaxy`/`tgx`) | `xxxclub` |
-| `--category CAT` | 검색 대상 카테고리 (Sukebei: `2_2`, XXXClub: `1080p`, TGx: `42`) | 소스별 기본값 |
+| `--category CAT` | 검색 대상 카테고리 (Sukebei: `2_2`, XXXClub: `1080p`. TGx는 JSON 검색에서 미사용) | 소스별 기본값 |
 | `--auto` | 자동 전체 다운로드 모드 (비대화형) | `False` (대화형 선택) |
 | `--delay SEC` | 자동 모드 요청 간격 delay (초) | `5.0` |
 | `--dry-run` | 실제 다운로드 추가 없이 결과만 확인 | `False` |
