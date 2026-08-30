@@ -106,6 +106,7 @@ src/
 - 모든 meridian 명령은 import 시점에 `logs/YYMMDD/hhmmss.log`를 생성할 수 있다.
 - Jellyfin 204 응답은 body가 없다. REST helper에서 content 존재 여부를 확인해야 한다.
 - heritage 서버는 unprivileged LXC 권한 매핑 때문에 반드시 `media` UID 1000 계정으로 SSH 조작한다.
+- Jellyfin은 기동 시 시스템 디스크(`/config/data`) 여유 공간이 2GiB 미만이면 시작을 중단(Caddy 502 유발)하므로, `metadata`/`cache`/`/tmp/jellyfin`은 `/mnt/data2/torrent/jellyfin`으로 분리 마운트한다.
 - `onejav`, `sukebei`, `torrentgalaxy`는 ISP/Cloudflare 차단 회피를 위해 `sources.<name>.remote.ssh_alias: "lt"` 경유 원격 curl을 사용한다.
 - TorrentGalaxy는 2026-08 플랫폼 마이그레이션으로 `/rss?cat=<id>`와 `torrents.php`를 폐기했다 (302 → homepage). discover는 `/get-posts/category:XXX:format:json/` JSON API를 사용하며, 카테고리는 숫자 ID가 아닌 이름(`category:<name>`)으로 지정한다.
 - tidy shell script 테스트는 `_build_*_script()` 빌더를 로컬 `bash -c`로 검증한다.
