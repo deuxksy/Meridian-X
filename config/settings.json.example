@@ -22,7 +22,7 @@
         "ssh_alias": "lt"
       },
       "request_timeout": 30,
-      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Safari/605.1.15"
     },
     "torrentgalaxy": {
       "enabled": true,
@@ -36,7 +36,7 @@
         "ssh_alias": "lt"
       },
       "request_timeout": 30,
-      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Safari/605.1.15"
     }
   },
   "transmission": {

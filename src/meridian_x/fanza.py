@@ -13,6 +13,8 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv
 
+from .remote import DEFAULT_USER_AGENT
+
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -72,7 +74,7 @@ class FanzaClient:
         self._last_request_time = 0.0
         self.session = requests.Session()
         self.session.headers.update({
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+            "User-Agent": DEFAULT_USER_AGENT
         })
         self._session = self.session
         self._cache: dict = {}

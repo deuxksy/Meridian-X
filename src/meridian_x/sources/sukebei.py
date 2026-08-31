@@ -17,7 +17,7 @@ from meridian_x.classify import (
     get_artist_folders,
     get_studio_mappings,
 )
-from ..remote import fetch_remote_curl
+from ..remote import DEFAULT_USER_AGENT, fetch_remote_curl
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ def _fetch_url(url: str, config: dict) -> tuple[bool, str]:
             return True, out
         return False, "fetch_remote_curl failed"
 
-    user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
     proxies = config.get("proxies") or ({"http": config["proxy"], "https": config["proxy"]} if config.get("proxy") else None)
 
     try:

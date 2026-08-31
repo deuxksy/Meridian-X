@@ -14,6 +14,7 @@ from meridian_x.classify import (
     get_artist_folders,
     get_studio_mappings,
 )
+from meridian_x.remote import DEFAULT_USER_AGENT
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ def discover(config: dict) -> list[dict]:
         logger.error("xxxclub rss_url not configured")
         return []
 
-    user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
     timeout = config.get("request_timeout", 30)
 
     try:
@@ -137,7 +138,7 @@ def search(query: str, category: str = "1080p", config: dict = None) -> list[dic
     encoded_query = quote(query)
     search_url = f"{BASE_URL}/torrents/search/{cat_code}/{encoded_query}"
 
-    user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
     timeout = config.get("request_timeout", 30)
 
     try:
@@ -224,7 +225,7 @@ def resolve_magnet(details_url: str, config: dict = None) -> str | None:
     if config is None:
         config = {}
 
-    user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
     timeout = config.get("request_timeout", 30)
 
     try:

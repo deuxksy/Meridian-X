@@ -18,7 +18,7 @@ from meridian_x.classify import (
     get_studio_mappings,
 )
 from meridian_x.core import is_fhd_or_higher
-from ..remote import fetch_remote_curl
+from ..remote import DEFAULT_USER_AGENT, fetch_remote_curl
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ def _fetch_url(url: str, config: dict, candidate_urls: list[str] = None) -> tupl
             if u not in urls:
                 urls.append(u)
 
-    user_agent = config.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
     proxies = config.get("proxies") or ({"http": config["proxy"], "https": config["proxy"]} if config.get("proxy") else None)
 
     for target_url in urls:

@@ -11,7 +11,7 @@ import shlex
 import subprocess
 from urllib.parse import urljoin, urlparse
 
-from ..remote import fetch_remote_curl
+from ..remote import DEFAULT_USER_AGENT, fetch_remote_curl
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,7 @@ def resolve(item: dict, config: dict) -> dict | None:
         return None
     # 바이너리는 base64 경유 (터미널 인코딩 이슈 방지)
     # download_url만 quote, base64는 쉘 빌트인이므로 quote 불필요
-    curl_cmd = f"curl -4 -sL --max-time {timeout} --proto =http,https --proto-redir =http,https {shlex.quote(download_url)}"
+    curl_cmd = f"curl -4 -sL --max-time {timeout} --proto =http,https --proto-redir =http,https -A {shlex.quote(DEFAULT_USER_AGENT)} {shlex.quote(download_url)}"
     ok, b64 = _ssh(remote, f"{curl_cmd} | base64", timeout + 10)
     if not ok or not b64:
         logger.error(f"OneJAV torrent download failed: {b64[:200] if b64 else 'empty output'}")

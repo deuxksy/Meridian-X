@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
+from meridian_x.remote import DEFAULT_USER_AGENT
 from meridian_x.sources import sukebei
 
 
@@ -103,7 +104,7 @@ def test_sukebei_fetch_url_direct_and_proxy():
         assert text == "rss content"
         mock_get.assert_called_once_with(
             "https://sukebei.nyaa.si/test",
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+            headers={"User-Agent": DEFAULT_USER_AGENT},
             proxies={"http": "http://127.0.0.1:8080", "https": "http://127.0.0.1:8080"},
             timeout=15,
         )
