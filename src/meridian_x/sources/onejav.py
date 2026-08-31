@@ -11,7 +11,12 @@ import shlex
 import subprocess
 from urllib.parse import urljoin, urlparse
 
-from ..remote import DEFAULT_USER_AGENT, fetch_remote_curl
+from ..remote import (
+    DEFAULT_USER_AGENT,
+    download_via_proxy,
+    fetch_remote_curl,
+    fetch_via_proxy,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +24,8 @@ ALLOWED_HOSTS = {"onejav.com", "www.onejav.com"}
 
 # Backwards compatibility alias
 fetch_url_remote = fetch_remote_curl
+
+DOWNLOAD_HREF_RE = re.compile(r'href="(/torrent/[^/]+/download/\d+/[^"]+\.torrent)"')
 
 
 def _validate_url(url: str) -> bool:
@@ -87,17 +94,23 @@ def _onejav_remote(config: dict) -> dict:
 
 
 def discover(config: dict) -> list[dict]:
-    """OneJAV RSS에서 수집 항목 반환. lt SSH 경유 (curl -4 강제)."""
+    """OneJAV RSS에서 수집 항목 반환. 프록시 우선, 실패 시 lt SSH 경유 (curl -4 강제)."""
     rss_url = config.get("rss_url", "https://onejav.com/feeds/")
     timeout = _safe_timeout(config)
-    remote = _onejav_remote(config)
-
-    if not remote.get("ssh_alias") and not remote.get("host"):
-        logger.error("onejav remote not configured (ssh_alias or host/user/ssh_key)")
-        return []
 
     if not _validate_url(rss_url):
         logger.error(f"Invalid RSS URL (allowlist check failed): {rss_url[:100]}")
+        return []
+
+    # 1) 프록시 경유 (비KR egress)
+    proxied = fetch_via_proxy(rss_url, config, timeout=timeout)
+    if proxied and proxied.strip():
+        return _parse_rss(proxied)
+
+    # 2) lt SSH 경유
+    remote = _onejav_remote(config)
+    if not remote.get("ssh_alias") and not remote.get("host"):
+        logger.error("onejav remote not configured (ssh_alias or host/user/ssh_key)")
         return []
 
     ssh_alias = remote.get("ssh_alias", "lt")
@@ -110,28 +123,45 @@ def discover(config: dict) -> list[dict]:
 
 
 def resolve(item: dict, config: dict) -> dict | None:
-    """페이지에서 .torrent 바이트를 가져와 metainfo payload 반환. lt SSH 경유 (curl -4 강제)."""
+    """페이지에서 .torrent 바이트를 가져와 metainfo payload 반환. 프록시 우선, 실패 시 lt SSH 경유."""
     page_url = item["page_url"]
     base_url = config.get("base_url", "https://onejav.com")
     timeout = _safe_timeout(config)
     remote = _onejav_remote(config)
 
-    if not remote.get("ssh_alias") and not remote.get("host"):
-        logger.error("onejav remote not configured (ssh_alias or host/user/ssh_key)")
-        return None
-
-    # 페이지 fetch
     if not _validate_url(page_url):
         logger.warning(f"URL validation failed, skipping: {page_url[:100]}")
         return None
 
-    ssh_alias = remote.get("ssh_alias", "lt")
-    html = fetch_remote_curl(page_url, ssh_alias=ssh_alias, timeout=timeout)
+    # 1) 프록시 경유: 페이지/바이너리를 로컬에서 직접 수신.
+    #    RSS link는 http:// 형식이므로 https로 승격해 요청 (KR http DPI 회피).
+    proxy_page_url = (
+        "https://" + page_url[len("http://"):] if page_url.startswith("http://") else page_url
+    )
+    html = fetch_via_proxy(proxy_page_url, config, timeout=timeout)
+    if html:
+        match = DOWNLOAD_HREF_RE.search(html)
+        if match:
+            download_url = urljoin(base_url, match.group(1))
+            if _validate_url(download_url):
+                data = download_via_proxy(download_url, config, timeout=timeout + 10)
+                if data:
+                    return {"type": "metainfo", "data": data}
+                logger.warning(f"OneJAV proxy download failed for {page_url}")
+        else:
+            logger.warning(f"No download link on {page_url} (via proxy)")
+
+    # 2) lt SSH 경유 (curl -4 강제)
+    if not remote.get("ssh_alias") and not remote.get("host"):
+        logger.error("onejav remote not configured (ssh_alias or host/user/ssh_key)")
+        return None
+
+    html = fetch_remote_curl(page_url, ssh_alias=remote.get("ssh_alias", "lt"), timeout=timeout)
     if not html:
         logger.error(f"OneJAV page fetch failed for {page_url}")
         return None
 
-    match = re.search(r'href="(/torrent/[^/]+/download/\d+/[^"]+\.torrent)"', html)
+    match = DOWNLOAD_HREF_RE.search(html)
     if not match:
         logger.warning(f"No download link on {page_url}")
         return None

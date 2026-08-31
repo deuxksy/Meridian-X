@@ -73,6 +73,8 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
 
         effective_config = {
             **collection_config,
+            "proxy": config.get("proxy"),
+            "proxies": config.get("proxies"),
             **src_config,
             "remote": config.get("remote", {}),
             "classify": config.get("classify", {}),

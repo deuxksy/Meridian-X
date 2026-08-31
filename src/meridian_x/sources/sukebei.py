@@ -17,7 +17,7 @@ from meridian_x.classify import (
     get_artist_folders,
     get_studio_mappings,
 )
-from ..remote import DEFAULT_USER_AGENT, fetch_remote_curl
+from ..remote import DEFAULT_USER_AGENT, fetch_remote_curl, fetch_via_proxy
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,13 @@ def _sukebei_remote(config: dict) -> dict:
 
 def _fetch_url(url: str, config: dict) -> tuple[bool, str]:
     timeout = _safe_timeout(config)
+
+    # 1) 프록시 경유 우선 (비KR egress)
+    proxied = fetch_via_proxy(url, config, timeout=timeout)
+    if proxied and proxied.strip():
+        return True, proxied
+
+    # 2) 원격 SSH curl (lt)
     remote = _sukebei_remote(config)
     if remote and (remote.get("ssh_alias") or remote.get("host")):
         ssh_alias = remote.get("ssh_alias", "lt")
@@ -84,11 +91,10 @@ def _fetch_url(url: str, config: dict) -> tuple[bool, str]:
             return True, out
         return False, "fetch_remote_curl failed"
 
+    # 3) 로컬 직접
     user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
-    proxies = config.get("proxies") or ({"http": config["proxy"], "https": config["proxy"]} if config.get("proxy") else None)
-
     try:
-        resp = requests.get(url, headers={"User-Agent": user_agent}, proxies=proxies, timeout=timeout)
+        resp = requests.get(url, headers={"User-Agent": user_agent}, timeout=timeout)
         resp.raise_for_status()
         return True, resp.text
     except Exception as e:

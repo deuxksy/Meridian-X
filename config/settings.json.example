@@ -62,6 +62,7 @@
     "user": "",
     "path": ""
   },
+  "proxy": null,
   "fanza": {
     "api_id": null,
     "affiliate_id": null

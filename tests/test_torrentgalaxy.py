@@ -419,3 +419,17 @@ def test_run_search_tgx_custom_category():
         assert mock_search.call_args[1].get("category") == "41" or mock_search.call_args[0][1] == "41"
 
 
+
+
+def test_tgx_fetch_url_proxy_takes_priority():
+    with patch("meridian_x.sources.torrentgalaxy.fetch_via_proxy", return_value='{"posts": []}') as mock_proxy, \
+         patch("meridian_x.sources.torrentgalaxy.fetch_remote_curl") as mock_remote:
+        config = {
+            "proxy": "http://127.0.0.1:8888",
+            "remote": {"ssh_alias": "lt"},
+        }
+        ok, content = tgx._fetch_url("https://torrentgalaxy.to/api", config)
+        assert ok is True
+        assert content == '{"posts": []}'
+        mock_proxy.assert_called_once()
+        mock_remote.assert_not_called()

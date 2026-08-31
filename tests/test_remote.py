@@ -1,7 +1,14 @@
 import subprocess
 from unittest.mock import MagicMock, patch
 import pytest
-from meridian_x.remote import fetch_remote_curl, run_remote_ssh
+from meridian_x.remote import (
+    DEFAULT_USER_AGENT,
+    download_via_proxy,
+    fetch_remote_curl,
+    fetch_via_proxy,
+    get_proxies,
+    run_remote_ssh,
+)
 
 
 def test_fetch_remote_curl_success():
@@ -103,3 +110,65 @@ def test_run_remote_ssh_exception():
         assert res.returncode == 1
         assert res.stdout == ""
         assert "ssh connection dropped" in res.stderr
+
+
+# ---- Proxy helpers ----
+
+def test_get_proxies_from_string():
+    assert get_proxies({"proxy": "http://p:8888"}) == {
+        "http": "http://p:8888",
+        "https": "http://p:8888",
+    }
+
+
+def test_get_proxies_dict_passthrough():
+    proxies = {"http": "http://a:1", "https": "socks5://b:2"}
+    assert get_proxies({"proxies": proxies}) == proxies
+
+
+def test_get_proxies_unset_returns_none():
+    assert get_proxies({}) is None
+    assert get_proxies({"proxy": ""}) is None
+
+
+def test_fetch_via_proxy_success():
+    with patch("meridian_x.remote.requests.get") as mock_get:
+        mock_get.return_value = MagicMock(status_code=200, text="rss body")
+        res = fetch_via_proxy("https://onejav.com/feeds/", {"proxy": "http://p:8888"})
+        assert res == "rss body"
+        kwargs = mock_get.call_args[1]
+        assert kwargs["proxies"] == {"http": "http://p:8888", "https": "http://p:8888"}
+        assert kwargs["headers"]["User-Agent"] == DEFAULT_USER_AGENT
+
+
+def test_fetch_via_proxy_not_configured():
+    with patch("meridian_x.remote.requests.get") as mock_get:
+        assert fetch_via_proxy("https://onejav.com/feeds/", {}) is None
+        mock_get.assert_not_called()
+
+
+def test_fetch_via_proxy_http_error_returns_none():
+    with patch("meridian_x.remote.requests.get") as mock_get:
+        mock_get.return_value = MagicMock(status_code=403)
+        mock_get.return_value.raise_for_status.side_effect = Exception("403 Forbidden")
+        assert fetch_via_proxy("https://onejav.com/feeds/", {"proxy": "http://p"}) is None
+
+
+def test_fetch_via_proxy_uses_config_user_agent():
+    with patch("meridian_x.remote.requests.get") as mock_get:
+        mock_get.return_value = MagicMock(status_code=200, text="x")
+        fetch_via_proxy("https://x", {"proxy": "http://p", "user_agent": "CustomUA/1"})
+        assert mock_get.call_args[1]["headers"]["User-Agent"] == "CustomUA/1"
+
+
+def test_download_via_proxy_returns_bytes():
+    with patch("meridian_x.remote.requests.get") as mock_get:
+        mock_get.return_value = MagicMock(status_code=200, content=b"d8:announce")
+        res = download_via_proxy("https://x/t.torrent", {"proxy": "http://p"})
+        assert res == b"d8:announce"
+
+
+def test_download_via_proxy_not_configured():
+    with patch("meridian_x.remote.requests.get") as mock_get:
+        assert download_via_proxy("https://x", {}) is None
+        mock_get.assert_not_called()

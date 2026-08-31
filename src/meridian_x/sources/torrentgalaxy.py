@@ -18,7 +18,7 @@ from meridian_x.classify import (
     get_studio_mappings,
 )
 from meridian_x.core import is_fhd_or_higher
-from ..remote import DEFAULT_USER_AGENT, fetch_remote_curl
+from ..remote import DEFAULT_USER_AGENT, fetch_remote_curl, fetch_via_proxy, get_proxies
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ def _ssh(remote: dict, cmd: str, timeout: int = 60) -> tuple[bool, str]:
 
 
 def _fetch_url(url: str, config: dict, candidate_urls: list[str] = None) -> tuple[bool, str]:
-    """URL 요청 수행. remote SSH curl 우선 사용 및 mirror 순회 지원."""
+    """URL 요청 수행. 프록시 우선, 이후 remote SSH curl / 직접 mirror 순회 지원."""
     timeout = _safe_timeout(config)
     remote = _tgx_remote(config)
 
@@ -104,8 +104,16 @@ def _fetch_url(url: str, config: dict, candidate_urls: list[str] = None) -> tupl
                 urls.append(u)
 
     user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
-    proxies = config.get("proxies") or ({"http": config["proxy"], "https": config["proxy"]} if config.get("proxy") else None)
 
+    # 1) 프록시 경유 우선 (비KR egress)
+    if get_proxies(config):
+        for target_url in urls:
+            proxied = fetch_via_proxy(target_url, config, timeout=timeout)
+            if proxied and proxied.strip():
+                return True, proxied
+        logger.warning(f"TorrentGalaxy proxy fetch failed on all {len(urls)} mirrors")
+
+    # 2) remote SSH curl / 3) 직접 mirror 순회
     for target_url in urls:
         if remote and (remote.get("ssh_alias") or remote.get("host")):
             ssh_alias = remote.get("ssh_alias", "lt")
@@ -115,7 +123,7 @@ def _fetch_url(url: str, config: dict, candidate_urls: list[str] = None) -> tupl
             logger.warning(f"TorrentGalaxy fetch failed on {target_url[:60]} via remote")
         else:
             try:
-                resp = requests.get(target_url, headers={"User-Agent": user_agent}, proxies=proxies, timeout=timeout)
+                resp = requests.get(target_url, headers={"User-Agent": user_agent}, timeout=timeout)
                 if resp.status_code == 200 and resp.text.strip():
                     return True, resp.text
             except Exception as e:

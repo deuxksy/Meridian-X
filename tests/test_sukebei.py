@@ -354,3 +354,18 @@ def test_run_search_sukebei_custom_category():
         assert mock_search.call_args[1].get("category") == "2_1" or mock_search.call_args[0][1] == "2_1"
 
 
+
+
+def test_fetch_url_proxy_takes_priority_over_remote():
+    with patch("requests.get") as mock_get, \
+         patch("meridian_x.sources.sukebei.fetch_remote_curl") as mock_remote:
+        mock_get.return_value = MagicMock(text="proxied content", status_code=200)
+        config = {
+            "proxy": "http://127.0.0.1:8888",
+            "remote": {"ssh_alias": "lt"},
+        }
+        ok, text = sukebei._fetch_url("https://sukebei.nyaa.si/test", config)
+        assert ok is True
+        assert text == "proxied content"
+        mock_remote.assert_not_called()
+        assert mock_get.call_args[1]["proxies"]["http"] == "http://127.0.0.1:8888"

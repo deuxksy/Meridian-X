@@ -6,6 +6,8 @@ import logging
 import subprocess
 from typing import Dict, Optional
 
+import requests
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_USER_AGENT = (
@@ -68,6 +70,52 @@ def fetch_remote_curl(
     except Exception as e:
         logger.error(f"fetch_remote_curl unexpected error for {url}: {e}")
         return ""
+
+
+def get_proxies(config: dict) -> Optional[Dict[str, str]]:
+    """프록시 설정을 requests proxies dict로 반환. 미설정 시 None.
+
+    config["proxies"] dict 우선, 없으면 config["proxy"] 문자열로 http/https 동일 적용.
+    """
+    if config.get("proxies"):
+        return config["proxies"]
+    if config.get("proxy"):
+        return {"http": config["proxy"], "https": config["proxy"]}
+    return None
+
+
+def fetch_via_proxy(url: str, config: dict, timeout: int = 15) -> Optional[str]:
+    """프록시 경유 GET (텍스트). 미설정 또는 실패 시 None."""
+    proxies = get_proxies(config)
+    if not proxies:
+        return None
+    user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
+    try:
+        resp = requests.get(
+            url, headers={"User-Agent": user_agent}, proxies=proxies, timeout=timeout
+        )
+        resp.raise_for_status()
+        return resp.text
+    except Exception as e:
+        logger.warning(f"fetch_via_proxy failed for {url[:80]}: {e}")
+        return None
+
+
+def download_via_proxy(url: str, config: dict, timeout: int = 30) -> Optional[bytes]:
+    """프록시 경유 GET (바이너리 - torrent metainfo 등). 미설정 또는 실패 시 None."""
+    proxies = get_proxies(config)
+    if not proxies:
+        return None
+    user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
+    try:
+        resp = requests.get(
+            url, headers={"User-Agent": user_agent}, proxies=proxies, timeout=timeout
+        )
+        resp.raise_for_status()
+        return resp.content
+    except Exception as e:
+        logger.warning(f"download_via_proxy failed for {url[:80]}: {e}")
+        return None
 
 
 def run_remote_ssh(
