@@ -60,14 +60,14 @@ src/
     ├── jav_lookup.py     # JavBus/Jav321 및 OneJAV SSH 조회
     ├── jav_metadata.py   # JAV 메타데이터 통합 Resolver + DB 캐시
     ├── west_metadata.py  # StashDB GraphQL API Resolver + DB 캐시
-    ├── remote.py         # SSH 원격 명령 및 프록시 curl 실행 전용 모듈
+    ├── remote.py         # SSH 원격 명령, 원격 curl, 프록시 fetch 헬퍼 모듈
     └── core.py           # 설정/히스토리/화질필터/중복선별 공통 함수
 ```
 
 ## Configuration
 
 - `pyproject.toml`: Python 3.12+, hatchling build, `meridian` console script.
-- `config/settings.json`: 메인 설정. gitignored.
+- `config/settings.json`: 메인 설정. gitignored. 최상위 `proxy`(gluetun HTTP proxy URL)는 전 소스 fetch 우회에 사용한다.
 - `config/settings.json.example`: 설정 템플릿.
 - `config/settings.json.sops`: sops+age 암호화 추적본.
 - `.env`: 선택 환경변수. gitignored. API key/토큰 평문 커밋 금지.
@@ -83,7 +83,7 @@ src/
 - **JAV 메타데이터**: FANZA → JavBus/Jav321 → OneJAV 순서로 필드 단위 병합 후 DB 캐시.
 - **West 메타데이터**: StashDB GraphQL API 조회 후 배우/스튜디오/태그를 Jellyfin 및 분류에 사용.
 - **화질 필터링 & 중복 선별**: 모든 미디어 소스는 `is_fhd_or_higher()` 및 `deduplicate_releases()`를 통해 FHD(1080p) 및 안정적 릴 그룹(`WRB`/`XC`)을 최우선 선별한다.
-- **원격 SSH 및 프록시 실행**: `meridian_x.remote` 모듈(`run_remote_ssh`, `fetch_remote_curl`)을 통해 모든 원격 SSH 실행 및 ISP/Cloudflare 차단 회피용 curl 프록시 호출을 일원화 관리한다.
+- **원격 SSH 및 프록시 실행**: `meridian_x.remote` 모듈(`run_remote_ssh`, `fetch_remote_curl`, `get_proxies`, `fetch_via_proxy`, `download_via_proxy`)이 원격 SSH 실행과 사이트 접속 우회를 일원화 관리한다. 소스 fetch는 `proxy(brla gluetun) → lt SSH curl → 직접` 순서로 시도한다.
 - **HTTP 세션 풀링**: `JellyfinClient`, `FanzaClient`, `StashDBClient` 등 외부 HTTP API 통신 시 `requests.Session` 풀링을 사용하여 커넥션을 재사용하고 네트워크 오버헤드를 줄인다.
 - **리포트**: pipeline 마지막 단계의 `report`는 디스크 사용량과 Transmission 토렌트 상태를 출력한다.
 - **문서 구조**: README와 문서 구조는 `docs/README.md`의 Diátaxis 인덱스를 기준으로 유지한다.
@@ -107,7 +107,10 @@ src/
 - Jellyfin 204 응답은 body가 없다. REST helper에서 content 존재 여부를 확인해야 한다.
 - heritage 서버는 unprivileged LXC 권한 매핑 때문에 반드시 `media` UID 1000 계정으로 SSH 조작한다.
 - Jellyfin은 기동 시 시스템 디스크(`/config/data`) 여유 공간이 2GiB 미만이면 시작을 중단(Caddy 502 유발)하므로, `metadata`/`cache`/`/tmp/jellyfin`은 `/mnt/data2/torrent/jellyfin`으로 분리 마운트한다.
-- `onejav`, `sukebei`, `torrentgalaxy`는 ISP/Cloudflare 차단 회피를 위해 `sources.<name>.remote.ssh_alias: "lt"` 경유 원격 curl을 사용한다.
+- `onejav`, `sukebei`, `torrentgalaxy`는 KR 차단 회피를 위해 최상위 `proxy`(brla gluetun, Surfshark Singapore egress) 우선, 실패 시 `sources.<name>.remote.ssh_alias: "lt"` 원격 curl 폴백으로 fetch한다.
+- `onejav.com`은 한국 차단목록 등재로 KR egress(lt, heritage 전부)에서 TLS RST/URL 차단된다. lt 경유 성공은 우연에 의존하므로 프록시가 필수다.
+- Surfshark exit 노드는 Singapore로 고정한다. Japan exit IP는 onejav가 503으로 거부한다.
+- 원격 curl 실패 시 `-s` 플래그가 에러를 삼켜 "empty output"처럼 보인다. 디버깅은 `curl -sS -v`로 한다(error 35 = TLS reset).
 - TorrentGalaxy는 2026-08 플랫폼 마이그레이션으로 `/rss?cat=<id>`와 `torrents.php`를 폐기했다 (302 → homepage). discover는 `/get-posts/category:XXX:format:json/` JSON API를 사용하며, 카테고리는 숫자 ID가 아닌 이름(`category:<name>`)으로 지정한다.
 - tidy shell script 테스트는 `_build_*_script()` 빌더를 로컬 `bash -c`로 검증한다.
 - macOS 기본 APFS는 case-insensitive일 수 있어 case-dup 테스트가 skip될 수 있다.

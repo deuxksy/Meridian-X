@@ -54,7 +54,7 @@ Meridian-X/
     ├── jav_lookup.py          # JAV 배우 2차 분류 조회
     ├── jav_metadata.py        # JAV 메타데이터 통합 Resolver (FANZA -> JavBus -> OneJAV)
     ├── west_metadata.py       # StashDB GraphQL API West 메타데이터 Resolver
-    ├── remote.py              # SSH 원격 명령 및 프록시 curl 실행 전용 모듈
+    ├── remote.py              # SSH 원격 명령, 원격 curl, 프록시 fetch 헬퍼 모듈
     └── core.py                # 공통 함수 (설정/화질필터/중복선별)
 ```
 

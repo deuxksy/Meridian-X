@@ -9,7 +9,8 @@ Meridian-X의 설계 철학과 2단계 운영 아키텍처(수집 단계 및 8�
 ```mermaid
 graph TB
     subgraph Ingest[1. 수집 단계 - transmission/search]
-        SRC[4대 소스 - OneJAV/Sukebei/XXXClub/TGx] --> DEDUP[화질 필터 FHD/4K - 1080p 릴리스 우선순위 선별]
+        SRC[4대 소스 - OneJAV/Sukebei/XXXClub/TGx] --> FETCH[사이트 접속 - proxy 우선 - lt SSH 폴백]
+        FETCH --> DEDUP[화질 필터 FHD/4K - 1080p 릴리스 우선순위 선별]
         DEDUP --> TX_ADD[Transmission RPC 토렌트 큐잉]
     end
 
@@ -37,6 +38,10 @@ graph TB
     style Pipeline fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
     style ClassifyPriority fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
+
+### 사이트 접속 우회 (Egress)
+
+일부 소스(onejav 등)는 한국 ISP 차단목록에 등재되어 KR egress(lt, heritage)에서 TLS reset·URL 차단이 발생한다. 소스 fetch는 brla에 상주하는 gluetun(Surfshark Singapore WireGuard) HTTP 프록시를 우선 경유하고, 실패 시 lt 원격 curl로 폴백한다.
 
 ---
 
