@@ -31,7 +31,6 @@ uv run meridian tidy --dry-run
 uv run meridian tidy
 uv run meridian classify --dry-run
 uv run meridian classify
-uv run meridian classify --no-lookup
 uv run meridian classify --lookup-jav
 uv run meridian pipeline --dry-run
 uv run meridian pipeline

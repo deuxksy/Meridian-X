@@ -14,7 +14,7 @@
 | **v0.4** | ✅ Done | West 미디어 StashDB GraphQL 연동 & 배우/스튜디오 분류 | `2026-08-09-stashdb-west-classification-and-metadata` |
 | **v0.5** | ✅ Done | SQLite3 데이터베이스 (`meridian.db`) 통합 & 레거시 캐시 마이그레이션 | `2026-08-09-sqlite-metadata-store` |
 | **v0.6** | ✅ Done | Sukebei & TorrentGalaxy 4대 소스 통합, 다중 미러 복원력 & 원격 프록시 우회 | `2026-08-20-sukebei-source`<br>`2026-08-20-torrentgalaxy-source` |
-| **v0.7** | ✅ Done | 엄격한 FHD/4K 화질 필터링, 안정 릴 그룹(WRB/XC) 우선순위 선별 & URL Resolver 독립 프로젝트(Vesper-X) 분리 | `2026-08-20-fhd-quality-deduplication` |
+| **v0.7** | ✅ Done | 엄격한 FHD/4K 화질 필터링, 안정 릴 그룹(WRB/XC) 우선순위 선별 & URL Resolver 독립 프로젝트(Vesper-X) 분리 | - |
 | **v0.8** | 🛠️ Planned | Dry-Run 미리보기 강화 & Stalled 토렌트 정리 자동화 | - |
 
 ---

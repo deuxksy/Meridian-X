@@ -15,7 +15,7 @@ Meridian-X의 모든 서브커맨드와 지원 옵션에 대한 상세 명세서
 | `label` | 기존 토렌트 메이커 코드/배우 라벨 자동 설정 | `--dry-run` |
 | `sync` | Transmission 라벨 ➔ Jellyfin 태그 동기화 | - |
 | `tidy` | SSH 원격 정크 삭제, 폴더 Flatten, 파일명 정리 | `--dry-run` |
-| `classify` | SSH 원격 파일 분류 (하이브리드 메타데이터 조회) | `--dry-run`, `--no-lookup`, `--lookup-jav` |
+| `classify` | SSH 원격 파일 분류 (하이브리드 메타데이터 조회) | `--dry-run`, `--lookup-jav` |
 | `report` | 스토리지 용량 및 Transmission 토렌트 상태 리포트 | - |
 
 ---
@@ -61,5 +61,4 @@ uv run meridian classify [OPTIONS]
 | 옵션 | 설명 | 기본값 |
 | :--- | :--- | :--- |
 | `--dry-run` | 실제 파일 이동 없이 분류 결과 미리보기 | `False` |
-| `--no-lookup` | 외부 API 메타데이터 조회 스킵 (단순 파일명 규칙 매칭만 수행) | `False` |
 | `--lookup-jav` | `JPN/` 폴더 내 파일 웹 DB 조회 기반 배우 폴더 2차 분류 활성화 | `False` |
