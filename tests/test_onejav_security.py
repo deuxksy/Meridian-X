@@ -126,7 +126,7 @@ class TestOnejavProxyFetch:
 
         config = {
             "rss_url": "https://onejav.com/feeds/",
-            "proxy": "http://100.75.220.80:8888",
+            "proxy": "http://brla.bun-bull.ts.net:8888",
             "remote": {"ssh_alias": "lt"},
         }
         with patch("meridian_x.sources.onejav.fetch_via_proxy", return_value=self.SAMPLE_RSS) as mock_proxy, \
@@ -143,7 +143,7 @@ class TestOnejavProxyFetch:
 
         config = {
             "rss_url": "https://onejav.com/feeds/",
-            "proxy": "http://100.75.220.80:8888",
+            "proxy": "http://brla.bun-bull.ts.net:8888",
             "remote": {"ssh_alias": "lt"},
         }
         with patch("meridian_x.sources.onejav.fetch_via_proxy", return_value=None), \
@@ -158,7 +158,7 @@ class TestOnejavProxyFetch:
 
         sample_html = '<a href="/torrent/SONE446/download/12345/sone446.torrent">Download</a>'
         config = {
-            "proxy": "http://100.75.220.80:8888",
+            "proxy": "http://brla.bun-bull.ts.net:8888",
             "remote": {"ssh_alias": "lt"},
         }
         item = {"page_url": "http://onejav.com/torrent/SONE446"}
@@ -180,7 +180,7 @@ class TestOnejavProxyFetch:
 
         sample_html = '<a href="/torrent/SONE446/download/12345/sone446.torrent">Download</a>'
         config = {
-            "proxy": "http://100.75.220.80:8888",
+            "proxy": "http://brla.bun-bull.ts.net:8888",
             "remote": {"ssh_alias": "lt"},
         }
         item = {"page_url": "http://onejav.com/torrent/SONE446"}
