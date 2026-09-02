@@ -70,7 +70,7 @@ src/
 - `config/settings.json.example`: 설정 템플릿.
 - `config/settings.json.sops`: sops+age 암호화 추적본.
 - `.env`: 선택 환경변수. gitignored. API key/토큰 평문 커밋 금지.
-- `meridian.db`: SQLite 저장소. `download_history`, `jav_metadata`, `west_metadata` 테이블 사용.
+- `data/meridian.db`: SQLite 저장소. `download_history`, `jav_metadata`, `west_metadata` 테이블 사용.
 
 ## Key Patterns
 
