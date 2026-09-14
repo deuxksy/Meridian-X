@@ -4,7 +4,7 @@
 
 *품격 있는 디지털 수집가를 위한 우아한 솔루션*
 
-**Meridian-X**는 프라이빗 미디어 컬렉션을 자동 수집·정리·분류·동기화하는 Python 자동화 스위트입니다. 4대 미디어 소스(OneJAV, Sukebei, XXXClub, TorrentGalaxy) 기반 고화질(FHD/4K) 수집, 광고 파일 정리, JAV/West 메타데이터 조회, Jellyfin 태그 동기화 및 SSH 원격 분류를 하나의 운영 흐름으로 제공합니다.
+**Meridian-X**는 프라이빗 미디어 컬렉션을 자동 수집·정리·분류·동기화하는 Python 자동화 스위트입니다. 4대 미디어 소스 기반 고화질(FHD/4K) 수집, 광고 파일 정리, 메타데이터 조회, Jellyfin 태그 동기화 및 SSH 원격 분류를 하나의 운영 흐름으로 제공합니다.
 
 ---
 
@@ -13,7 +13,7 @@
 신사의 서재는 언제나 정갈해야 합니다. **Meridian-X**는 보이지 않는 곳에서 다음과 같이 봉사합니다:
 - **수집 (Collect):** Whisparr가 수집할 수 없는 특별한 작품들을 신사의 취향에 맞추어 우아하게 수집합니다.
 - **정화 (Sanitize):** 파일명에 붙은 보기 흉한 광고 문구, 홍보용 태그, 그리고 가치 없는 부산물들을 정중하게 제거합니다.
-- **큐레이션 (Curate):** 동양과 서양, 그리고 특별한 취향(Niche)에 맞춰 콘텐츠를 자동으로 분류하고 적절한 위치로 안내합니다.
+- **큐레이션 (Curate):** 동양과 서양, 그리고 특별한 취향에 맞춰 콘텐츠를 자동으로 분류하고 적절한 위치로 안내합니다.
 
 ---
 
@@ -51,8 +51,8 @@ Meridian-X/
     ├── report.py              # disk/토렌트 상태 리포트
     ├── db.py                  # SQLite 저장소 (download_history, jav_metadata, west_metadata)
     ├── fanza.py               # FANZA API 클라이언트
-    ├── jav_lookup.py          # JAV 배우 2차 분류 조회
-    ├── jav_metadata.py        # JAV 메타데이터 통합 Resolver (FANZA -> JavBus -> OneJAV)
+    ├── jav_lookup.py          # 배우 2차 분류 조회
+    ├── jav_metadata.py        # 메타데이터 통합 Resolver
     ├── west_metadata.py       # StashDB GraphQL API West 메타데이터 Resolver
     ├── remote.py              # SSH 원격 명령, 원격 curl, 프록시 fetch 헬퍼 모듈
     └── core.py                # 공통 함수 (설정/화질필터/중복선별)
