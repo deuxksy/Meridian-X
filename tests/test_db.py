@@ -84,6 +84,43 @@ def test_west_metadata_crud(tmp_path: Path):
     assert res["performers"] == ["Performer X"]
 
 
+def test_actresses_crud(tmp_path: Path):
+    db = MeridianDB(db_path=tmp_path / "test.db")
+    profile = {
+        "name": "테스트배우",
+        "name_en": "Test Actress",
+        "region": "JPN",
+        "birthday": "2000-01-01",
+        "height_cm": 150,
+        "measurements": "B82(D)/W56/H84",
+        "debut": "2020-01",
+        "debut_work": "TEST-001 테스트 데뷔작",
+        "label": "테스트레이블",
+        "agency": "테스트소속사",
+        "concept": "테스트 컨셉",
+        "aliases": ["別名テスト"],
+        "source_url": "https://example.com/test",
+    }
+    assert db.get_actress("테스트배우") is None
+    db.save_actress(profile)
+    res = db.get_actress("테스트배우")
+    assert res is not None
+    assert res["region"] == "JPN"
+    assert res["name_en"] == "Test Actress"
+    assert res["height_cm"] == 150
+    assert res["aliases"] == ["別名テスト"]
+
+    all_jpn = db.get_all_actresses(region="JPN")
+    assert len(all_jpn) == 1 and all_jpn[0]["name"] == "테스트배우"
+    assert db.get_all_actresses(region="WEST") == []
+
+    profile["concept"] = "갱신된 컨셉"
+    db.save_actress(profile)
+    updated = db.get_actress("테스트배우")
+    assert updated is not None
+    assert updated["concept"] == "갱신된 컨셉"
+
+
 def test_migrate_json_caches(tmp_path: Path):
     import json
     db = MeridianDB(db_path=tmp_path / "test.db")

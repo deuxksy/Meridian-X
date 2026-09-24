@@ -58,7 +58,29 @@ class MeridianDB:
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS idx_west_updated ON west_metadata(updated_at);
+
+                CREATE TABLE IF NOT EXISTS actresses (
+                    name TEXT PRIMARY KEY,
+                    name_en TEXT,
+                    region TEXT NOT NULL,
+                    birthday TEXT,
+                    height_cm INTEGER,
+                    measurements TEXT,
+                    debut TEXT,
+                    debut_work TEXT,
+                    label TEXT,
+                    agency TEXT,
+                    concept TEXT,
+                    aliases TEXT,
+                    source_url TEXT,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_actresses_region ON actresses(region);
             """)
+            # 구버전 actresses 테이블 마이그레이션 (name_en 컬럼 추가)
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(actresses)")}
+            if "name_en" not in cols:
+                conn.execute("ALTER TABLE actresses ADD COLUMN name_en TEXT")
 
     def get_download_history(self) -> Set[str]:
         with self.get_connection() as conn:
@@ -209,6 +231,64 @@ class MeridianDB:
                     "source": row["source_api"],
                 }
             return res
+
+    def save_actress(self, profile: dict) -> None:
+        """즐겨찾기 배우 프로필 upsert. aliases는 JSON으로 저장."""
+        with self.get_connection() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO actresses
+                (name, name_en, region, birthday, height_cm, measurements, debut, debut_work,
+                 label, agency, concept, aliases, source_url, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (
+                    profile["name"],
+                    profile.get("name_en"),
+                    profile.get("region"),
+                    profile.get("birthday"),
+                    profile.get("height_cm"),
+                    profile.get("measurements"),
+                    profile.get("debut"),
+                    profile.get("debut_work"),
+                    profile.get("label"),
+                    profile.get("agency"),
+                    profile.get("concept"),
+                    json.dumps(profile.get("aliases", []), ensure_ascii=False),
+                    profile.get("source_url"),
+                ),
+            )
+
+    def get_actress(self, name: str) -> dict | None:
+        with self.get_connection() as conn:
+            row = conn.execute("SELECT * FROM actresses WHERE name = ?", (name,)).fetchone()
+            if not row:
+                return None
+            return {
+                "name": row["name"],
+                "name_en": row["name_en"],
+                "region": row["region"],
+                "birthday": row["birthday"],
+                "height_cm": row["height_cm"],
+                "measurements": row["measurements"],
+                "debut": row["debut"],
+                "debut_work": row["debut_work"],
+                "label": row["label"],
+                "agency": row["agency"],
+                "concept": row["concept"],
+                "aliases": json.loads(row["aliases"]) if row["aliases"] else [],
+                "source_url": row["source_url"],
+            }
+
+    def get_all_actresses(self, region: str | None = None) -> list[dict]:
+        with self.get_connection() as conn:
+            if region:
+                rows = conn.execute(
+                    "SELECT name FROM actresses WHERE region = ? ORDER BY name", (region,)
+                ).fetchall()
+            else:
+                rows = conn.execute("SELECT name FROM actresses ORDER BY name").fetchall()
+            return [r for row in rows if (r := self.get_actress(row["name"])) is not None]
 
     def migrate_json_caches(
         self,
