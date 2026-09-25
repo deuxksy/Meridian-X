@@ -62,12 +62,45 @@ def test_sinfulxxx_studio_classification():
     assert classify_filename(filename, config) == "SinfulXXX"
 
 
+def test_backdoorpov_studio_classification():
+    config = load_config("config/settings.json")
+    filename = "BackdoorPOV.26.09.25.Random.Girl.XXX.1080p.mp4"
+    assert "BackdoorPOV" in get_studio_mappings(config)
+    assert classify_filename(filename, config) == "BackdoorPOV"
+
+
 def test_slayed_maps_to_vixen_group():
     config = load_config("config/settings.json")
     filename = "Slayed.26.08.20.Girl.Name.XXX.1080p.MP4-WRB.mp4"
     assert "Slayed" not in get_studio_mappings(config)
     assert "slayed" in get_studio_mappings(config)["Vixen"]
     assert classify_filename(filename, config) == "Vixen"
+
+
+def test_ultrafilms_maps_to_wowgirls_group():
+    config = load_config("config/settings.json")
+    filename = "UltraFilms.26.08.20.Girl.Name.XXX.1080p.MP4-WRB.mp4"
+    assert "UltraFilms" not in get_studio_mappings(config)
+    assert "ultrafilms" in get_studio_mappings(config)["Wowgirls"]
+    assert classify_filename(filename, config) == "Wowgirls"
+
+
+def test_metart_network_consolidation():
+    config = load_config("config/settings.json")
+    studio_map = get_studio_mappings(config)
+    assert "MetArt" in studio_map
+    assert "TheLifeErotic" not in studio_map
+    assert "MetArtX" not in studio_map
+
+    # Sub-brands all map to MetArt
+    for sample in [
+        "SexArt.26.09.01.Romantic.Scene.1080p.mp4",
+        "VivThomas.26.08.15.Sensual.Girls.1080p.mp4",
+        "TheLifeErotic.26.07.20.Artistic.1080p.mp4",
+        "MetArtX.26.06.10.Explicit.FHD.mp4",
+        "MetArt.26.05.01.Classic.Beauty.1080p.mp4",
+    ]:
+        assert classify_filename(sample, config) == "MetArt"
 
 
 
