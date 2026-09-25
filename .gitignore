@@ -64,5 +64,6 @@ $RECYCLE.BIN/
 .omx/
 .serena/
 .mimosa/
-scratch/
 .playwright-mcp/
+.remember/
+scratch/
