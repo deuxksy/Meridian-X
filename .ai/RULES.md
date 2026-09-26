@@ -13,55 +13,13 @@ cp config/settings.json.example config/settings.json
 # 또는 sops 추적본 복원
 sops --decrypt --input-type binary --output-type binary config/settings.json.sops > config/settings.json
 
-# Meridian Pipeline Commands
-uv run meridian transmission --dry-run
-uv run meridian transmission
-uv run meridian transmission --source onejav
-uv run meridian transmission --source sukebei
-uv run meridian transmission --source xxxclub
-uv run meridian transmission --source torrentgalaxy
-uv run meridian filter
-uv run meridian label
-uv run meridian sync
-uv run meridian search "Dakota Doll" --category 1080p
-uv run meridian search "Dakota Doll" --auto --delay 5
-uv run meridian search "MINAMO" --source sukebei
-uv run meridian search "Angela White" --source tgx
-uv run meridian tidy --dry-run
-uv run meridian tidy
-uv run meridian classify --dry-run
-uv run meridian classify
-uv run meridian classify --lookup-jav
-uv run meridian pipeline --dry-run
-uv run meridian pipeline
-uv run meridian pipeline --no-refresh
-uv run meridian report
-
 # Tests
 uv run pytest tests/ -v
 ```
 
 ## Architecture
 
-```text
-src/
-└── meridian_x/
-    ├── cli.py            # CLI 진입점 (classify, filter, label, pipeline, report, search, sync, tidy, transmission)
-    ├── collect.py        # Multi-source 수집 오케스트레이터
-    ├── sources/          # onejav, sukebei, xxxclub, torrentgalaxy source 모듈
-    ├── transmission.py   # Transmission RPC 클라이언트
-    ├── jellyfin.py       # Jellyfin REST API 클라이언트
-    ├── tidy.py           # 원격 파일 정리 (SSH)
-    ├── classify.py       # 원격 파일 분류 (SSH)
-    ├── report.py         # disk/토렌트 상태 리포트
-    ├── db.py             # SQLite 저장소(download_history, jav_metadata, west_metadata)
-    ├── fanza.py          # FANZA API 클라이언트
-    ├── jav_lookup.py     # JavBus/Jav321 및 OneJAV SSH 조회
-    ├── jav_metadata.py   # JAV 메타데이터 통합 Resolver + DB 캐시
-    ├── west_metadata.py  # StashDB GraphQL API Resolver + DB 캐시
-    ├── remote.py         # SSH 원격 명령, 원격 curl, 프록시 fetch 헬퍼 모듈
-    └── core.py           # 설정/히스토리/화질필터/중복선별 공통 함수
-```
+프로젝트 구조는 `README.md` 또는 [아키텍처 & 워크플로우](../docs/okf/explanation/architecture-and-workflow.md) 참조.
 
 ## Configuration
 
@@ -83,19 +41,12 @@ src/
 - **West 메타데이터**: StashDB GraphQL API 조회 후 배우/스튜디오/태그를 Jellyfin 및 분류에 사용.
 - **화질 필터링 & 중복 선별**: 모든 미디어 소스는 `is_fhd_or_higher()` 및 `deduplicate_releases()`를 통해 FHD(1080p) 및 안정적 릴 그룹(`WRB`/`XC`)을 최우선 선별한다.
 - **원격 SSH 및 프록시 실행**: `meridian_x.remote` 모듈(`run_remote_ssh`, `fetch_remote_curl`, `get_proxies`, `fetch_via_proxy`, `download_via_proxy`)이 원격 SSH 실행과 사이트 접속 우회를 일원화 관리한다. 소스 fetch는 `proxy(brla gluetun) → lt SSH curl → 직접` 순서로 시도한다.
-- **HTTP 세션 풀링**: `JellyfinClient`, `FanzaClient`, `StashDBClient` 등 외부 HTTP API 통신 시 `requests.Session` 풀링을 사용하여 커넥션을 재사용하고 네트워크 오버헤드를 줄인다.
-- **리포트**: pipeline 마지막 단계의 `report`는 디스크 사용량과 Transmission 토렌트 상태를 출력한다.
 - **문서 구조**: README와 문서 구조는 `docs/README.md`의 Diátaxis 인덱스를 기준으로 유지한다.
 
 ## Verification
 
 - 변경 후 우선 관련 테스트를 좁게 실행하고, 필요하면 전체 회귀를 실행한다.
 - 원격/외부 시스템 변경 전에는 가능한 dry-run을 먼저 사용한다.
-- 대표 검증:
-  - `uv run pytest tests/test_db.py -v`
-  - `uv run pytest tests/test_core.py -v`
-  - `uv run pytest tests/test_sukebei.py tests/test_torrentgalaxy.py -v`
-  - `uv run pytest tests/ -v`
 
 ## Gotchas
 
