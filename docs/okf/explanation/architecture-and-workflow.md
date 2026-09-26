@@ -7,7 +7,7 @@ Meridian-X의 설계 철학과 2단계 운영 아키텍처(수집 단계 및 8�
 ## 1. 2단계 운영 아키텍처 (2-Phase Architecture)
 
 ```mermaid
-graph TB
+graph TD
     subgraph Ingest[1. 수집 단계 - transmission/search]
         SRC[4대 소스 - OneJAV/Sukebei/XXXClub/TGx] --> FETCH[사이트 접속 - proxy 우선 - lt SSH 폴백]
         FETCH --> DEDUP[화질 필터 FHD/4K - 1080p 릴리스 우선순위 선별]
