@@ -47,7 +47,7 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
         parsed = json.loads(raw_text)
         if isinstance(parsed, dict) and "sops" in parsed:
             raise json.JSONDecodeError("SOPS encrypted JSON wrapper detected", raw_text, 0)
-        return parsed
+        return _apply_user_credentials(parsed)
     except (UnicodeDecodeError, json.JSONDecodeError):
         # 2. 파싱 실패 또는 SOPS 암호화 wrapper인 경우 SOPS 바이너리 복호화 시도
         logger.info(f"Attempting sops binary decryption for {config_path}")
@@ -78,10 +78,39 @@ def load_config(config_path: str | Path | None = None) -> dict[str, Any]:
             raise ValueError(f"Failed to decrypt config with sops: {err_msg}")
 
         try:
-            return json.loads(proc.stdout.decode("utf-8"))
+            parsed = json.loads(proc.stdout.decode("utf-8"))
         except Exception as e:
             logger.error(f"Failed to parse decrypted config JSON: {e}")
             raise ValueError(f"Decrypted config is not valid JSON: {e}")
+        return _apply_user_credentials(parsed)
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """override를 base 위에 재귀 병합한다. dict는 합치고 나머지 값은 덮어쓴다."""
+    merged = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def _apply_user_credentials(config: dict[str, Any]) -> dict[str, Any]:
+    """~/.config/meridian-x/credentials.json 사용자 인증 override를 우선 적용한다.
+
+    repo 밖 로컬 파일이므로 sops 대상이 아니며, 없거나 읽을 수 없으면 무시한다.
+    """
+    config_root = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
+    creds_path = Path(config_root) / "meridian-x" / "credentials.json"
+    if not creds_path.exists():
+        return config
+    try:
+        creds = json.loads(creds_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning(f"Ignoring credentials override {creds_path}: {exc}")
+        return config
+    return _deep_merge(config, creds)
 
 
 def extract_page_links(rss_content: str) -> list[dict[str, str]]:

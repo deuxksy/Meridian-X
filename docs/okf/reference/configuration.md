@@ -9,6 +9,7 @@ Meridian-X의 설정 파일 구조, 필수/선택 키 및 보안 관리(SOPS 암
 - **기본 경로**: `config/settings.json` (보안을 위해 `.gitignore`에 등록됨)
 - **템플릿 파일**: `config/settings.json.example`
 - **암호화 추적본**: `config/settings.json.sops` (sops + age 암호화)
+- **사용자 인증 override**: `~/.config/meridian-x/credentials.json` (선택, git 관리 밖) — 아래 [4. 사용자 인증 override](#4-사용자-인증-override-credentialsjson) 참조
 
 ### 설정 초기화 방법
 ```bash
@@ -92,5 +93,25 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
       "min_file_size_mb": 100
     }
   }
+}
+```
+
+---
+
+## 4. 사용자 인증 override (credentials.json)
+
+API key·비밀번호 등 인증 값은 repo 밖 사용자 파일로 분리할 수 있다.
+
+- **경로**: `$XDG_CONFIG_HOME/meridian-x/credentials.json` (기본 `~/.config/meridian-x/credentials.json`, 권장 권한 `0600`)
+- **구조**: `settings.json`과 동일한 중첩 구조로 인증 필드만 기술한다
+- **병합**: `load_config()`가 deep merge로 우선 적용한다. 파일이 없으면 무시되고 `settings.json`의 값이 그대로 사용된다
+- **sops 불필요**: repo 밖 로컬 파일이라 git 노출 경로가 없다
+
+```json
+{
+  "jellyfin": { "api_key": "..." },
+  "stashdb": { "api_key": "..." },
+  "fanza": { "api_id": "...", "affiliate_id": "..." },
+  "transmission": { "rpc_user": "...", "rpc_password": "..." }
 }
 ```

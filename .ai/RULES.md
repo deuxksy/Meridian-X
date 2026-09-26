@@ -27,6 +27,7 @@ uv run pytest tests/ -v
 - `config/settings.json`: 메인 설정. gitignored. 최상위 `proxy`(gluetun HTTP proxy URL)는 전 소스 fetch 우회에 사용한다.
 - `config/settings.json.example`: 설정 템플릿.
 - `config/settings.json.sops`: sops+age 암호화 추적본.
+- `~/.config/meridian-x/credentials.json`: 선택 사용자 인증 override (XDG). `load_config()`가 deep merge로 우선 적용한다.
 - `.env`: 선택 환경변수. gitignored. API key/토큰 평문 커밋 금지.
 - `data/meridian.db`: SQLite 저장소. `download_history`, `jav_metadata`, `west_metadata` 테이블 사용.
 

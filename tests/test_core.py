@@ -13,7 +13,8 @@ from meridian_x.core import (
 )
 
 
-def test_load_config_plain_json(tmp_path):
+def test_load_config_plain_json(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     config_file = tmp_path / "settings.json"
     config_file.write_text('{"app": "meridian_x", "sources": {"onejav": {"enabled": true}}}', encoding="utf-8")
     loaded = load_config(config_file)
@@ -26,7 +27,37 @@ def test_load_config_not_found(tmp_path):
         load_config(missing_file)
 
 
-def test_load_config_encrypted(tmp_path):
+def test_load_config_user_credentials_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    config_file = tmp_path / "settings.json"
+    config_file.write_text(
+        '{"jellyfin": {"url": "http://media", "api_key": null, "timeout": 10},'
+        ' "stashdb": {"api_key": "settings-key"}}',
+        encoding="utf-8",
+    )
+    creds_dir = tmp_path / "meridian-x"
+    creds_dir.mkdir()
+    (creds_dir / "credentials.json").write_text(
+        '{"jellyfin": {"api_key": "creds-key"}, "fanza": {"api_id": "creds-id"}}',
+        encoding="utf-8",
+    )
+    loaded = load_config(config_file)
+    assert loaded["jellyfin"]["api_key"] == "creds-key"
+    assert loaded["jellyfin"]["url"] == "http://media"
+    assert loaded["stashdb"]["api_key"] == "settings-key"
+    assert loaded["fanza"]["api_id"] == "creds-id"
+
+
+def test_load_config_without_credentials_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg-empty"))
+    config_file = tmp_path / "settings.json"
+    config_file.write_text('{"jellyfin": {"api_key": "settings-key"}}', encoding="utf-8")
+    loaded = load_config(config_file)
+    assert loaded == {"jellyfin": {"api_key": "settings-key"}}
+
+
+def test_load_config_encrypted(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     # Setup sample config
     config_dir = tmp_path / "config"
     config_dir.mkdir(parents=True, exist_ok=True)
