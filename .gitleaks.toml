@@ -1,0 +1,27 @@
+# Meridian-X gitleaks 설정
+# 기본 룰을 확장 사용. CI(gitleaks-action@v2)와 로컬 커밋 전 스캔이 함께 사용한다.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "sops 암호문 blob과 설정 템플릿 플레이스홀더는 시크릿이 아님"
+paths = [
+    '''config/settings\.json\.sops''',
+    '''config/settings\.json\.example''',
+]
+
+[[allowlists]]
+description = "Age 공개키는 시크릿이 아님 (.sops.yaml 및 문서 공개 가능)"
+regexes = [
+    '''age1[0-9a-z]{50,}''',
+]
+
+[[allowlists]]
+description = "2026-07 트래킹 시절 노출된 config/settings.json api_key - 키 로테이션으로 무력화됨. 히스토리 정리 시 이 항목 삭제"
+commits = [
+    "175e62c400bc71933311bb580cca631a049d4596",
+    "a6d823fb48251a22a38948180cd930deee403d23",
+    "2781b75dae88674f7b08829da3e415c07d1468b0",
+    "0a333762aece2954fb86e414ad0666efd37b02b3",
+]
