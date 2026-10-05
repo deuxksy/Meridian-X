@@ -308,7 +308,7 @@ def test_clean_prefix_stripped_for_jpn_pattern():
     config = {
         "classify": {
             "artist_folders": [],
-            "clean_prefixes": ["hhd800.com@", "4k688.com@"],
+            "clean_prefixes": ["hhd800.com@", "4k688.com@", "gg5.co@"],
             "studio_folders": []
         }
     }
@@ -317,6 +317,9 @@ def test_clean_prefix_stripped_for_jpn_pattern():
     assert classify_filename("4k688.com@NGHJ-071.mp4", config) == "JPN"
     # hhd800도 동일
     assert classify_filename("hhd800.com@START-551.mp4", config) == "JPN"
+    # gg5.co 접두사 및 _UNC 언더스코어 구분자 지원
+    assert classify_filename("gg5.co@START-302_UNC.mp4", config) == "JPN"
+    assert classify_filename("START-302_UNC.mp4", config) == "JPN"
     # 접두사 없으면 기존 동작 그대로
     assert classify_filename("BASJ-047.mp4", config) == "JPN"
     assert classify_filename("random_western_file.mp4", config) == "West"

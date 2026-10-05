@@ -84,7 +84,8 @@
     "video_extensions": [".mp4", ".mkv", ".avi"],
     "clean_prefixes": [
       "hhd800.com@",
-      "4k688.com@"
+      "4k688.com@",
+      "gg5.co@"
     ]
   },
   "genres": {}

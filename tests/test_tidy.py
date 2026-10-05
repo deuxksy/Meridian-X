@@ -273,7 +273,7 @@ class TestRunDryRun:
         assert len(calls) == 1
 
 
-def test_clean_prefixes_includes_4k688():
+def test_clean_prefixes_includes_configured_domains():
     from pathlib import Path
 
     from meridian_x.core import load_config
@@ -285,5 +285,30 @@ def test_clean_prefixes_includes_4k688():
     prefixes = config.get("classify", {}).get("clean_prefixes", [])
     assert "hhd800.com@" in prefixes
     assert "4k688.com@" in prefixes
+    assert "gg5.co@" in prefixes
+
+
+def test_clean_filenames_strip_gg5_co_prefix(tmp_path):
+    """gg5.co@ 접두사가 tidy의 파일명 정리 셸 로직을 통해 정상 제거되는지 검증."""
+    video = tmp_path / "gg5.co@START-302_UNC.mp4"
+    video.write_text("dummy")
+
+    prefixes = ["hhd800.com@", "4k688.com@", "gg5.co@"]
+    prefix_checks = " || ".join(f'echo "$f" | grep -q "^{p}"' for p in prefixes)
+    script = f'''
+cd "{tmp_path}"
+for f in *; do
+    [ ! -f "$f" ] && continue
+    {prefix_checks} || continue
+    new_name=$(echo "$f" | sed "s/^[^@]*@//")
+    if [ "$f" != "$new_name" ] && [ ! -f "$new_name" ]; then
+        mv "$f" "$new_name"
+    fi
+done
+'''
+    res = _run_script(tmp_path, script)
+    assert res.returncode == 0
+    assert not (tmp_path / "gg5.co@START-302_UNC.mp4").exists()
+    assert (tmp_path / "START-302_UNC.mp4").exists()
 
 
