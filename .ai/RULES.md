@@ -58,8 +58,9 @@ uv run pytest tests/ -v
 - Jellyfin 204 응답은 body가 없다. REST helper에서 content 존재 여부를 확인해야 한다.
 - heritage 서버는 unprivileged LXC 권한 매핑 때문에 반드시 `media` UID 1000 계정으로 SSH 조작한다.
 - Jellyfin은 기동 시 시스템 디스크(`/config/data`) 여유 공간이 2GiB 미만이면 시작을 중단(Caddy 502 유발)하므로, `metadata`/`cache`/`/tmp/jellyfin`은 `/mnt/data2/torrent/jellyfin`으로 분리 마운트한다.
-- `onejav`, `sukebei`, `torrentgalaxy`는 KR 차단 회피를 위해 최상위 `proxy`(brla gluetun, Surfshark Singapore egress) 우선, 실패 시 `sources.<name>.remote.ssh_alias: "lt"` 원격 curl 폴백으로 fetch한다.
-- `onejav.com`은 한국 차단목록 등재로 KR egress(lt, heritage 전부)에서 TLS RST/URL 차단된다. lt 경유 성공은 우연에 의존하므로 프록시가 필수다.
+- `sukebei`, `torrentgalaxy`는 KR 차단 회피를 위해 최상위 `proxy`(brla gluetun, Surfshark Singapore egress) 우선, 실패 시 `sources.<name>.remote.ssh_alias: "lt"` 원격 curl 폴백으로 fetch한다.
+- `onejav.com`은 KR 차단목록 등재 + 사이트 전체 Cloudflare JS challenge(`cf-mitigated: challenge`, 403)로 `requests`/`curl`은 IP와 무관하게 막힌다. RSS·페이지는 최상위 `flaresolverr`(brla 컨테이너, `proxy: http://gluetun:8888`)로 받고, `.torrent`는 발급된 `cf_clearance`+UA로 gluetun `proxy` 다운로드한다. `cf_clearance`는 egress IP·UA 바인딩이라 두 경로가 같은 gluetun을 써야 한다.
+- FlareSolverr는 RSS를 Chromium XML viewer의 HTML-escape된 `<pre>`로 감싸 반환하므로 `html.unescape()` 후 파싱한다.
 - Surfshark exit 노드는 Singapore로 고정한다. Japan exit IP는 onejav가 503으로 거부한다.
 - 원격 curl 실패 시 `-s` 플래그가 에러를 삼켜 "empty output"처럼 보인다. 디버깅은 `curl -sS -v`로 한다(error 35 = TLS reset).
 - TorrentGalaxy는 2026-08 플랫폼 마이그레이션으로 `/rss?cat=<id>`와 `torrents.php`를 폐기했다 (302 → homepage). discover는 `/get-posts/category:XXX:format:json/` JSON API를 사용하며, 카테고리는 숫자 ID가 아닌 이름(`category:<name>`)으로 지정한다.

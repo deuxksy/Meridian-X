@@ -5,6 +5,7 @@ from meridian_x.remote import (
     DEFAULT_USER_AGENT,
     download_via_proxy,
     fetch_remote_curl,
+    fetch_via_flaresolverr,
     fetch_via_proxy,
     get_proxies,
     run_remote_ssh,
@@ -172,3 +173,68 @@ def test_download_via_proxy_not_configured():
     with patch("meridian_x.remote.requests.get") as mock_get:
         assert download_via_proxy("https://x", {}) is None
         mock_get.assert_not_called()
+
+
+def test_download_via_proxy_passes_cookies_and_user_agent():
+    with patch("meridian_x.remote.requests.get") as mock_get:
+        mock_get.return_value = MagicMock(status_code=200, content=b"d8:announce")
+        download_via_proxy(
+            "https://x/t.torrent", {"proxy": "http://p"},
+            cookies={"cf_clearance": "abc"}, user_agent="FS-UA/1",
+        )
+        kwargs = mock_get.call_args[1]
+        assert kwargs["cookies"] == {"cf_clearance": "abc"}
+        assert kwargs["headers"]["User-Agent"] == "FS-UA/1"
+
+
+FS_CONFIG = {"flaresolverr": {"url": "http://fs:8191/v1", "proxy": "http://gluetun:8888"}}
+
+
+def test_fetch_via_flaresolverr_success():
+    with patch("meridian_x.remote.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(json=lambda: {
+            "status": "ok",
+            "solution": {
+                "status": 200,
+                "response": "<pre>&lt;rss&gt;</pre>",
+                "userAgent": "FS-UA/1",
+                "cookies": [{"name": "cf_clearance", "value": "abc"}],
+            },
+        })
+        res = fetch_via_flaresolverr("https://onejav.com/feeds/", FS_CONFIG, timeout=30)
+        assert res == {
+            "html": "<pre>&lt;rss&gt;</pre>",
+            "user_agent": "FS-UA/1",
+            "cookies": {"cf_clearance": "abc"},
+        }
+        payload = mock_post.call_args[1]["json"]
+        assert mock_post.call_args[0][0] == "http://fs:8191/v1"
+        assert payload["cmd"] == "request.get"
+        assert payload["url"] == "https://onejav.com/feeds/"
+        assert payload["proxy"] == {"url": "http://gluetun:8888"}
+        assert payload["maxTimeout"] == 30000
+
+
+def test_fetch_via_flaresolverr_not_configured():
+    with patch("meridian_x.remote.requests.post") as mock_post:
+        assert fetch_via_flaresolverr("https://x", {}) is None
+        mock_post.assert_not_called()
+
+
+def test_fetch_via_flaresolverr_error_status_returns_none():
+    with patch("meridian_x.remote.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(json=lambda: {"status": "error", "message": "Timeout"})
+        assert fetch_via_flaresolverr("https://x", FS_CONFIG) is None
+
+
+def test_fetch_via_flaresolverr_upstream_403_returns_none():
+    with patch("meridian_x.remote.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(json=lambda: {
+            "status": "ok", "solution": {"status": 403, "response": "", "userAgent": "", "cookies": []},
+        })
+        assert fetch_via_flaresolverr("https://x", FS_CONFIG) is None
+
+
+def test_fetch_via_flaresolverr_exception_returns_none():
+    with patch("meridian_x.remote.requests.post", side_effect=ConnectionError("down")):
+        assert fetch_via_flaresolverr("https://x", FS_CONFIG) is None

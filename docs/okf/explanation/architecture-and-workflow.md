@@ -43,6 +43,8 @@ graph TD
 
 일부 소스(onejav 등)는 한국 ISP 차단목록에 등재되어 KR egress(lt, heritage)에서 TLS reset·URL 차단이 발생한다. 소스 fetch는 brla에 상주하는 gluetun(Surfshark Singapore WireGuard) HTTP 프록시를 우선 경유하고, 실패 시 lt 원격 curl로 폴백한다.
 
+onejav는 추가로 사이트 전체에 Cloudflare JS challenge가 걸려 있어, brla의 FlareSolverr(gluetun egress 경유 Chromium)로 RSS·페이지를 받고 발급된 `cf_clearance` 쿠키로 `.torrent`를 gluetun 프록시에서 다운로드한다.
+
 ---
 
 ## 2. 8단계 큐레이션 파이프라인 상세

@@ -56,139 +56,74 @@ class TestSafeTimeout:
         assert _safe_timeout({"request_timeout": True}) == 1  # bool → int(True)=1 → max(1,1)=1
 
 
-class TestOnejavRemoteFetch:
-    """OneJAV fetch_remote_curl 연동 테스트"""
+class TestOnejavFlareSolverr:
+    """FlareSolverr 경유 수집 경로 테스트 (Cloudflare challenge 우회)"""
 
-    def test_fetch_url_remote_alias(self):
-        from meridian_x.sources.onejav import fetch_url_remote
-        from meridian_x.remote import fetch_remote_curl
-        assert fetch_url_remote is fetch_remote_curl
+    # Chromium XML viewer가 RSS를 HTML-escape된 <pre>로 감싸서 반환
+    WRAPPED_RSS = (
+        '<html><body><pre>&lt;?xml version="1.0"?&gt;\n&lt;rss&gt;&lt;channel&gt;'
+        '&lt;item&gt;&lt;title&gt;SONE-446&lt;/title&gt;'
+        '&lt;link&gt;http://onejav.com/torrent/sone446&lt;/link&gt;'
+        '&lt;description&gt;1.9 GB, A &amp;amp; B&lt;/description&gt;'
+        '&lt;/item&gt;&lt;/channel&gt;&lt;/rss&gt;</pre></body></html>'
+    )
+    FS = {"html": "", "user_agent": "FS-UA/1", "cookies": {"cf_clearance": "abc"}}
+    CONFIG = {
+        "rss_url": "https://onejav.com/feeds/",
+        "proxy": "http://brla.bun-bull.ts.net:8888",
+        "flaresolverr": {"url": "http://fs:8191/v1", "proxy": "http://gluetun:8888"},
+    }
 
-    def test_discover_with_fetch_remote_curl(self):
+    def test_discover_unwraps_xml_viewer(self):
         from unittest.mock import patch
         from meridian_x.sources.onejav import discover
 
-        sample_rss = """
-        <item>
-            <title>SONE-446</title>
-            <link>https://onejav.com/torrent/SONE446</link>
-            <description>Test description</description>
-        </item>
-        """
-        config = {
-            "rss_url": "https://onejav.com/feeds/",
-            "remote": {"ssh_alias": "lt"},
-            "request_timeout": 20,
-        }
-        with patch("meridian_x.sources.onejav.fetch_remote_curl", return_value=sample_rss) as mock_fetch:
-            items = discover(config)
-            assert len(items) == 1
-            assert items[0]["id"] == "onejav:SONE446"
-            assert items[0]["page_url"] == "https://onejav.com/torrent/SONE446"
-            mock_fetch.assert_called_once_with("https://onejav.com/feeds/", ssh_alias="lt", timeout=20)
+        fs = {**self.FS, "html": self.WRAPPED_RSS}
+        with patch("meridian_x.sources.onejav.fetch_via_flaresolverr", return_value=fs) as mock_fs:
+            items = discover(self.CONFIG)
+        assert len(items) == 1
+        assert items[0]["id"] == "onejav:SONE446"
+        assert items[0]["title"] == "SONE-446"
+        assert items[0]["page_url"] == "http://onejav.com/torrent/sone446"
+        mock_fs.assert_called_once_with("https://onejav.com/feeds/", self.CONFIG, timeout=30)
 
-    def test_resolve_page_fetch_with_fetch_remote_curl(self):
-        import base64
-        from unittest.mock import patch
-        from meridian_x.sources.onejav import resolve
-
-        sample_html = '<a href="/torrent/SONE446/download/12345/sone446.torrent">Download</a>'
-        config = {
-            "remote": {"ssh_alias": "lt"},
-            "request_timeout": 20,
-        }
-        item = {"page_url": "https://onejav.com/torrent/SONE446"}
-
-        with patch("meridian_x.sources.onejav.fetch_remote_curl", return_value=sample_html) as mock_fetch, \
-             patch("meridian_x.sources.onejav._ssh", return_value=(True, base64.b64encode(b"d1:ad2:ide").decode("utf-8"))):
-            res = resolve(item, config)
-            assert res is not None
-            assert res["type"] == "metainfo"
-            assert res["data"] == b"d1:ad2:ide"
-            mock_fetch.assert_called_once_with("https://onejav.com/torrent/SONE446", ssh_alias="lt", timeout=20)
-
-
-
-class TestOnejavProxyFetch:
-    """프록시 우선 수집 경로 테스트 (proxy → lt SSH 폴백)"""
-
-    SAMPLE_RSS = """
-    <item>
-        <title>SONE-446</title>
-        <link>http://onejav.com/torrent/SONE446</link>
-        <description>Test description</description>
-    </item>
-    """
-
-    def test_discover_prefers_proxy(self):
+    def test_discover_returns_empty_when_flaresolverr_fails(self):
         from unittest.mock import patch
         from meridian_x.sources.onejav import discover
 
-        config = {
-            "rss_url": "https://onejav.com/feeds/",
-            "proxy": "http://brla.bun-bull.ts.net:8888",
-            "remote": {"ssh_alias": "lt"},
-        }
-        with patch("meridian_x.sources.onejav.fetch_via_proxy", return_value=self.SAMPLE_RSS) as mock_proxy, \
-             patch("meridian_x.sources.onejav.fetch_remote_curl") as mock_remote:
-            items = discover(config)
-            assert len(items) == 1
-            assert items[0]["id"] == "onejav:SONE446"
-            mock_proxy.assert_called_once()
-            mock_remote.assert_not_called()
+        with patch("meridian_x.sources.onejav.fetch_via_flaresolverr", return_value=None):
+            assert discover(self.CONFIG) == []
 
-    def test_discover_falls_back_to_ssh_when_proxy_fails(self):
-        from unittest.mock import patch
-        from meridian_x.sources.onejav import discover
-
-        config = {
-            "rss_url": "https://onejav.com/feeds/",
-            "proxy": "http://brla.bun-bull.ts.net:8888",
-            "remote": {"ssh_alias": "lt"},
-        }
-        with patch("meridian_x.sources.onejav.fetch_via_proxy", return_value=None), \
-             patch("meridian_x.sources.onejav.fetch_remote_curl", return_value=self.SAMPLE_RSS) as mock_remote:
-            items = discover(config)
-            assert len(items) == 1
-            mock_remote.assert_called_once_with("https://onejav.com/feeds/", ssh_alias="lt", timeout=30)
-
-    def test_resolve_via_proxy_promotes_https_and_downloads_bytes(self):
+    def test_resolve_downloads_with_clearance_cookie(self):
         from unittest.mock import patch
         from meridian_x.sources.onejav import resolve
 
-        sample_html = '<a href="/torrent/SONE446/download/12345/sone446.torrent">Download</a>'
-        config = {
-            "proxy": "http://brla.bun-bull.ts.net:8888",
-            "remote": {"ssh_alias": "lt"},
-        }
-        item = {"page_url": "http://onejav.com/torrent/SONE446"}
+        fs = {**self.FS, "html": '<a href="/torrent/sone446/download/12345/sone446.torrent">DL</a>'}
+        item = {"page_url": "http://onejav.com/torrent/sone446"}
+        with patch("meridian_x.sources.onejav.fetch_via_flaresolverr", return_value=fs) as mock_fs, \
+             patch("meridian_x.sources.onejav.download_via_proxy", return_value=b"d8:announce4:test") as mock_dl:
+            res = resolve(item, self.CONFIG)
+        assert res == {"type": "metainfo", "data": b"d8:announce4:test"}
+        # RSS의 http:// 링크는 https로 승격되어 요청됨
+        assert mock_fs.call_args[0][0] == "https://onejav.com/torrent/sone446"
+        assert mock_dl.call_args[0][0] == "https://onejav.com/torrent/sone446/download/12345/sone446.torrent"
+        assert mock_dl.call_args[1]["cookies"] == {"cf_clearance": "abc"}
+        assert mock_dl.call_args[1]["user_agent"] == "FS-UA/1"
 
-        with patch("meridian_x.sources.onejav.fetch_via_proxy", return_value=sample_html) as mock_proxy, \
-             patch("meridian_x.sources.onejav.download_via_proxy", return_value=b"d8:announce4:test") as mock_dl, \
-             patch("meridian_x.sources.onejav.fetch_remote_curl") as mock_remote:
-            res = resolve(item, config)
-            assert res == {"type": "metainfo", "data": b"d8:announce4:test"}
-            # RSS의 http:// 링크는 https로 승격되어 요청됨
-            assert mock_proxy.call_args[0][0] == "https://onejav.com/torrent/SONE446"
-            assert mock_dl.call_args[0][0] == "https://onejav.com/torrent/SONE446/download/12345/sone446.torrent"
-            mock_remote.assert_not_called()
-
-    def test_resolve_falls_back_to_ssh_when_proxy_fails(self):
-        import base64
+    def test_resolve_returns_none_without_download_link(self):
         from unittest.mock import patch
         from meridian_x.sources.onejav import resolve
 
-        sample_html = '<a href="/torrent/SONE446/download/12345/sone446.torrent">Download</a>'
-        config = {
-            "proxy": "http://brla.bun-bull.ts.net:8888",
-            "remote": {"ssh_alias": "lt"},
-        }
-        item = {"page_url": "http://onejav.com/torrent/SONE446"}
+        fs = {**self.FS, "html": "<html>no link</html>"}
+        with patch("meridian_x.sources.onejav.fetch_via_flaresolverr", return_value=fs), \
+             patch("meridian_x.sources.onejav.download_via_proxy") as mock_dl:
+            assert resolve({"page_url": "https://onejav.com/torrent/x"}, self.CONFIG) is None
+        mock_dl.assert_not_called()
 
-        with patch("meridian_x.sources.onejav.fetch_via_proxy", return_value=None), \
-             patch("meridian_x.sources.onejav.fetch_remote_curl", return_value=sample_html) as mock_fetch, \
-             patch("meridian_x.sources.onejav._ssh", return_value=(True, base64.b64encode(b"d8:x").decode())) as mock_ssh:
-            res = resolve(item, config)
-            assert res["data"] == b"d8:x"
-            mock_fetch.assert_called_once()
-            mock_ssh.assert_called_once()
+    def test_resolve_rejects_non_onejav_url(self):
+        from unittest.mock import patch
+        from meridian_x.sources.onejav import resolve
+
+        with patch("meridian_x.sources.onejav.fetch_via_flaresolverr") as mock_fs:
+            assert resolve({"page_url": "https://evil.com/torrent/x"}, self.CONFIG) is None
+        mock_fs.assert_not_called()

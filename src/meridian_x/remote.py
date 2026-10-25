@@ -101,20 +101,64 @@ def fetch_via_proxy(url: str, config: dict, timeout: int = 15) -> Optional[str]:
         return None
 
 
-def download_via_proxy(url: str, config: dict, timeout: int = 30) -> Optional[bytes]:
-    """프록시 경유 GET (바이너리 - torrent metainfo 등). 미설정 또는 실패 시 None."""
+def download_via_proxy(
+    url: str,
+    config: dict,
+    timeout: int = 30,
+    cookies: Optional[Dict[str, str]] = None,
+    user_agent: Optional[str] = None,
+) -> Optional[bytes]:
+    """프록시 경유 GET (바이너리 - torrent metainfo 등). 미설정 또는 실패 시 None.
+
+    cookies/user_agent: FlareSolverr가 발급한 cf_clearance 재사용 시 지정 (UA·egress IP 일치 필수).
+    """
     proxies = get_proxies(config)
     if not proxies:
         return None
-    user_agent = config.get("user_agent", DEFAULT_USER_AGENT)
+    user_agent = user_agent or config.get("user_agent", DEFAULT_USER_AGENT)
     try:
         resp = requests.get(
-            url, headers={"User-Agent": user_agent}, proxies=proxies, timeout=timeout
+            url,
+            headers={"User-Agent": user_agent},
+            cookies=cookies,
+            proxies=proxies,
+            timeout=timeout,
         )
         resp.raise_for_status()
         return resp.content
     except Exception as e:
         logger.warning(f"download_via_proxy failed for {url[:80]}: {e}")
+        return None
+
+
+def fetch_via_flaresolverr(url: str, config: dict, timeout: int = 60) -> Optional[dict]:
+    """FlareSolverr로 Cloudflare challenge를 통과해 페이지 수신. 미설정 또는 실패 시 None.
+
+    config["flaresolverr"] = {"url": ".../v1", "proxy": "http://gluetun:8888"}
+    반환: {"html": str, "user_agent": str, "cookies": {name: value}}
+    """
+    fs = config.get("flaresolverr") or {}
+    if not fs.get("url"):
+        return None
+    payload = {"cmd": "request.get", "url": url, "maxTimeout": timeout * 1000}
+    if fs.get("proxy"):
+        payload["proxy"] = {"url": fs["proxy"]}
+    try:
+        data = requests.post(fs["url"], json=payload, timeout=timeout + 30).json()
+        solution = data.get("solution") or {}
+        if data.get("status") != "ok" or solution.get("status") != 200:
+            logger.warning(
+                f"fetch_via_flaresolverr failed for {url[:80]}: "
+                f"{data.get('message')} (HTTP {solution.get('status')})"
+            )
+            return None
+        return {
+            "html": solution.get("response", ""),
+            "user_agent": solution.get("userAgent", ""),
+            "cookies": {c["name"]: c["value"] for c in solution.get("cookies", [])},
+        }
+    except Exception as e:
+        logger.warning(f"fetch_via_flaresolverr failed for {url[:80]}: {e}")
         return None
 
 

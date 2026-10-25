@@ -31,6 +31,7 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
 | `jellyfin` | 필수 | Jellyfin 미디어 서버 REST API 연결 정보 (`url`, `api_key`, `timeout`) |
 | `remote` | 필수 | SSH 대상 원격 미디어 서버 (`host`, `user`, `path`) |
 | `proxy` | 선택 | 사이트 접속 우회 HTTP 프록시 URL (gluetun). 설정 시 소스 fetch가 `proxy → lt SSH → 직접` 순서로 시도된다 |
+| `flaresolverr` | 선택 | Cloudflare JS challenge 우회용 FlareSolverr (`url`: `.../v1` endpoint, `proxy`: FlareSolverr 컨테이너 기준 egress 프록시). OneJAV 전용 |
 | `fanza` | 선택 | 공식 JAV 메타데이터 조회용 FANZA API (`api_id`, `affiliate_id`) |
 | `stashdb` | 선택 | 서양 미디어 메타데이터 조회용 StashDB GraphQL API (`api_key`) |
 | `classify` | 필수 | 미디어 자동 분류 규칙 (`artists`, `studios`, `delete_keywords`, `delete_extensions`, `clean_prefixes`) |
@@ -47,8 +48,7 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
     "onejav": {
       "enabled": true,
       "base_url": "https://onejav.com",
-      "rss_url": "https://onejav.com/feeds/",
-      "remote": { "ssh_alias": "lt" }
+      "rss_url": "https://onejav.com/feeds/"
     },
     "sukebei": {
       "enabled": true,
@@ -76,6 +76,18 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
 > **TorrentGalaxy JSON API**: 2026-08 플랫폼 마이그레이션으로 `/rss?cat=<id>`를 폐기했다. discover는 `category` 키(이름 기반, 기본 `XXX`)로 `/get-posts/category:{name}:format:json/` JSON API를 사용한다.
 
 > **사이트 접속 우회 체인**: 소스 fetch는 최상위 `proxy`(비KR egress)를 우선 시도하고, 실패 시 `sources.<name>.remote.ssh_alias` 원격 curl, 최후 로컬 직접 접근으로 폴백한다.
+
+> **OneJAV (FlareSolverr)**: onejav.com은 사이트 전체에 Cloudflare JS challenge가 걸려 있어 `requests`/`curl`로는 403이 반환된다. RSS·상세 페이지는 `flaresolverr` 경유로 수신하고, `.torrent`는 FlareSolverr가 발급한 `cf_clearance` 쿠키와 User-Agent를 그대로 실어 `proxy`(gluetun)로 다운로드한다. `cf_clearance`는 egress IP·UA에 바인딩되므로 FlareSolverr와 `proxy`는 같은 gluetun을 사용해야 한다.
+
+```json
+{
+  "proxy": "http://brla.bun-bull.ts.net:8888",
+  "flaresolverr": {
+    "url": "http://brla.bun-bull.ts.net:8191/v1",
+    "proxy": "http://gluetun:8888"
+  }
+}
+```
 
 ### `transmission`
 ```json

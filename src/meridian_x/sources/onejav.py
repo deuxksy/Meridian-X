@@ -1,29 +1,20 @@
 """
 OneJAV Source
 RSS 수집 → 페이지 방문 → .torrent 바이트
-lt(Oracle Cloud KR datacenter) SSH 경유 (한국 residential ASN Cloudflare 차단 우회)
-remote.ssh_alias("lt") 사용 → IPv4 강제(curl -4)
+onejav.com은 사이트 전체에 Cloudflare JS challenge가 걸려 있어 FlareSolverr(brla)로 통과한다.
+- RSS/페이지: FlareSolverr(gluetun egress) 경유
+- .torrent: FlareSolverr가 발급한 cf_clearance + User-Agent로 gluetun 프록시 직접 다운로드
 """
-import base64
+import html
 import logging
 import re
-import shlex
-import subprocess
 from urllib.parse import urljoin, urlparse
 
-from ..remote import (
-    DEFAULT_USER_AGENT,
-    download_via_proxy,
-    fetch_remote_curl,
-    fetch_via_proxy,
-)
+from ..remote import download_via_proxy, fetch_via_flaresolverr
 
 logger = logging.getLogger(__name__)
 
 ALLOWED_HOSTS = {"onejav.com", "www.onejav.com"}
-
-# Backwards compatibility alias
-fetch_url_remote = fetch_remote_curl
 
 DOWNLOAD_HREF_RE = re.compile(r'href="(/torrent/[^/]+/download/\d+/[^"]+\.torrent)"')
 
@@ -58,110 +49,42 @@ def _safe_timeout(config: dict) -> int:
         return 30
 
 
-def _ssh(remote: dict, cmd: str, timeout: int = 60) -> tuple[bool, str]:
-    """SSH 명령 실행.
-    remote.ssh_alias 있으면 ssh config alias(lt) 사용, 없으면 explicit(user@host + ssh_key).
-    """
-    try:
-        if remote.get("ssh_alias"):
-            args = [
-                "ssh",
-                "-o", "ConnectTimeout=5",
-                "-o", "StrictHostKeyChecking=no",
-                remote["ssh_alias"],
-                cmd,
-            ]
-        else:
-            args = [
-                "ssh", "-i", remote["ssh_key"],
-                "-o", "ConnectTimeout=5",
-                "-o", "StrictHostKeyChecking=no",
-                f'{remote["user"]}@{remote["host"]}',
-                cmd,
-            ]
-        result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
-        return result.returncode == 0, result.stdout + result.stderr
-    except Exception as e:
-        return False, str(e)
-
-
-def _onejav_remote(config: dict) -> dict:
-    """onejav 전용 remote. sources.onejav.remote 우선, 없으면 최상위 remote fallback."""
-    return (
-        config.get("sources", {}).get("onejav", {}).get("remote")
-        or config.get("remote", {})
-    )
+def _to_https(url: str) -> str:
+    """RSS link는 http:// 형식이므로 https로 승격 (KR http DPI 회피)."""
+    return "https://" + url[len("http://"):] if url.startswith("http://") else url
 
 
 def discover(config: dict) -> list[dict]:
-    """OneJAV RSS에서 수집 항목 반환. 프록시 우선, 실패 시 lt SSH 경유 (curl -4 강제)."""
+    """OneJAV RSS에서 수집 항목 반환 (FlareSolverr 경유)."""
     rss_url = config.get("rss_url", "https://onejav.com/feeds/")
-    timeout = _safe_timeout(config)
-
     if not _validate_url(rss_url):
         logger.error(f"Invalid RSS URL (allowlist check failed): {rss_url[:100]}")
         return []
 
-    # 1) 프록시 경유 (비KR egress)
-    proxied = fetch_via_proxy(rss_url, config, timeout=timeout)
-    if proxied and proxied.strip():
-        return _parse_rss(proxied)
-
-    # 2) lt SSH 경유
-    remote = _onejav_remote(config)
-    if not remote.get("ssh_alias") and not remote.get("host"):
-        logger.error("onejav remote not configured (ssh_alias or host/user/ssh_key)")
-        return []
-
-    ssh_alias = remote.get("ssh_alias", "lt")
-    output = fetch_remote_curl(rss_url, ssh_alias=ssh_alias, timeout=timeout)
-    if not output:
+    fs = fetch_via_flaresolverr(rss_url, config, timeout=_safe_timeout(config))
+    if not fs:
         logger.error("OneJAV RSS fetch failed")
         return []
-
-    return _parse_rss(output)
+    # Chromium XML viewer가 RSS를 HTML-escape된 <pre>로 감싸 반환하므로 복원
+    return _parse_rss(html.unescape(fs["html"]))
 
 
 def resolve(item: dict, config: dict) -> dict | None:
-    """페이지에서 .torrent 바이트를 가져와 metainfo payload 반환. 프록시 우선, 실패 시 lt SSH 경유."""
+    """페이지에서 .torrent 바이트를 가져와 metainfo payload 반환."""
     page_url = item["page_url"]
     base_url = config.get("base_url", "https://onejav.com")
     timeout = _safe_timeout(config)
-    remote = _onejav_remote(config)
 
     if not _validate_url(page_url):
         logger.warning(f"URL validation failed, skipping: {page_url[:100]}")
         return None
 
-    # 1) 프록시 경유: 페이지/바이너리를 로컬에서 직접 수신.
-    #    RSS link는 http:// 형식이므로 https로 승격해 요청 (KR http DPI 회피).
-    proxy_page_url = (
-        "https://" + page_url[len("http://"):] if page_url.startswith("http://") else page_url
-    )
-    html = fetch_via_proxy(proxy_page_url, config, timeout=timeout)
-    if html:
-        match = DOWNLOAD_HREF_RE.search(html)
-        if match:
-            download_url = urljoin(base_url, match.group(1))
-            if _validate_url(download_url):
-                data = download_via_proxy(download_url, config, timeout=timeout + 10)
-                if data:
-                    return {"type": "metainfo", "data": data}
-                logger.warning(f"OneJAV proxy download failed for {page_url}")
-        else:
-            logger.warning(f"No download link on {page_url} (via proxy)")
-
-    # 2) lt SSH 경유 (curl -4 강제)
-    if not remote.get("ssh_alias") and not remote.get("host"):
-        logger.error("onejav remote not configured (ssh_alias or host/user/ssh_key)")
-        return None
-
-    html = fetch_remote_curl(page_url, ssh_alias=remote.get("ssh_alias", "lt"), timeout=timeout)
-    if not html:
+    fs = fetch_via_flaresolverr(_to_https(page_url), config, timeout=timeout)
+    if not fs:
         logger.error(f"OneJAV page fetch failed for {page_url}")
         return None
 
-    match = DOWNLOAD_HREF_RE.search(html)
+    match = DOWNLOAD_HREF_RE.search(fs["html"])
     if not match:
         logger.warning(f"No download link on {page_url}")
         return None
@@ -170,20 +93,14 @@ def resolve(item: dict, config: dict) -> dict | None:
     if not _validate_url(download_url):
         logger.warning(f"Download URL validation failed, skipping: {download_url[:100]}")
         return None
-    # 바이너리는 base64 경유 (터미널 인코딩 이슈 방지)
-    # download_url만 quote, base64는 쉘 빌트인이므로 quote 불필요
-    curl_cmd = f"curl -4 -sL --max-time {timeout} --proto =http,https --proto-redir =http,https -A {shlex.quote(DEFAULT_USER_AGENT)} {shlex.quote(download_url)}"
-    ok, b64 = _ssh(remote, f"{curl_cmd} | base64", timeout + 10)
-    if not ok or not b64:
-        logger.error(f"OneJAV torrent download failed: {b64[:200] if b64 else 'empty output'}")
-        return None
 
-    try:
-        data = base64.b64decode(b64)
-    except Exception as e:
-        logger.error(f"base64 decode failed: {e}")
+    data = download_via_proxy(
+        download_url, config, timeout=timeout + 10,
+        cookies=fs["cookies"], user_agent=fs["user_agent"],
+    )
+    if not data:
+        logger.error(f"OneJAV torrent download failed for {page_url}")
         return None
-
     return {"type": "metainfo", "data": data}
 
 
