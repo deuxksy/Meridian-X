@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 import pytest
 
-from meridian_x.jellyfin import JellyfinClient, sync_tags
+from meridian_x.jellyfin import JellyfinClient, JellyfinAuthError, sync_tags
 import requests
 
 
@@ -9,6 +9,7 @@ def test_jellyfin_client_session_init():
     client = JellyfinClient("http://localhost:8096", "test_key")
     assert isinstance(client.session, requests.Session)
     assert client.session.headers["X-Emby-Token"] == "test_key"
+    assert 'Token="test_key"' in client.session.headers["Authorization"]
     assert client.session.headers["Content-Type"] == "application/json"
 
 
@@ -217,5 +218,21 @@ def test_sync_tags_with_west_metadata(mock_get_videos, mock_update_tags, mock_up
         }
     )
     mock_update_tags.assert_called_once_with("west1", ["vixen", "lily love"])
+
+
+def test_jellyfin_auth_error_on_401():
+    client = JellyfinClient("http://localhost:8096", "invalid_key")
+    mock_resp = MagicMock()
+    mock_resp.status_code = 401
+    mock_resp.reason = "Unauthorized"
+    http_error = requests.exceptions.HTTPError(response=mock_resp)
+    mock_resp.raise_for_status.side_effect = http_error
+
+    with patch.object(client.session, "get", return_value=mock_resp):
+        with pytest.raises(JellyfinAuthError) as exc_info:
+            client.get_videos()
+        assert "Jellyfin API 키 인증 실패 (HTTP 401)" in str(exc_info.value)
+        assert "API 키가 만료되었거나 유효하지 않습니다" in str(exc_info.value)
+
 
 

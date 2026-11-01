@@ -15,6 +15,10 @@ from .west_metadata import get_west_metadata
 logger = logging.getLogger(__name__)
 
 
+class JellyfinAuthError(Exception):
+    """Jellyfin API 인증 실패 (401/403: API 키 만료 또는 유효하지 않음)"""
+    pass
+
 
 class JellyfinClient:
     """Jellyfin REST API 클라이언트"""
@@ -28,9 +32,27 @@ class JellyfinClient:
         self.session = requests.Session()
         self.session.headers.update({
             "X-Emby-Token": api_key,
+            "Authorization": f'MediaBrowser Token="{api_key}", Client="Meridian-X", Device="CLI", Version="1.0.0"',
             "Content-Type": "application/json",
         })
         self._session = self.session
+
+    def _handle_response(self, resp: requests.Response) -> dict:
+        try:
+            resp.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            if resp.status_code in (401, 403):
+                msg = (
+                    f"Jellyfin API 키 인증 실패 (HTTP {resp.status_code}). "
+                    f"API 키가 만료되었거나 유효하지 않습니다. "
+                    f"config/settings.json 또는 ~/.config/meridian-x/credentials.json의 jellyfin.api_key를 확인하세요."
+                )
+                logger.error(f"[Jellyfin] {msg}")
+                raise JellyfinAuthError(msg) from e
+            raise
+        if resp.status_code == 204 or not resp.content:
+            return {}
+        return resp.json()
 
     def _get(self, path: str, params: dict = None) -> dict:
         resp = self.session.get(
@@ -38,8 +60,7 @@ class JellyfinClient:
             params=params,
             timeout=self._timeout,
         )
-        resp.raise_for_status()
-        return resp.json()
+        return self._handle_response(resp)
 
     def _post(self, path: str, data: dict) -> dict:
         resp = self.session.post(
@@ -47,10 +68,7 @@ class JellyfinClient:
             json=data,
             timeout=self._timeout,
         )
-        resp.raise_for_status()
-        if resp.status_code == 204 or not resp.content:
-            return {}
-        return resp.json()
+        return self._handle_response(resp)
 
     def _delete(self, path: str, params: dict = None) -> dict:
         resp = self.session.delete(
@@ -58,10 +76,7 @@ class JellyfinClient:
             params=params,
             timeout=self._timeout,
         )
-        resp.raise_for_status()
-        if resp.status_code == 204 or not resp.content:
-            return {}
-        return resp.json()
+        return self._handle_response(resp)
 
     def refresh_library(self) -> bool:
         """전체 라이브러리 스캔 트리거"""

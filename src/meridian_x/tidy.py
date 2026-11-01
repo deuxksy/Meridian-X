@@ -31,7 +31,10 @@ def _ssh(remote: dict, cmd: str, dry_run: bool = False) -> tuple[bool, str]:
 def delete_junk_jellyfin(jf_config: dict, filters: dict, dry_run: bool = False) -> int:
     """Jellyfin API로 정크 파일 삭제 (키워드/확장자 기반)."""
     base = jf_config["url"].rstrip('/')
-    headers = {"X-Emby-Token": jf_config["api_key"]}
+    headers = {
+        "X-Emby-Token": jf_config["api_key"],
+        "Authorization": f'MediaBrowser Token="{jf_config["api_key"]}", Client="Meridian-X", Device="CLI", Version="1.0.0"',
+    }
     s = requests.Session()
     s.headers.update(headers)
 
@@ -44,6 +47,13 @@ def delete_junk_jellyfin(jf_config: dict, filters: dict, dry_run: bool = False) 
         "Fields": "Path",
         "Limit": 1000,
     })
+    if resp.status_code in (401, 403):
+        logger.error(
+            "[Jellyfin] API 키 인증 실패 (HTTP %d). API 키가 만료되었거나 유효하지 않습니다. 설정을 확인하세요.",
+            resp.status_code,
+        )
+        return 0
+    resp.raise_for_status()
     items = resp.json().get("Items", [])
 
     deleted = 0

@@ -331,7 +331,7 @@ Examples:
     elif args.command == "sync":
         from .core import load_config
         from .transmission import TransmissionClient
-        from .jellyfin import JellyfinClient, sync_tags
+        from .jellyfin import JellyfinClient, JellyfinAuthError, sync_tags
         config = load_config()
         tx_config = config.get("transmission", {})
         jf_config = config.get("jellyfin", {})
@@ -353,13 +353,17 @@ Examples:
             timeout=jf_config.get("timeout", 10),
         )
         logger.info("=== Sync Transmission → Jellyfin ===")
-        count = sync_tags(jf_client, tx_client)
-        logger.info(f"=== Sync Completed ({count} items updated) ===")
+        try:
+            count = sync_tags(jf_client, tx_client)
+            logger.info(f"=== Sync Completed ({count} items updated) ===")
+        except JellyfinAuthError as e:
+            logger.error(f"[Sync] {e}")
+            return
 
     elif args.command == "pipeline":
         from .core import load_config
         from .transmission import TransmissionClient
-        from .jellyfin import JellyfinClient, sync_tags
+        from .jellyfin import JellyfinClient, JellyfinAuthError, sync_tags
         from .tidy import run as tidy_run
         from .classify import run as classify_run
 
@@ -423,8 +427,12 @@ Examples:
         if args.dry_run:
             logger.info("[Dry-run] Would sync tags")
         else:
-            n = sync_tags(jf_client, tx_client)
-            logger.info(f"  Synced: {n} items")
+            try:
+                n = sync_tags(jf_client, tx_client)
+                logger.info(f"  Synced: {n} items")
+            except JellyfinAuthError as e:
+                logger.error(f"  Sync 실패: {e}")
+                logger.warning("  Jellyfin API 키 인증 실패로 태그 동기화를 건너뜁니다.")
 
         # 5. tidy (정크삭제 → Flatten → 파일명정리; refresh는 pipeline 마지막에 일괄)
         logger.info("[5/6] Tidy")
