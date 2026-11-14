@@ -217,6 +217,8 @@ Examples:
   %(prog)s transmission --source sukebei # Sukebei만
   %(prog)s transmission --source torrentgalaxy # TorrentGalaxy만
   %(prog)s transmission --dry-run  # 미리보기
+  %(prog)s favorite                # 즐겨찾기(onejav token URL)만 수집
+  %(prog)s favorite --dry-run      # 즐겨찾기 미리보기
   %(prog)s filter                 # 기존 토렌트 파일 필터링 (광고 제외)
   %(prog)s label                  # 기존 토렌트에 메이커 코드 labels 설정
   %(prog)s sync                   # Transmission labels → Jellyfin Tags 동기화
@@ -233,7 +235,7 @@ Examples:
     
     parser.add_argument(
         "command",
-        choices=["classify", "filter", "label", "pipeline", "report", "search", "sync", "tidy", "transmission"],
+        choices=["classify", "favorite", "filter", "label", "pipeline", "report", "search", "sync", "tidy", "transmission"],
         help="실행할 명령"
     )
 
@@ -320,6 +322,10 @@ Examples:
             source=args.source,
             dry_run=args.dry_run
         )
+
+    elif args.command == "favorite":
+        from .collect import run_favorite
+        run_favorite(dry_run=args.dry_run)
 
     elif args.command == "sync":
         from .core import load_config

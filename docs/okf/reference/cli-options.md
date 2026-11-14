@@ -10,6 +10,7 @@ Meridian-X의 모든 서브커맨드와 지원 옵션에 대한 상세 명세서
 | :--- | :--- | :--- |
 | `pipeline` | 8단계 큐레이션 파이프라인 일괄 실행 | `--dry-run`, `--no-refresh`, `--lookup-jav` |
 | `transmission` | 4대 소스 RSS 정기 수집 및 Transmission RPC 큐잉 | `--dry-run`, `--source`, `--max-downloads` |
+| `favorite` | 즐겨찾기(token URL) 수동 수집 — RSS 수집과 분리 | `--dry-run` |
 | `search` | 키워드 검색 및 선별/자동 다운로드 | `--category`, `--source`, `--auto`, `--delay`, `--dry-run` |
 | `filter` | 기존 토렌트 광고/정크 파일 일괄 제외 | `--dry-run` |
 | `label` | 기존 토렌트 메이커 코드/배우 라벨 자동 설정 | `--dry-run` |

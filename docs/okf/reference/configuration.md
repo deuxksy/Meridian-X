@@ -80,7 +80,7 @@ sops --decrypt --input-type binary --output-type binary config/settings.json.sop
 
 > **OneJAV (FlareSolverr)**: onejav.com은 사이트 전체에 Cloudflare JS challenge가 걸려 있어 `requests`/`curl`로는 403이 반환된다. RSS·상세 페이지는 `flaresolverr` 경유로 수신하고, `.torrent`는 FlareSolverr가 발급한 `cf_clearance` 쿠키와 User-Agent를 그대로 실어 `proxy`(gluetun)로 다운로드한다. `cf_clearance`는 egress IP·UA에 바인딩되므로 FlareSolverr와 `proxy`는 같은 gluetun을 사용해야 한다.
 
-> **OneJAV 즐겨찾기**: `favorite_url`은 비로그인 token 기반 즐겨찾기 페이지(사용자가 등록한 배우/tag 신작 모음)다. HTML에 `.torrent` 링크를 직접 포함하며, 수집 항목은 사용자 명시적 선택이므로 FHD 필터/dedup 없이 무조건 수집된다. token URL은 secret이므로 `settings.json`(sops 추적본)으로만 관리한다.
+> **OneJAV 즐겨찾기**: `favorite_url`은 비로그인 token 기반 즐겨찾기 페이지(사용자가 등록한 배우/tag 신작 모음)다. HTML에 `.torrent` 링크를 직접 포함하며, 수집 항목은 사용자 명시적 선택이므로 FHD 필터/dedup 없이 무조건 수집된다. `meridian favorite` 서브커맨드로 **수동 수집 전용** 동작하며 `transmission`(RSS) 수집에는 포함되지 않는다. `discover_favorite()`를 구현하는 어떤 소스든 이 경로로 추가할 수 있다. token URL은 secret이므로 `settings.json`(sops 추적본)으로만 관리한다.
 
 ```json
 {

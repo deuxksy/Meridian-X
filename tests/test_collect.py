@@ -86,17 +86,18 @@ def test_is_whitelisted_title_artist_matches_onlyfans():
     assert is_whitelisted_title("OnlyFans Random Creator Solo 1080p", config) is False
 
 
-# --- run_transmission favorite 병합 테스트 ---
+# --- run_transmission / run_favorite 테스트 ---
 
 import types
 
-from meridian_x.collect import run_transmission
+from meridian_x.collect import run_favorite, run_transmission
 
 
 def _make_fake_source(discover_items, favorite_items):
-    calls = {"discover_favorite": 0}
+    calls = {"discover": 0, "discover_favorite": 0}
 
     def discover(cfg):
+        calls["discover"] += 1
         return list(discover_items)
 
     def discover_favorite(cfg):
@@ -130,45 +131,24 @@ def _run_collect(mocker, src_config, fake_src):
     return tx, db
 
 
-def test_collect_merges_favorite_items(mocker):
+def test_run_transmission_ignores_favorites(mocker):
+    # transmission 수집은 RSS 전용 — favorite 자동 병합 없음
     fake_src, calls = _make_fake_source(
         [{"id": "onejav:A", "title": "A"}],
         [{"id": "onejav:B", "title": "B"}],
     )
-    tx, db = _run_collect(mocker, {"enabled": True, "favorite_url": "https://onejav.com/favorite/T"}, fake_src)
-    assert calls["discover_favorite"] == 1
-    assert tx.add_magnet.call_count == 2
-    magnet_args = [c.args[0] for c in tx.add_magnet.call_args_list]
-    assert "magnet:?xt=urn:btih:onejav:A" in magnet_args
-    assert "magnet:?xt=urn:btih:onejav:B" in magnet_args
-    assert db.add_download_history.called
-
-
-def test_collect_favorite_duplicate_id_skipped(mocker):
-    fake_src, _ = _make_fake_source(
-        [{"id": "onejav:A", "title": "A"}],
-        [{"id": "onejav:A", "title": "A"}],
-    )
-    tx, db = _run_collect(mocker, {"enabled": True, "favorite_url": "https://onejav.com/favorite/T"}, fake_src)
-    assert tx.add_magnet.call_count == 1
-    assert db.add_download_history.call_count == 1
-
-
-def test_collect_no_favorite_url_skips_discover_favorite(mocker):
-    fake_src, calls = _make_fake_source(
-        [{"id": "onejav:A", "title": "A"}],
-        [{"id": "onejav:B", "title": "B"}],
-    )
-    tx, _ = _run_collect(mocker, {"enabled": True}, fake_src)
+    tx, _ = _run_collect(mocker, {"enabled": True, "favorite_url": "https://onejav.com/favorite/T"}, fake_src)
+    assert calls["discover"] == 1
     assert calls["discover_favorite"] == 0
     assert tx.add_magnet.call_count == 1
+    assert tx.add_magnet.call_args.args[0] == "magnet:?xt=urn:btih:onejav:A"
 
 
-def test_collect_favorite_wins_max_count_quota(mocker):
-    # 할당량 부족 시 사용자 명시 선택(favorite)이 RSS 벌크보다 우선
-    fake_src, _ = _make_fake_source(
-        [{"id": "onejav:RSS1", "title": "R1"}, {"id": "onejav:RSS2", "title": "R2"}],
-        [{"id": "onejav:FAV1", "title": "F1"}],
+def test_run_favorite_processes_favorites_only(mocker):
+    # meridian favorite — discover_favorite만 호출, RSS discover는 호출 안 함
+    fake_src, calls = _make_fake_source(
+        [{"id": "onejav:A", "title": "A"}],
+        [{"id": "onejav:FAV1", "title": "F1"}, {"id": "onejav:FAV2", "title": "F2"}],
     )
     config = {
         "sources": {"fakesrc": {"enabled": True, "favorite_url": "https://onejav.com/favorite/T"}},
@@ -184,9 +164,59 @@ def test_collect_favorite_wins_max_count_quota(mocker):
     db.get_download_history.return_value = set()
     tx = mocker.patch("meridian_x.collect.TransmissionClient").return_value
     tx.add_magnet.return_value = True
-    run_transmission(max_count=1, dry_run=False)
-    assert tx.add_magnet.call_count == 1
-    assert tx.add_magnet.call_args.args[0] == "magnet:?xt=urn:btih:onejav:FAV1"
+    run_favorite(dry_run=False)
+    assert calls["discover_favorite"] == 1
+    assert calls["discover"] == 0
+    assert tx.add_magnet.call_count == 2
+    assert db.add_download_history.called
+
+
+def test_run_favorite_skips_history(mocker):
+    # 이미 수집된 favorite 항목은 history로 스킵
+    fake_src, _ = _make_fake_source(
+        [{"id": "onejav:A", "title": "A"}],
+        [{"id": "onejav:FAV1", "title": "F1"}],
+    )
+    config = {
+        "sources": {"fakesrc": {"enabled": True, "favorite_url": "https://onejav.com/favorite/T"}},
+        "transmission": {
+            "rpc_url": "http://127.0.0.1:9091/transmission/rpc",
+            "stop_after_download": False,
+        },
+        "collection": {},
+    }
+    mocker.patch("meridian_x.collect.load_config", return_value=config)
+    mocker.patch("meridian_x.collect.SOURCES", {"fakesrc": fake_src})
+    db = mocker.patch("meridian_x.collect.MeridianDB").return_value
+    db.get_download_history.return_value = {"onejav:FAV1"}
+    tx = mocker.patch("meridian_x.collect.TransmissionClient").return_value
+    tx.add_magnet.return_value = True
+    run_favorite(dry_run=False)
+    assert tx.add_magnet.call_count == 0
+
+
+def test_run_favorite_no_favorite_url_noop(mocker):
+    # favorite_url 미설정 소스는 조용히 스킵
+    fake_src, calls = _make_fake_source(
+        [{"id": "onejav:A", "title": "A"}],
+        [{"id": "onejav:FAV1", "title": "F1"}],
+    )
+    config = {
+        "sources": {"fakesrc": {"enabled": True}},
+        "transmission": {
+            "rpc_url": "http://127.0.0.1:9091/transmission/rpc",
+            "stop_after_download": False,
+        },
+        "collection": {},
+    }
+    mocker.patch("meridian_x.collect.load_config", return_value=config)
+    mocker.patch("meridian_x.collect.SOURCES", {"fakesrc": fake_src})
+    db = mocker.patch("meridian_x.collect.MeridianDB").return_value
+    db.get_download_history.return_value = set()
+    tx = mocker.patch("meridian_x.collect.TransmissionClient").return_value
+    run_favorite(dry_run=False)
+    assert calls["discover_favorite"] == 0
+    assert tx.add_magnet.call_count == 0
 
 
 

@@ -87,71 +87,11 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
             items = src_module.discover(effective_config)
             logger.info(f"Found {len(items)} items")
 
-            # 즐겨찾기 항목 병합 (사용자 명시적 선택 — 무조건 수집, 동일 id 중복 제거)
-            if hasattr(src_module, "discover_favorite") and src_config.get("favorite_url"):
-                fav_items = src_module.discover_favorite(effective_config)
-                existing_ids = {i["id"] for i in items}
-                fav_new = [i for i in fav_items if i["id"] not in existing_ids]
-                if fav_new:
-                    logger.info(f"[favorite] {len(fav_new)} items")
-                    # 사용자 명시 선택이 RSS 벌크보다 max_count 할당량에서 우선
-                    items = fav_new + items
-
-            if not items:
-                logger.info("No items found")
-                continue
-
-            # history 필터링
-            new_items = [i for i in items if i["id"] not in history]
-            src_history_count = len([h for h in history if h.startswith(src_name + ":")])
-            logger.info(f"New: {len(new_items)} (History: {src_history_count})")
-
-            if not new_items:
-                continue
-
-            # 전체 max_count 내에서 제한
-            to_process = new_items[:remaining]
-            logger.info(f"Will process {len(to_process)} items")
-
-            count = 0
-            for item in to_process:
-                item_id = item["id"]
-
-                if dry_run:
-                    logger.info(f"  [Dry-run] {item_id}: {item.get('title', '')}")
-                    count += 1
-                    continue
-
-                # resolve
-                try:
-                    payload = src_module.resolve(item, effective_config)
-                except Exception as e:
-                    logger.error(f"  [Resolve Error] {item_id}: {e}")
-                    continue
-
-                if not payload:
-                    logger.warning(f"  [Skip] {item_id} - resolve returned None")
-                    continue
-
-                # 전송
-                try:
-                    if payload["type"] == "metainfo":
-                        ok = client.add_torrent(payload["data"], download_dir=download_dir, filters=filters)
-                    elif payload["type"] == "magnet":
-                        ok = client.add_magnet(payload["data"], download_dir=download_dir, filters=filters)
-                    else:
-                        logger.warning(f"  [Skip] {item_id} - unknown payload type: {payload['type']}")
-                        continue
-
-                    if ok:
-                        logger.info(f"  [Sent] {item_id}")
-                        db.add_download_history([item_id])
-                        history.add(item_id)
-                        count += 1
-                    else:
-                        logger.warning(f"  [Failed] {item_id}")
-                except Exception as e:
-                    logger.error(f"  [RPC Error] {item_id}: {e}")
+            count = _filter_and_send(
+                src_module, src_name, effective_config, items,
+                client, db, history, filters, download_dir,
+                remaining=remaining, dry_run=dry_run,
+            )
 
             remaining -= count
             total_count += count
@@ -163,3 +103,145 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
             continue
 
     logger.info(f"=== Meridian-X Collect Completed ({total_count} total) ===")
+
+
+def _filter_and_send(
+    src_module,
+    src_name: str,
+    effective_config: dict,
+    items: list,
+    client,
+    db,
+    history: set,
+    filters: dict,
+    download_dir,
+    remaining: int,
+    dry_run: bool,
+) -> int:
+    """history 필터링 → resolve → Transmission 전송. 전송 성공 수 반환."""
+    if not items:
+        logger.info("No items found")
+        return 0
+
+    new_items = [i for i in items if i["id"] not in history]
+    src_history_count = len([h for h in history if h.startswith(src_name + ":")])
+    logger.info(f"New: {len(new_items)} (History: {src_history_count})")
+
+    if not new_items:
+        return 0
+
+    to_process = new_items[:remaining]
+    logger.info(f"Will process {len(to_process)} items")
+
+    count = 0
+    for item in to_process:
+        item_id = item["id"]
+
+        if dry_run:
+            logger.info(f"  [Dry-run] {item_id}: {item.get('title', '')}")
+            count += 1
+            continue
+
+        # resolve
+        try:
+            payload = src_module.resolve(item, effective_config)
+        except Exception as e:
+            logger.error(f"  [Resolve Error] {item_id}: {e}")
+            continue
+
+        if not payload:
+            logger.warning(f"  [Skip] {item_id} - resolve returned None")
+            continue
+
+        # 전송
+        try:
+            if payload["type"] == "metainfo":
+                ok = client.add_torrent(payload["data"], download_dir=download_dir, filters=filters)
+            elif payload["type"] == "magnet":
+                ok = client.add_magnet(payload["data"], download_dir=download_dir, filters=filters)
+            else:
+                logger.warning(f"  [Skip] {item_id} - unknown payload type: {payload['type']}")
+                continue
+
+            if ok:
+                logger.info(f"  [Sent] {item_id}")
+                db.add_download_history([item_id])
+                history.add(item_id)
+                count += 1
+            else:
+                logger.warning(f"  [Failed] {item_id}")
+        except Exception as e:
+            logger.error(f"  [RPC Error] {item_id}: {e}")
+
+    return count
+
+
+def run_favorite(dry_run: bool = False) -> None:
+    """즐겨찾기 수집 (meridian favorite) — discover_favorite 보유 + favorite_url 설정 소스만."""
+    config = load_config()
+    sources_config = config.get("sources", {})
+    transmission_config = config.get("transmission", {})
+    collection_config = config.get("collection", config.get("download", {}))
+
+    if not transmission_config.get("rpc_url"):
+        logger.error("transmission.rpc_url not configured")
+        return
+
+    client = TransmissionClient(
+        rpc_url=transmission_config["rpc_url"],
+        user=transmission_config.get("rpc_user"),
+        password=transmission_config.get("rpc_password"),
+        timeout=transmission_config.get("timeout", 10),
+        stop_after_download=transmission_config.get("stop_after_download", False)
+    )
+    filters = transmission_config.get("filters", {})
+    download_dir = transmission_config.get("download_dir")
+
+    active = {
+        name: src_config
+        for name, src_config in sources_config.items()
+        if src_config.get("enabled", True)
+        and src_config.get("favorite_url")
+        and name in SOURCES
+        and hasattr(SOURCES[name], "discover_favorite")
+    }
+    if not active:
+        logger.info("=== Favorite Collect: favorite_url이 설정된 소스 없음 ===")
+        return
+
+    logger.info(f"=== Favorite Collect Started: {list(active.keys())} ===")
+    db = MeridianDB()
+    history = db.get_download_history()
+
+    total_count = 0
+    for src_name, src_config in active.items():
+        src_module = SOURCES[src_name]
+        logger.info(f"\n--- Source: {src_name} (favorite) ---")
+
+        effective_config = {
+            **collection_config,
+            "proxy": config.get("proxy"),
+            "proxies": config.get("proxies"),
+            "flaresolverr": config.get("flaresolverr"),
+            **src_config,
+            "remote": config.get("remote", {}),
+            "classify": config.get("classify", {}),
+            "genres": config.get("genres", {}),
+        }
+
+        try:
+            items = src_module.discover_favorite(effective_config)
+            logger.info(f"Found {len(items)} favorite items")
+
+            count = _filter_and_send(
+                src_module, src_name, effective_config, items,
+                client, db, history, filters, download_dir,
+                remaining=len(items), dry_run=dry_run,
+            )
+            total_count += count
+            logger.info(f"Source {src_name} (favorite): {count} sent")
+        except Exception as e:
+            logger.error(f"Source {src_name} favorite collect failed: {e}")
+            continue
+
+    logger.info(f"=== Favorite Collect Completed ({total_count} total) ===")

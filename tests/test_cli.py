@@ -15,3 +15,11 @@ def test_favorite_flag_removed(capsys, mocker):
             main()
         assert e.value.code == 2
         assert "unrecognized arguments" in capsys.readouterr().err
+
+
+def test_favorite_command_dispatches_run_favorite(mocker):
+    rf = mocker.patch("meridian_x.collect.run_favorite")
+    with patch("sys.argv", ["meridian", "favorite", "--dry-run"]):
+        main()
+    rf.assert_called_once()
+    assert rf.call_args.kwargs.get("dry_run") is True
