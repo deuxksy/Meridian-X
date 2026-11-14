@@ -264,13 +264,6 @@ Examples:
     )
     
     parser.add_argument(
-        "--favorite",
-        type=str,
-        default=None,
-        help="OneJAV Favorite URL (없으면 RSS 전체 다운로드)"
-    )
-
-    parser.add_argument(
         "--source",
         type=str,
         default=None,
