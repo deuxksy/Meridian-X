@@ -40,6 +40,13 @@ uv run meridian transmission --source tgx
 uv run meridian transmission --max-downloads 50
 ```
 
+### 즐겨찾기 수집 (`favorite`)
+```bash
+# onejav 즐겨찾기 페이지(등록 배우/tag 신작)만 수집 — RSS 수집과 분리된 수동 실행
+uv run meridian favorite
+uv run meridian favorite --dry-run   # 미리보기
+```
+
 ### 키워드 검색 및 선별 수집 (`search`)
 ```bash
 # 대화형 모드: 번호 선택식 수집 (1080p 및 WRB/XC 릴 우선 정렬)

@@ -40,7 +40,8 @@ uv run pytest tests/ -v
 - **tidy → classify 순서 유지**: tidy가 flatten/파일명 정리 후 classify가 배우/스튜디오/장르/JPN/FC2/West로 분류한다.
 - **JAV 메타데이터**: FANZA → JavBus/Jav321 → OneJAV 순서로 필드 단위 병합 후 DB 캐시.
 - **West 메타데이터**: StashDB GraphQL API 조회 후 배우/스튜디오/태그를 Jellyfin 및 분류에 사용.
-- **화질 필터링 & 중복 선별**: 모든 미디어 소스는 `is_fhd_or_higher()` 및 `deduplicate_releases()`를 통해 FHD(1080p) 및 안정적 릴 그룹(`WRB`/`XC`)을 최우선 선별한다.
+- **화질 필터링 & 중복 선별**: 모든 미디어 소스는 `is_fhd_or_higher()` 및 `deduplicate_releases()`를 통해 FHD(1080p) 및 안정적 릴 그룹(`WRB`/`XC`)을 최우선 선별한다. 단, 즐겨찾기(`meridian favorite`) 수집은 사용자 명시적 선택이므로 필터 없이 무조건 수집한다.
+- **즐겨찾기 수집**: `meridian favorite` 서브커맨드는 `discover_favorite()` 보유 소스의 `favorite_url`(token URL)만 수동 수집하며 `transmission`(RSS) 수집과 분리돼 있다.
 - **원격 SSH 및 프록시 실행**: `meridian_x.remote` 모듈(`run_remote_ssh`, `fetch_remote_curl`, `get_proxies`, `fetch_via_proxy`, `download_via_proxy`)이 원격 SSH 실행과 사이트 접속 우회를 일원화 관리한다. 소스 fetch는 `proxy(brla gluetun) → lt SSH curl → 직접` 순서로 시도한다.
 - **문서 구조**: README와 문서 구조는 `docs/README.md`의 Diátaxis 인덱스를 기준으로 유지한다.
 

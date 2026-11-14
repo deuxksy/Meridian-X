@@ -70,6 +70,7 @@ cp config/settings.json.example config/settings.json
 
 # 2. 미디어 수집 (정기 RSS 수집 및 키워드 검색)
 uv run meridian transmission                      # 4대 소스 정기 수집
+uv run meridian favorite                          # 즐겨찾기(token URL) 수동 수집
 uv run meridian search "Dakota Doll"               # 대화형 키워드 검색 및 선별 수집
 
 # 3. 8단계 큐레이션 파이프라인 일괄 실행

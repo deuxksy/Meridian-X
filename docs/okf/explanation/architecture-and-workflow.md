@@ -6,9 +6,11 @@ Meridian-X의 설계 철학과 2단계 운영 아키텍처(수집 단계 및 8�
 
 ## 1. 2단계 운영 아키텍처 (2-Phase Architecture)
 
+수집(Ingestion)은 정기 RSS(`transmission`)와 즐겨찾기 수동 수집(`meridian favorite`, 사용자 등록 배우/tag 신작 무조건 수집) 이원화되어 있다.
+
 ```mermaid
 graph TD
-    subgraph Ingest[1. 수집 단계 - transmission/search]
+    subgraph Ingest[1. 수집 단계 - transmission/search/favorite]
         SRC[4대 소스 - OneJAV/Sukebei/XXXClub/TGx] --> FETCH[사이트 접속 - proxy 우선 - lt SSH 폴백]
         FETCH --> DEDUP[화질 필터 FHD/4K - 1080p 릴리스 우선순위 선별]
         DEDUP --> TX_ADD[Transmission RPC 토렌트 큐잉]
