@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -f /Users/crong/git/Meridian-X/.git/worktrees/*/index.lock)",
+      "Bash(sops --decrypt *)",
+      "Bash(gitleaks protect --staged *)"
+    ]
+  }
+}
