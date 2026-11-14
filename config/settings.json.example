@@ -4,6 +4,7 @@
       "enabled": true,
       "base_url": "https://onejav.com",
       "rss_url": "https://onejav.com/feeds/",
+      "favorite_url": null,
       "remote": {
         "ssh_alias": "lt"
       }
