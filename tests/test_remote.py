@@ -95,6 +95,15 @@ def test_run_remote_ssh_execution():
         assert mock_run.call_args[1]["timeout"] == 15
 
 
+def test_run_remote_ssh_sets_locale_env():
+    # macOS가 전송하는 ko_KR.UTF-8 locale을 LC_ALL=C로 덮어 원격 bash 경고 제거
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="OK\n", stderr="")
+        run_remote_ssh("nas.host", "ls", user="media")
+        args = mock_run.call_args[0][0]
+        assert "SetEnv=LC_ALL=C" in args
+
+
 def test_run_remote_ssh_no_user():
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="output\n", stderr="")

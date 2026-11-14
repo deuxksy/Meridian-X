@@ -185,6 +185,8 @@ def run_remote_ssh(
         "ssh",
         "-o",
         f"ConnectTimeout={connect_timeout}",
+        "-o",
+        "SetEnv=LC_ALL=C",
         target,
         command,
     ]
