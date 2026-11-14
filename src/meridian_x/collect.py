@@ -87,6 +87,15 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
             items = src_module.discover(effective_config)
             logger.info(f"Found {len(items)} items")
 
+            # 즐겨찾기 항목 병합 (사용자 명시적 선택 — 무조건 수집, 동일 id 중복 제거)
+            if hasattr(src_module, "discover_favorite") and src_config.get("favorite_url"):
+                fav_items = src_module.discover_favorite(effective_config)
+                existing_ids = {i["id"] for i in items}
+                fav_new = [i for i in fav_items if i["id"] not in existing_ids]
+                if fav_new:
+                    logger.info(f"[favorite] {len(fav_new)} items")
+                    items = items + fav_new
+
             if not items:
                 logger.info("No items found")
                 continue

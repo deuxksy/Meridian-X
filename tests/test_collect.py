@@ -86,4 +86,82 @@ def test_is_whitelisted_title_artist_matches_onlyfans():
     assert is_whitelisted_title("OnlyFans Random Creator Solo 1080p", config) is False
 
 
+# --- run_transmission favorite 병합 테스트 ---
+
+import types
+
+from meridian_x.collect import run_transmission
+
+
+def _make_fake_source(discover_items, favorite_items):
+    calls = {"discover_favorite": 0}
+
+    def discover(cfg):
+        return list(discover_items)
+
+    def discover_favorite(cfg):
+        calls["discover_favorite"] += 1
+        return list(favorite_items)
+
+    def resolve(item, cfg):
+        return {"type": "magnet", "data": f"magnet:?xt=urn:btih:{item['id']}"}
+
+    return types.SimpleNamespace(
+        discover=discover, discover_favorite=discover_favorite, resolve=resolve
+    ), calls
+
+
+def _run_collect(mocker, src_config, fake_src):
+    config = {
+        "sources": {"fakesrc": src_config},
+        "transmission": {
+            "rpc_url": "http://127.0.0.1:9091/transmission/rpc",
+            "stop_after_download": False,
+        },
+        "collection": {},
+    }
+    mocker.patch("meridian_x.collect.load_config", return_value=config)
+    mocker.patch("meridian_x.collect.SOURCES", {"fakesrc": fake_src})
+    db = mocker.patch("meridian_x.collect.MeridianDB").return_value
+    db.get_download_history.return_value = set()
+    tx = mocker.patch("meridian_x.collect.TransmissionClient").return_value
+    tx.add_magnet.return_value = True
+    run_transmission(max_count=30, dry_run=False)
+    return tx, db
+
+
+def test_collect_merges_favorite_items(mocker):
+    fake_src, calls = _make_fake_source(
+        [{"id": "onejav:A", "title": "A"}],
+        [{"id": "onejav:B", "title": "B"}],
+    )
+    tx, db = _run_collect(mocker, {"enabled": True, "favorite_url": "https://onejav.com/favorite/T"}, fake_src)
+    assert calls["discover_favorite"] == 1
+    assert tx.add_magnet.call_count == 2
+    magnet_args = [c.args[0] for c in tx.add_magnet.call_args_list]
+    assert "magnet:?xt=urn:btih:onejav:A" in magnet_args
+    assert "magnet:?xt=urn:btih:onejav:B" in magnet_args
+    assert db.add_download_history.called
+
+
+def test_collect_favorite_duplicate_id_skipped(mocker):
+    fake_src, _ = _make_fake_source(
+        [{"id": "onejav:A", "title": "A"}],
+        [{"id": "onejav:A", "title": "A"}],
+    )
+    tx, db = _run_collect(mocker, {"enabled": True, "favorite_url": "https://onejav.com/favorite/T"}, fake_src)
+    assert tx.add_magnet.call_count == 1
+    assert db.add_download_history.call_count == 1
+
+
+def test_collect_no_favorite_url_skips_discover_favorite(mocker):
+    fake_src, calls = _make_fake_source(
+        [{"id": "onejav:A", "title": "A"}],
+        [{"id": "onejav:B", "title": "B"}],
+    )
+    tx, _ = _run_collect(mocker, {"enabled": True}, fake_src)
+    assert calls["discover_favorite"] == 0
+    assert tx.add_magnet.call_count == 1
+
+
 
