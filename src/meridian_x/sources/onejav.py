@@ -69,8 +69,68 @@ def discover(config: dict) -> list[dict]:
     return _parse_rss(html.unescape(fs["html"]))
 
 
+def discover_favorite(config: dict) -> list[dict]:
+    """즐겨찾기 페이지(사용자 등록 배우/tag 신작, token URL)에서 수집 항목 반환.
+
+    페이지는 HTML이며 .torrent 링크를 직접 포함한다. 항목은 사용자 명시적
+    선택이므로 FHD 필터/dedup 없이 무조건 수집 대상이 된다.
+    """
+    favorite_url = config.get("favorite_url")
+    if not favorite_url:
+        return []
+    if not _validate_url(favorite_url):
+        logger.error(f"Invalid favorite URL (allowlist check failed): {favorite_url[:100]}")
+        return []
+
+    fs = fetch_via_flaresolverr(favorite_url, config, timeout=_safe_timeout(config))
+    if not fs:
+        logger.error("OneJAV favorite page fetch failed")
+        return []
+
+    base_url = config.get("base_url", "https://onejav.com")
+    items = _parse_favorite(fs["html"], base_url)
+    if items:
+        logger.info(f"OneJAV favorite: {len(items)} items")
+    for item in items:
+        item["cookies"] = fs["cookies"]
+        item["user_agent"] = fs["user_agent"]
+    return items
+
+
+def _parse_favorite(page_html: str, base_url: str) -> list[dict]:
+    """즐겨찾기 HTML에서 .torrent 다운로드 링크 추출."""
+    items = []
+    for match in DOWNLOAD_HREF_RE.finditer(page_html):
+        href = match.group(1)
+        code = href.split("/")[2].upper()
+        items.append({
+            "id": "onejav:" + code,
+            "title": code,
+            "download_url": urljoin(base_url, href),
+        })
+    return items
+
+
 def resolve(item: dict, config: dict) -> dict | None:
-    """페이지에서 .torrent 바이트를 가져와 metainfo payload 반환."""
+    """페이지에서 .torrent 바이트를 가져와 metainfo payload 반환.
+
+    favorite 항목(download_url 보유)은 페이지 fetch 없이 즉시 다운로드한다.
+    """
+    download_url = item.get("download_url")
+    if download_url:
+        if not _validate_url(download_url):
+            logger.warning(f"URL validation failed, skipping: {download_url[:100]}")
+            return None
+        timeout = _safe_timeout(config)
+        data = download_via_proxy(
+            download_url, config, timeout=timeout + 10,
+            cookies=item.get("cookies"), user_agent=item.get("user_agent"),
+        )
+        if not data:
+            logger.error(f"OneJAV torrent download failed for {download_url[:100]}")
+            return None
+        return {"type": "metainfo", "data": data}
+
     page_url = item["page_url"]
     base_url = config.get("base_url", "https://onejav.com")
     timeout = _safe_timeout(config)
