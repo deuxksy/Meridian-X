@@ -79,7 +79,8 @@ def discover_favorite(config: dict) -> list[dict]:
     if not favorite_url:
         return []
     if not _validate_url(favorite_url):
-        logger.error(f"Invalid favorite URL (allowlist check failed): {favorite_url[:100]}")
+        # token이 URL 경로에 포함되므로 로그에는 hostname만 노출
+        logger.error(f"Invalid favorite URL (allowlist check failed): {urlparse(favorite_url).hostname}")
         return []
 
     fs = fetch_via_flaresolverr(favorite_url, config, timeout=_safe_timeout(config))

@@ -12,6 +12,22 @@ from meridian_x.remote import (
 )
 
 
+def test_fetch_via_flaresolverr_failure_log_masks_token(mocker, caplog):
+    import logging as _logging
+
+    mocker.patch("meridian_x.remote.requests.post", side_effect=Exception("boom"))
+    with caplog.at_level(_logging.WARNING):
+        result = fetch_via_flaresolverr(
+            "https://onejav.com/favorite/SECRETTOKEN123",
+            {"flaresolverr": {"url": "http://fs:8191/v1"}},
+            timeout=1,
+        )
+    assert result is None
+    joined = "\n".join(r.getMessage() for r in caplog.records)
+    assert "SECRETTOKEN123" not in joined
+    assert "onejav.com" in joined
+
+
 def test_fetch_remote_curl_success():
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0, stdout="<html>content</html>", stderr="")

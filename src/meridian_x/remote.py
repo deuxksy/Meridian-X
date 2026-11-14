@@ -5,10 +5,22 @@ Meridian-X Remote Execution & Proxy Fetch Module
 import logging
 import subprocess
 from typing import Dict, Optional
+from urllib.parse import urlparse
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+
+def _public_url(url: str) -> str:
+    """로그용 URL 축약 — 경로·쿼리에 secret(token 등)이 포함될 수 있어 host까지만 노출."""
+    try:
+        parsed = urlparse(url)
+        if parsed.hostname:
+            return f"{parsed.scheme}://{parsed.hostname}/..."
+    except Exception:
+        pass
+    return url[:40]
 
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -148,7 +160,7 @@ def fetch_via_flaresolverr(url: str, config: dict, timeout: int = 60) -> Optiona
         solution = data.get("solution") or {}
         if data.get("status") != "ok" or solution.get("status") != 200:
             logger.warning(
-                f"fetch_via_flaresolverr failed for {url[:80]}: "
+                f"fetch_via_flaresolverr failed for {_public_url(url)}: "
                 f"{data.get('message')} (HTTP {solution.get('status')})"
             )
             return None
@@ -158,7 +170,7 @@ def fetch_via_flaresolverr(url: str, config: dict, timeout: int = 60) -> Optiona
             "cookies": {c["name"]: c["value"] for c in solution.get("cookies", [])},
         }
     except Exception as e:
-        logger.warning(f"fetch_via_flaresolverr failed for {url[:80]}: {e}")
+        logger.warning(f"fetch_via_flaresolverr failed for {_public_url(url)}: {e}")
         return None
 
 

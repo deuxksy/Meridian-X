@@ -164,4 +164,29 @@ def test_collect_no_favorite_url_skips_discover_favorite(mocker):
     assert tx.add_magnet.call_count == 1
 
 
+def test_collect_favorite_wins_max_count_quota(mocker):
+    # 할당량 부족 시 사용자 명시 선택(favorite)이 RSS 벌크보다 우선
+    fake_src, _ = _make_fake_source(
+        [{"id": "onejav:RSS1", "title": "R1"}, {"id": "onejav:RSS2", "title": "R2"}],
+        [{"id": "onejav:FAV1", "title": "F1"}],
+    )
+    config = {
+        "sources": {"fakesrc": {"enabled": True, "favorite_url": "https://onejav.com/favorite/T"}},
+        "transmission": {
+            "rpc_url": "http://127.0.0.1:9091/transmission/rpc",
+            "stop_after_download": False,
+        },
+        "collection": {},
+    }
+    mocker.patch("meridian_x.collect.load_config", return_value=config)
+    mocker.patch("meridian_x.collect.SOURCES", {"fakesrc": fake_src})
+    db = mocker.patch("meridian_x.collect.MeridianDB").return_value
+    db.get_download_history.return_value = set()
+    tx = mocker.patch("meridian_x.collect.TransmissionClient").return_value
+    tx.add_magnet.return_value = True
+    run_transmission(max_count=1, dry_run=False)
+    assert tx.add_magnet.call_count == 1
+    assert tx.add_magnet.call_args.args[0] == "magnet:?xt=urn:btih:onejav:FAV1"
+
+
 

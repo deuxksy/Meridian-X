@@ -52,6 +52,19 @@ def test_discover_favorite_invalid_host_rejected(mocker):
     mocker.patch("meridian_x.sources.onejav.fetch_via_flaresolverr").assert_not_called()
 
 
+def test_discover_favorite_invalid_host_log_masks_token(mocker, caplog):
+    import logging as _logging
+
+    fs_mock = mocker.patch("meridian_x.sources.onejav.fetch_via_flaresolverr")
+    with caplog.at_level(_logging.ERROR):
+        items = discover_favorite({"favorite_url": "https://evil.com/favorite/SECRETTOKEN123"})
+    assert items == []
+    joined = "\n".join(r.getMessage() for r in caplog.records)
+    assert "SECRETTOKEN123" not in joined
+    assert "evil.com" in joined
+    fs_mock.assert_not_called()
+
+
 def test_resolve_download_url_bypass(mocker):
     fs_mock = mocker.patch("meridian_x.sources.onejav.fetch_via_flaresolverr")
     mocker.patch("meridian_x.sources.onejav.download_via_proxy", return_value=b"BIN")
