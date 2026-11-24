@@ -160,3 +160,18 @@ def test_migrate_json_caches(tmp_path: Path):
     assert west_bak_file.exists()
 
 
+def test_retention_stats_roundtrip(tmp_path: Path):
+    db = MeridianDB(db_path=tmp_path / "test.db")
+    assert db.get_retention_stats() == {"actor": {}, "studio": {}}
+    db.save_retention_stats({"Kubera Fortuna": 26}, {"Wowgirls": 58, "FC2": 62})
+    assert db.get_retention_stats() == {
+        "actor": {"Kubera Fortuna": 26},
+        "studio": {"Wowgirls": 58, "FC2": 62},
+    }
+    db.save_retention_stats({"MINAMO": 8}, {"FC2": 63})
+    assert db.get_retention_stats() == {
+        "actor": {"MINAMO": 8},
+        "studio": {"FC2": 63},
+    }
+
+

@@ -76,6 +76,14 @@ class MeridianDB:
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS idx_actresses_region ON actresses(region);
+
+                CREATE TABLE IF NOT EXISTS retention_stats (
+                    entity_type TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    kept_count INTEGER NOT NULL,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (entity_type, name)
+                );
             """)
             # 구버전 actresses 테이블 마이그레이션 (name_en 컬럼 추가)
             cols = {row[1] for row in conn.execute("PRAGMA table_info(actresses)")}
@@ -86,6 +94,28 @@ class MeridianDB:
         with self.get_connection() as conn:
             rows = conn.execute("SELECT id FROM download_history").fetchall()
             return {row["id"] for row in rows}
+
+    def save_retention_stats(self, actor_counts: dict[str, int], studio_counts: dict[str, int]) -> None:
+        rows = [("actor", k, int(v)) for k, v in actor_counts.items()] + [
+            ("studio", k, int(v)) for k, v in studio_counts.items()
+        ]
+        with self.get_connection() as conn:
+            conn.execute("DELETE FROM retention_stats")
+            if rows:
+                conn.executemany(
+                    "INSERT INTO retention_stats (entity_type, name, kept_count) VALUES (?, ?, ?)",
+                    rows,
+                )
+
+    def get_retention_stats(self) -> dict[str, dict[str, int]]:
+        result: dict[str, dict[str, int]] = {"actor": {}, "studio": {}}
+        with self.get_connection() as conn:
+            rows = conn.execute("SELECT entity_type, name, kept_count FROM retention_stats").fetchall()
+            for row in rows:
+                etype = row["entity_type"]
+                if etype in result:
+                    result[etype][row["name"]] = int(row["kept_count"])
+        return result
 
     def is_downloaded(self, torrent_id: str) -> bool:
         item = f"onejav:{torrent_id}" if ":" not in torrent_id else torrent_id

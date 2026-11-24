@@ -125,3 +125,6 @@ def test_retention_status(tmp_path, caplog):
     assert "WEST 생존율 : 2 / 2 (100.0%)" in caplog.text
     assert "대소문자 중복 폴더" in caplog.text
     assert "UnlistedActor" in caplog.text
+    stats = db.get_retention_stats()
+    assert stats["actor"]["MINAMO"] == 1
+    assert stats["studio"]["FC2"] == 1

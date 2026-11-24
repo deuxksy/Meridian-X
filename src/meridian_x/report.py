@@ -179,6 +179,8 @@ def retention_status(remote: dict, config: dict, db: MeridianDB) -> None:
     if unlisted_actors:
         logger.warning(f"  미등록 Actors 폴더 ({len(unlisted_actors)}): {unlisted_actors}")
 
+    db.save_retention_stats(dict(actor_counts), dict(studio_counts))
+
 
 def transmission_status(client) -> None:
     """Transmission 토렌트 상태 집계."""
