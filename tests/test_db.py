@@ -162,16 +162,18 @@ def test_migrate_json_caches(tmp_path: Path):
 
 def test_retention_stats_roundtrip(tmp_path: Path):
     db = MeridianDB(db_path=tmp_path / "test.db")
-    assert db.get_retention_stats() == {"actor": {}, "studio": {}}
-    db.save_retention_stats({"Kubera Fortuna": 26}, {"Wowgirls": 58, "FC2": 62})
+    assert db.get_retention_stats() == {"actor": {}, "studio": {}, "prefix": {}}
+    db.save_retention_stats({"Kubera Fortuna": 26}, {"Wowgirls": 58, "FC2": 62}, {"START": 5})
     assert db.get_retention_stats() == {
         "actor": {"Kubera Fortuna": 26},
         "studio": {"Wowgirls": 58, "FC2": 62},
+        "prefix": {"START": 5},
     }
     db.save_retention_stats({"MINAMO": 8}, {"FC2": 63})
     assert db.get_retention_stats() == {
         "actor": {"MINAMO": 8},
         "studio": {"FC2": 63},
+        "prefix": {},
     }
 
 

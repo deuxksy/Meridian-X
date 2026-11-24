@@ -236,5 +236,16 @@ def test_score_taste_actor_and_studio_with_retention():
     score_none, reasons_none = score_taste({"title": "Random.Unknown.1080p.mp4"}, config, stats)
     assert score_none == 0.0 and reasons_none == []
 
+    # Description matching + JAV prefix retention bonus
+    stats_with_prefix = {**stats, "prefix": {"START": 7}}
+    sc_desc, r_desc = score_taste(
+        {"title": "START672", "description": "Actress: 宮下玲奈"},
+        config,
+        stats_with_prefix,
+    )
+    assert sc_desc == round(30.0 + round(math.log2(7) * 10, 1) + round(math.log2(8) * 4, 1), 1)
+    assert any("actor:Rena Miyashita" in r for r in r_desc)
+    assert any("prefix:START" in r for r in r_desc)
+
 
 

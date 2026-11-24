@@ -62,13 +62,13 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
     history = db.get_download_history()
     retention_stats = db.get_retention_stats()
 
-    remaining = max_count
-    total_count = 0
+    scoring_cfg = collection_config.get("scoring", {})
+    scoring_enabled = scoring_cfg.get("enabled", True) if isinstance(scoring_cfg, dict) else True
+    min_score = float(scoring_cfg.get("min_score", 0.0)) if isinstance(scoring_cfg, dict) else 0.0
 
+    # Phase 1: 전 소스 discover 및 신규 항목 수집 (per-source exception boundary 유지)
+    candidates: list[tuple[str, object, dict, dict]] = []
     for src_name, src_config in active_sources.items():
-        if remaining <= 0:
-            break
-
         src_module = SOURCES[src_name]
         logger.info(f"\n--- Source: {src_name} ---")
 
@@ -84,25 +84,82 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
         }
 
         try:
-            # discover
             items = src_module.discover(effective_config)
             logger.info(f"Found {len(items)} items")
-
-            count = _filter_and_send(
-                src_module, src_name, effective_config, items,
-                client, db, history, filters, download_dir,
-                remaining=remaining, dry_run=dry_run,
-                retention_stats=retention_stats,
-            )
-
-            remaining -= count
-            total_count += count
-            logger.info(f"Source {src_name}: {count} sent")
-
+            new_items = [i for i in items if i["id"] not in history]
+            src_history_count = len([h for h in history if h.startswith(src_name + ":")])
+            logger.info(f"New: {len(new_items)} (History: {src_history_count})")
+            for item in new_items:
+                candidates.append((src_name, src_module, effective_config, item))
         except Exception as e:
             # per-source exception boundary (Codex 검증 반영)
             logger.error(f"Source {src_name} failed: {e}")
             continue
+
+    # Phase 2: 전 소스 글로벌 스코어링, 안정 정렬 및 선택적 컷오프
+    scored_map: dict[str, tuple[float, list[str]]] = {}
+    if scoring_enabled and candidates:
+        for _src_name, _src_module, eff_cfg, item in candidates:
+            scored_map[item["id"]] = score_taste(item, eff_cfg, retention_stats)
+        candidates = sorted(candidates, key=lambda c: scored_map[c[3]["id"]][0], reverse=True)
+        if min_score > 0:
+            before = len(candidates)
+            candidates = [c for c in candidates if scored_map[c[3]["id"]][0] >= min_score]
+            skipped = before - len(candidates)
+            if skipped:
+                logger.info(f"[Scoring] Skipped {skipped} items globally below min_score={min_score:.1f}")
+
+    to_process = candidates[:max_count]
+    logger.info(f"\n=== Global Queue: {len(to_process)} / {len(candidates)} candidates (max={max_count}) ===")
+
+    # Phase 3: 선택된 상위 항목 resolve 및 Transmission 전송
+    total_count = 0
+    per_source_sent: dict[str, int] = {}
+    for src_name, src_module, eff_cfg, item in to_process:
+        item_id = item["id"]
+        if item_id in scored_map:
+            sc, reasons = scored_map[item_id]
+            reason_str = ", ".join(reasons) if reasons else "unmatched"
+            logger.info(f"  [Score {sc:.1f}] [{src_name}] {item_id} ({reason_str})")
+
+        if dry_run:
+            logger.info(f"  [Dry-run] {item_id}: {item.get('title', '')}")
+            total_count += 1
+            per_source_sent[src_name] = per_source_sent.get(src_name, 0) + 1
+            continue
+
+        try:
+            payload = src_module.resolve(item, eff_cfg)
+        except Exception as e:
+            logger.error(f"  [Resolve Error] {item_id}: {e}")
+            continue
+
+        if not payload:
+            logger.warning(f"  [Skip] {item_id} - resolve returned None")
+            continue
+
+        try:
+            if payload["type"] == "metainfo":
+                ok = client.add_torrent(payload["data"], download_dir=download_dir, filters=filters)
+            elif payload["type"] == "magnet":
+                ok = client.add_magnet(payload["data"], download_dir=download_dir, filters=filters)
+            else:
+                logger.warning(f"  [Skip] {item_id} - unknown payload type: {payload['type']}")
+                continue
+
+            if ok:
+                logger.info(f"  [Sent] {item_id}")
+                db.add_download_history([item_id])
+                history.add(item_id)
+                total_count += 1
+                per_source_sent[src_name] = per_source_sent.get(src_name, 0) + 1
+            else:
+                logger.error(f"  [Failed] {item_id}")
+        except Exception as e:
+            logger.error(f"  [Transmission Error] {item_id}: {e}")
+
+    for src_name, cnt in per_source_sent.items():
+        logger.info(f"Source {src_name}: {cnt} sent")
 
     logger.info(f"=== Meridian-X Collect Completed ({total_count} total) ===")
 

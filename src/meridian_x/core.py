@@ -266,13 +266,16 @@ def score_taste(
     import math
 
     title = item.get("title") or ""
-    t_norm = _norm_key(title)
+    description = item.get("description") or ""
+    combined = f"{title} {description}".strip()
+    t_norm = _norm_key(combined)
     if not t_norm:
         return 0.0, []
 
     stats = retention_stats or {}
     actor_stats = stats.get("actor", {})
     studio_stats = stats.get("studio", {})
+    prefix_stats = stats.get("prefix", {})
     classify_cfg = config.get("classify", {})
 
     total = 0.0
@@ -339,6 +342,17 @@ def score_taste(
         pts = round(10.0 + round(math.log2(1 + kept) * 5, 1), 1)
         total += pts
         reasons.append(f"studio:{matched_studio}(+{pts},kept={kept})")
+
+    # 3. JAV 품번 프리픽스 잔존 보너스 (FC2 제외, 순수 잔존 기반)
+    pref_m = re.search(r"\b([A-Z]{2,6})[-_\s]?\d{2,5}\b", title.upper())
+    if pref_m:
+        prefix = pref_m.group(1)
+        if prefix != "FC2":
+            kept_p = int(prefix_stats.get(prefix, 0))
+            if kept_p > 0:
+                pts = round(math.log2(1 + kept_p) * 4, 1)
+                total += pts
+                reasons.append(f"prefix:{prefix}(+{pts},kept={kept_p})")
 
     return round(total, 1), reasons
 

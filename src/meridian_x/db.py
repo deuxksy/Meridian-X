@@ -95,10 +95,17 @@ class MeridianDB:
             rows = conn.execute("SELECT id FROM download_history").fetchall()
             return {row["id"] for row in rows}
 
-    def save_retention_stats(self, actor_counts: dict[str, int], studio_counts: dict[str, int]) -> None:
-        rows = [("actor", k, int(v)) for k, v in actor_counts.items()] + [
-            ("studio", k, int(v)) for k, v in studio_counts.items()
-        ]
+    def save_retention_stats(
+        self,
+        actor_counts: dict[str, int],
+        studio_counts: dict[str, int],
+        prefix_counts: dict[str, int] | None = None,
+    ) -> None:
+        rows = (
+            [("actor", k, int(v)) for k, v in actor_counts.items()]
+            + [("studio", k, int(v)) for k, v in studio_counts.items()]
+            + [("prefix", k, int(v)) for k, v in (prefix_counts or {}).items()]
+        )
         with self.get_connection() as conn:
             conn.execute("DELETE FROM retention_stats")
             if rows:
@@ -108,7 +115,7 @@ class MeridianDB:
                 )
 
     def get_retention_stats(self) -> dict[str, dict[str, int]]:
-        result: dict[str, dict[str, int]] = {"actor": {}, "studio": {}}
+        result: dict[str, dict[str, int]] = {"actor": {}, "studio": {}, "prefix": {}}
         with self.get_connection() as conn:
             rows = conn.execute("SELECT entity_type, name, kept_count FROM retention_stats").fetchall()
             for row in rows:

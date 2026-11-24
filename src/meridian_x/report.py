@@ -115,12 +115,14 @@ def retention_status(remote: dict, config: dict, db: MeridianDB) -> None:
     rel_paths = [line.strip() for line in output.splitlines() if line.strip()]
     studio_counts: Counter[str] = Counter()
     actor_counts: Counter[str] = Counter()
+    prefix_counts: Counter[str] = Counter()
     top_dirs: set[str] = set()
     jpn_actors = set(config.get("classify", {}).get("artists", {}).get("JPN", []))
     west_actors = set(config.get("classify", {}).get("artists", {}).get("WEST", []))
     all_actors = jpn_actors | west_actors
     west_studios = set(config.get("classify", {}).get("studios", {}).get("WEST", {}).keys())
 
+    import re
     for rel in rel_paths:
         parts = rel.split("/")
         top = parts[0]
@@ -132,6 +134,11 @@ def retention_status(remote: dict, config: dict, db: MeridianDB) -> None:
             studio_counts[top] += 1
         else:
             studio_counts["(unclassified)"] += 1
+
+        fname = parts[-1].upper()
+        m = re.match(r"^([A-Z]{2,6})-\d{2,5}", fname)
+        if m and m.group(1) != "FC2":
+            prefix_counts[m.group(1)] += 1
 
     history_ids = db.get_download_history()
     src_counts = Counter(hid.split(":", 1)[0] for hid in history_ids if ":" in hid)
@@ -179,7 +186,7 @@ def retention_status(remote: dict, config: dict, db: MeridianDB) -> None:
     if unlisted_actors:
         logger.warning(f"  미등록 Actors 폴더 ({len(unlisted_actors)}): {unlisted_actors}")
 
-    db.save_retention_stats(dict(actor_counts), dict(studio_counts))
+    db.save_retention_stats(dict(actor_counts), dict(studio_counts), dict(prefix_counts))
 
 
 def transmission_status(client) -> None:

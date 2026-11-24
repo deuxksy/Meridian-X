@@ -284,4 +284,31 @@ def test_filter_and_send_scoring_disabled(mocker):
     assert resolved_ids == ["s:1"]
 
 
+def test_run_transmission_global_ranking_across_sources(mocker):
+    src_a, _ = _make_fake_source([
+        {"id": "a:1", "title": "Unknown.A1.1080p.mp4"},
+        {"id": "a:2", "title": "Unknown.A2.1080p.mp4"},
+    ], [])
+    src_b, _ = _make_fake_source([
+        {"id": "b:1", "title": "Kubera.Fortuna.B1.1080p.mp4"},
+    ], [])
+    config = {
+        "sources": {"src_a": {"enabled": True}, "src_b": {"enabled": True}},
+        "transmission": {"rpc_url": "http://127.0.0.1:9091/transmission/rpc", "stop_after_download": False},
+        "collection": {"scoring": {"enabled": True, "min_score": 0.0}},
+        "classify": {"artists": {"WEST": ["Kubera Fortuna"]}},
+    }
+    mocker.patch("meridian_x.collect.load_config", return_value=config)
+    mocker.patch("meridian_x.collect.SOURCES", {"src_a": src_a, "src_b": src_b})
+    db = mocker.patch("meridian_x.collect.MeridianDB").return_value
+    db.get_download_history.return_value = set()
+    db.get_retention_stats.return_value = {"actor": {"Kubera Fortuna": 25}, "studio": {}, "prefix": {}}
+    tx = mocker.patch("meridian_x.collect.TransmissionClient").return_value
+    tx.add_magnet.return_value = True
+
+    run_transmission(max_count=2, dry_run=False)
+    sent_magnets = [c.args[0] for c in tx.add_magnet.call_args_list]
+    assert sent_magnets == ["magnet:?xt=urn:btih:b:1", "magnet:?xt=urn:btih:a:1"]
+
+
 
