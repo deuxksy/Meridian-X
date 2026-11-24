@@ -5,7 +5,7 @@ Multi-source RSS 수집 → Transmission RPC 전송
 import logging
 from pathlib import Path
 
-from .core import load_config, score_taste
+from .core import load_config, lookup_cached_metadata, score_taste
 from .db import MeridianDB
 from .sources import SOURCES
 from .transmission import TransmissionClient
@@ -61,6 +61,10 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
         db.migrate_history_txt(history_file)
     history = db.get_download_history()
     retention_stats = db.get_retention_stats()
+    raw_jav_cache = db.get_all_jav_metadata() if hasattr(db, "get_all_jav_metadata") else {}
+    raw_west_cache = db.get_all_west_metadata() if hasattr(db, "get_all_west_metadata") else {}
+    jav_cache = raw_jav_cache if isinstance(raw_jav_cache, dict) else {}
+    west_cache = raw_west_cache if isinstance(raw_west_cache, dict) else {}
 
     scoring_cfg = collection_config.get("scoring", {})
     scoring_enabled = scoring_cfg.get("enabled", True) if isinstance(scoring_cfg, dict) else True
@@ -100,7 +104,8 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
     scored_map: dict[str, tuple[float, list[str]]] = {}
     if scoring_enabled and candidates:
         for _src_name, _src_module, eff_cfg, item in candidates:
-            scored_map[item["id"]] = score_taste(item, eff_cfg, retention_stats)
+            cached_meta = lookup_cached_metadata(item, jav_cache, west_cache)
+            scored_map[item["id"]] = score_taste(item, eff_cfg, retention_stats, metadata=cached_meta)
         candidates = sorted(candidates, key=lambda c: scored_map[c[3]["id"]][0], reverse=True)
         if min_score > 0:
             before = len(candidates)

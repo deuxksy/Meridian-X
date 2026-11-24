@@ -248,4 +248,37 @@ def test_score_taste_actor_and_studio_with_retention():
     assert any("prefix:START" in r for r in r_desc)
 
 
+def test_score_taste_with_cached_metadata():
+    import math
+    from meridian_x.core import lookup_cached_metadata, score_taste
+
+    config = {
+        "classify": {
+            "artists": {"JPN": ["MINAMO"], "WEST": ["Dakota Doll"]},
+            "studios": {"WEST": {"Wowgirls": ["wowgirls"]}},
+        }
+    }
+    stats = {"actor": {"MINAMO": 8, "Dakota Doll": 25}, "studio": {"Wowgirls": 58}, "prefix": {"START": 12}}
+    jav_cache = {"START-672": {"actresses": ["MINAMO"], "makers": ["SODstar"]}}
+    west_cache = {"Scene.Title": {"performers": ["Dakota Doll"], "studio": "Wowgirls"}}
+
+    # Hyphenless OneJAV title resolves via jav_cache
+    jav_item = {"title": "START672"}
+    meta = lookup_cached_metadata(jav_item, jav_cache, west_cache)
+    assert meta is not None
+    sc, reasons = score_taste(jav_item, config, stats, metadata=meta)
+    assert sc == round(30.0 + round(math.log2(9) * 10, 1) + round(math.log2(13) * 4, 1), 1)
+    assert any("actor:MINAMO" in r for r in reasons)
+    assert any("prefix:START" in r for r in reasons)
+
+    # West item resolves via west_cache
+    west_item = {"title": "Scene.Title.1080p.mp4"}
+    wmeta = lookup_cached_metadata(west_item, jav_cache, west_cache)
+    assert wmeta is not None
+    wsc, wreasons = score_taste(west_item, config, stats, metadata=wmeta)
+    assert any("actor:Dakota Doll" in r for r in wreasons)
+    assert any("studio:Wowgirls" in r for r in wreasons)
+    assert wsc > 100.0
+
+
 

@@ -311,4 +311,30 @@ def test_run_transmission_global_ranking_across_sources(mocker):
     assert sent_magnets == ["magnet:?xt=urn:btih:b:1", "magnet:?xt=urn:btih:a:1"]
 
 
+def test_run_transmission_uses_jav_metadata_cache_for_scoring(mocker):
+    src, _ = _make_fake_source([
+        {"id": "onejav:UNKNOWN001", "title": "UNKNOWN001"},
+        {"id": "onejav:START672", "title": "START672"},
+    ], [])
+    config = {
+        "sources": {"onejav": {"enabled": True}},
+        "transmission": {"rpc_url": "http://127.0.0.1:9091/transmission/rpc", "stop_after_download": False},
+        "collection": {"scoring": {"enabled": True, "min_score": 10.0}},
+        "classify": {"artists": {"JPN": ["MINAMO"]}},
+    }
+    mocker.patch("meridian_x.collect.load_config", return_value=config)
+    mocker.patch("meridian_x.collect.SOURCES", {"onejav": src})
+    db = mocker.patch("meridian_x.collect.MeridianDB").return_value
+    db.get_download_history.return_value = set()
+    db.get_retention_stats.return_value = {"actor": {"MINAMO": 8}, "studio": {}, "prefix": {}}
+    db.get_all_jav_metadata.return_value = {"START-672": {"actresses": ["MINAMO"], "makers": []}}
+    db.get_all_west_metadata.return_value = {}
+    tx = mocker.patch("meridian_x.collect.TransmissionClient").return_value
+    tx.add_magnet.return_value = True
+
+    run_transmission(max_count=5, dry_run=False)
+    sent_magnets = [c.args[0] for c in tx.add_magnet.call_args_list]
+    assert sent_magnets == ["magnet:?xt=urn:btih:onejav:START672"]
+
+
 

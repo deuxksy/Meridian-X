@@ -257,17 +257,57 @@ def _norm_key(text: str) -> str:
     return re.sub(r"[\._\-\s]+", "", text).lower()
 
 
+def lookup_cached_metadata(
+    item: dict[str, Any],
+    jav_cache: dict[str, dict[str, Any]] | None = None,
+    west_cache: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
+    """DB 메타데이터 캐시에서 아이템(OneJAV 무하이픈 코드 포함) 메타데이터 조회 (네트워크 호출 없음)."""
+    title = (item.get("title") or "").strip()
+    if not title:
+        return None
+
+    if isinstance(jav_cache, dict) and jav_cache:
+        m = re.search(r"\b(\d*[A-Z]{2,7})[-_\s]?(\d{2,5})\b", title.upper())
+        if m:
+            hyphen_code = f"{m.group(1)}-{m.group(2)}"
+            compact_code = f"{m.group(1)}{m.group(2)}"
+            if hyphen_code in jav_cache:
+                return jav_cache[hyphen_code]
+            if compact_code in jav_cache:
+                return jav_cache[compact_code]
+
+    if isinstance(west_cache, dict) and west_cache:
+        if title in west_cache:
+            return west_cache[title]
+        t_norm = _norm_key(title)
+        for qterm, meta in west_cache.items():
+            if _norm_key(qterm) and _norm_key(qterm) in t_norm:
+                return meta
+
+    return None
+
+
 def score_taste(
     item: dict[str, Any],
     config: dict[str, Any],
     retention_stats: dict[str, dict[str, int]] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> tuple[float, list[str]]:
-    """등록 배우/스튜디오 바닥 점수 + 실제 잔존 수(log2) 보너스 계산."""
+    """등록 배우/스튜디오 바닥 점수 + 실제 잔존 수(log2) 보너스 계산 (캐시 메타데이터 지원)."""
     import math
 
     title = item.get("title") or ""
     description = item.get("description") or ""
-    combined = f"{title} {description}".strip()
+    extra_parts: list[str] = []
+    if isinstance(metadata, dict):
+        for key in ("actresses", "performers", "makers"):
+            vals = metadata.get(key)
+            if isinstance(vals, list):
+                extra_parts.extend(str(v) for v in vals if v)
+        if metadata.get("studio"):
+            extra_parts.append(str(metadata["studio"]))
+    combined = " ".join(p for p in [title, description, *extra_parts] if p).strip()
     t_norm = _norm_key(combined)
     if not t_norm:
         return 0.0, []
