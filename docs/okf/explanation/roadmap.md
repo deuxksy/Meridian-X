@@ -1,3 +1,7 @@
+---
+type: explanation
+---
+
 # Meridian-X Roadmap
 
 미디어 컬렉션 자동화 큐레이션 도구 (`RSS 수집` → `정제` → `메타데이터 조회` → `분류` → `Jellyfin 동기화`)

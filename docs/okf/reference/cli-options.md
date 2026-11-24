@@ -1,3 +1,7 @@
+---
+type: reference
+---
+
 # CLI Options Reference (명령어 및 옵션 명세)
 
 Meridian-X의 모든 서브커맨드와 지원 옵션에 대한 상세 명세서입니다.

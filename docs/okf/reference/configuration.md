@@ -1,3 +1,7 @@
+---
+type: reference
+---
+
 # Configuration Reference (설정 명세)
 
 Meridian-X의 설정 파일 구조, 필수/선택 키 및 보안 관리(SOPS 암호화)에 대한 기술 명세서입니다.
@@ -10,18 +14,7 @@ Meridian-X의 설정 파일 구조, 필수/선택 키 및 보안 관리(SOPS 암
 - **템플릿 파일**: `config/settings.json.example`
 - **암호화 추적본**: `config/settings.json.sops` (sops + age 암호화)
 - **사용자 인증 override**: `~/.config/meridian-x/credentials.json` (선택, git 관리 밖) — 아래 [4. 사용자 인증 override](#4-사용자-인증-override-credentialsjson) 참조
-
-### 설정 초기화 방법
-```bash
-# 템플릿 복사 후 직접 편집
-cp config/settings.json.example config/settings.json
-
-# 또는 sops로 암호화된 설정 복원
-sops --decrypt --input-type binary --output-type binary config/settings.json.sops > config/settings.json
-
-# settings.json 편집 후 암호화 추적본 갱신
-sops --encrypt --input-type binary --output-type binary config/settings.json > config/settings.json.sops
-```
+- **초기화 및 재암호화 절차**: [SOPS 설정 초기화 및 암호화 가이드](../how-to/sops-configuration.md) 참조
 
 ---
 
@@ -80,9 +73,7 @@ sops --encrypt --input-type binary --output-type binary config/settings.json > c
 
 > **TorrentGalaxy 비활성화 안내**: `torrentgalaxy.one` 및 기존 미러 도메인이 폐기·응답 불능 상태이므로 현재 기본값은 `"enabled": false`다(코드상 `/get-posts/category:{name}:format:json/` JSON API 어댑터는 보존).
 
-> **사이트 접속 우회 체인**: 소스 fetch는 최상위 `proxy`(비KR egress)를 우선 시도하고, 실패 시 `sources.<name>.remote.ssh_alias` 원격 curl, 최후 로컬 직접 접근으로 폴백한다.
-
-> **OneJAV (FlareSolverr)**: onejav.com은 사이트 전체에 Cloudflare JS challenge가 걸려 있어 `requests`/`curl`로는 403이 반환된다. RSS·상세 페이지는 `flaresolverr` 경유로 수신하고, `.torrent`는 FlareSolverr가 발급한 `cf_clearance` 쿠키와 User-Agent를 그대로 실어 `proxy`(gluetun)로 다운로드한다. `cf_clearance`는 egress IP·UA에 바인딩되므로 FlareSolverr와 `proxy`는 같은 gluetun을 사용해야 한다.
+> **사이트 접속 우회 및 FlareSolverr 원리**: [아키텍처 및 워크플로우 - 사이트 접속 우회](../explanation/architecture-and-workflow.md#사이트-접속-우회-egress) 참조.
 
 > **OneJAV 즐겨찾기**: `favorite_url`은 비로그인 token 기반 즐겨찾기 페이지(사용자가 등록한 배우/tag 신작 모음)다. HTML에 `.torrent` 링크를 직접 포함하며, 수집 항목은 사용자 명시적 선택이므로 FHD 필터/dedup 없이 무조건 수집된다. `meridian favorite` 서브커맨드로 **수동 수집 전용** 동작하며 `transmission`(RSS) 수집에는 포함되지 않는다. `discover_favorite()`를 구현하는 어떤 소스든 이 경로로 추가할 수 있다. token URL은 secret이므로 `settings.json`(sops 추적본)으로만 관리한다.
 

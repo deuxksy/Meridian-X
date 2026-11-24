@@ -1,3 +1,7 @@
+---
+type: how-to
+---
+
 # CLI Usage Guide (운영 및 실행 가이드)
 
 Meridian-X의 실제 운영 시나리오별 명령어 실행 가이드입니다.

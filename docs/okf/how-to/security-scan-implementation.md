@@ -1,3 +1,7 @@
+---
+type: how-to
+---
+
 # Security Scan 구현 가이드
 
 이 문서는 Meridian-X의 GitHub Actions 보안 스캔 workflow를 확인·수정·검증하는 절차를 정리한다. 현재 구현 파일은 `.github/workflows/security-scan.yml`이다. 도입 배경과 설계 결정은 [Security Scan 설계](../explanation/security-scan-design.md) 참조.

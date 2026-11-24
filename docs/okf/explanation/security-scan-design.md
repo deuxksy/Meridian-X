@@ -1,3 +1,7 @@
+---
+type: explanation
+---
+
 # GitHub Actions Security Scan 설계
 
 Meridian-X의 보안 스캔은 GitHub Actions에서 의존성 취약점, Python 정적 분석, Secret 노출, 파일 시스템 취약점 단서를 자동 점검하는 CI 워크플로입니다. 목적은 배포 차단보다 조기 탐지와 감사 이력 확보에 둡니다.

@@ -84,18 +84,14 @@ uv run meridian pipeline                          # stop→filter→label→sync
 
 모든 상세 가이드와 기술 명세는 [Diátaxis](https://diataxis.fr/) 프레임워크 기반 **[OKF Documentation Hub](./docs/okf/README.md)**에 체계적으로 수록되어 있습니다:
 
-| 분류 (Diátaxis) | 문서 | 설명 |
+| 분류 (Diátaxis) | 문서 허브 | 설명 |
 | :--- | :--- | :--- |
-| **Docs Hub** | [Documentation Hub](./docs/README.md) | docs/ 전체 구조 안내 (OKF, archive, superpowers) |
-| **Framework** | [OKF Hub](./docs/okf/README.md) | 사람 중심 공식 지식 프레임워크 허브 |
-| **Tutorials** | [입문 튜토리얼](./docs/okf/tutorials/README.md) | 설치, 초기 설정 복원 및 첫 Dry-run 실습 안내 |
-| **How-To** | [CLI 운영 가이드](./docs/okf/how-to/cli-usage.md) | 수집, 검색, 8단계 파이프라인 등 전체 명령어 상세 가이드 |
-| **How-To** | [Security Scan 구축](./docs/okf/how-to/security-scan-implementation.md) | GitHub Actions 보안 스캔 파이프라인 구축 절차 |
-| **Reference** | [설정 명세 (Configuration)](./docs/okf/reference/configuration.md) | `settings.json` 전체 키 스키마 및 SOPS 암호화 명세 |
-| **Reference** | [CLI 옵션 레퍼런스](./docs/okf/reference/cli-options.md) | 모든 서브커맨드별 파라미터 및 옵션 상세 표 |
-| **Explanation** | [아키텍처 & 워크플로우](./docs/okf/explanation/architecture-and-workflow.md) | 2단계 아키텍처, 8단계 파이프라인 및 릴리스 선별 원리 |
-| **Explanation** | [Security Scan 설계](./docs/okf/explanation/security-scan-design.md) | 보안 스캔 도입 배경 및 설계 결정 |
-| **Explanation** | [로드맵 (Roadmap)](./docs/okf/explanation/roadmap.md) | 버전별 완성 현황 및 향후 계획 |
+| **Docs Hub** | [Documentation Hub](./docs/README.md) | `docs/` 전체 구조 안내 (OKF, archive, superpowers) |
+| **Reference (OKF Hub)** | [OKF Documentation Hub](./docs/okf/README.md) | 개별 OKF 문서 전체 목록의 단일 기준본(SSoT) 허브 |
+| **Tutorials** | [Tutorials Hub](./docs/okf/tutorials/README.md) | 설치, 초기 설정 복원 및 첫 Dry-run 실습 안내 |
+| **How-To** | [How-To Guides Hub](./docs/okf/how-to/README.md) | CLI 운영, SOPS 설정 초기화·재암호화, 보안 스캔 구축 절차 |
+| **Reference** | [Reference Hub](./docs/okf/reference/README.md) | `settings.json` 키 스키마 및 서브커맨드 전체 옵션 명세 |
+| **Explanation** | [Explanation Hub](./docs/okf/explanation/README.md) | 2단계 아키텍처, 취향 스코어링 원리, 보안 스캔 설계 및 로드맵 |
 | **Archive** | [Docs Archive](./docs/archive/README.md) | 비관리형 과거 기획 및 외부 참조 자료 |
 
 ---

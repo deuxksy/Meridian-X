@@ -5,5 +5,6 @@
 ## 문서 목록
 
 - [CLI 사용 설명서](./cli-usage.md) - 수집, 정리, 분류, 동기화 및 8단계 파이프라인 운영 절차
+- [SOPS 설정 초기화 및 암호화](./sops-configuration.md) - `settings.json` 복원 및 `settings.json.sops` 재암호화 절차
 - [Security Scan 구현](./security-scan-implementation.md) - GitHub Actions 보안 스캔 구축 절차
 - [OKF Documentation Hub](../README.md) - OKF 4분면 메인 인덱스

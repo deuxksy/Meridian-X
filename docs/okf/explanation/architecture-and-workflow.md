@@ -1,3 +1,7 @@
+---
+type: explanation
+---
+
 # Architecture & Workflow (아키텍처 및 워크플로우 설계)
 
 Meridian-X의 설계 철학과 2단계 운영 아키텍처(수집 단계 및 8단계 큐레이션 파이프라인)를 설명합니다.
@@ -45,9 +49,9 @@ graph TD
 
 ### 사이트 접속 우회 (Egress)
 
-일부 소스(onejav 등)는 한국 ISP 차단목록에 등재되어 KR egress(lt, heritage)에서 TLS reset·URL 차단이 발생한다. 소스 fetch는 brla에 상주하는 gluetun(Surfshark Singapore WireGuard) HTTP 프록시를 우선 경유하고, 실패 시 lt 원격 curl로 폴백한다.
+일부 소스(onejav 등)는 한국 ISP 차단목록에 등재되어 KR egress(lt, heritage)에서 TLS reset·URL 차단이 발생한다. 소스 fetch는 brla에 상주하는 gluetun(Surfshark Singapore WireGuard) HTTP 프록시를 우선 경유하고, 실패 시 lt 원격 curl, 최후 로컬 직접 접근으로 폴백한다.
 
-onejav는 추가로 사이트 전체에 Cloudflare JS challenge가 걸려 있어, brla의 FlareSolverr(gluetun egress 경유 Chromium)로 RSS·페이지를 받고 발급된 `cf_clearance` 쿠키로 `.torrent`를 gluetun 프록시에서 다운로드한다.
+onejav는 추가로 사이트 전체에 Cloudflare JS challenge가 걸려 있어, brla의 FlareSolverr(gluetun egress 경유 Chromium)로 RSS·페이지를 받고 발급된 `cf_clearance` 쿠키와 User-Agent를 그대로 실어 gluetun 프록시에서 `.torrent`를 다운로드한다. `cf_clearance`는 egress IP·UA에 바인딩되므로 FlareSolverr와 `proxy`는 같은 gluetun을 사용해야 한다.
 
 ---
 
