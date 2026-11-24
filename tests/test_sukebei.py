@@ -369,3 +369,29 @@ def test_fetch_url_proxy_takes_priority_over_remote():
         assert text == "proxied content"
         mock_remote.assert_not_called()
         assert mock_get.call_args[1]["proxies"]["http"] == "http://127.0.0.1:8888"
+
+
+def test_parse_rss_sukebei_namespace_and_guid_view_url():
+    rss = """<rss xmlns:nyaa="https://sukebei.nyaa.si/xmlns/nyaa" version="2.0">
+      <channel>
+        <item>
+          <title>FC2-PPV-4979802 Test</title>
+          <link>https://sukebei.nyaa.si/download/4770298.torrent</link>
+          <guid isPermaLink="true">https://sukebei.nyaa.si/view/4770298</guid>
+          <nyaa:seeders>12</nyaa:seeders>
+          <nyaa:leechers>3</nyaa:leechers>
+          <nyaa:infoHash>9bdda2ab311101e1781cf88a91cfde71795e4d1a</nyaa:infoHash>
+          <nyaa:size>4.9 GiB</nyaa:size>
+        </item>
+      </channel>
+    </rss>"""
+    items = sukebei._parse_rss(rss)
+    assert len(items) == 1
+    assert items[0]["id"] == "sukebei:4770298"
+    assert items[0]["details_url"] == "https://sukebei.nyaa.si/view/4770298"
+    assert items[0]["info_hash"] == "9bdda2ab311101e1781cf88a91cfde71795e4d1a"
+    assert items[0]["seeders"] == "12"
+    payload = sukebei.resolve(items[0], {})
+    assert payload is not None
+    assert payload["type"] == "magnet"
+    assert "9bdda2ab311101e1781cf88a91cfde71795e4d1a" in payload["data"]

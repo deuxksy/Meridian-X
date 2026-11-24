@@ -25,8 +25,20 @@ logger = logging.getLogger(__name__)
 fetch_url_remote = fetch_remote_curl
 
 BASE_URL = "https://sukebei.nyaa.si"
-NYAA_NS = {"nyaa": "https://nyaa.si/xmlns/nyaa"}
+NYAA_NS_LIST = [
+    {"nyaa": "https://sukebei.nyaa.si/xmlns/nyaa"},
+    {"nyaa": "https://nyaa.si/xmlns/nyaa"},
+]
+NYAA_NS = NYAA_NS_LIST[1]  # backwards compatibility
 JPN_CODE_PATTERN = re.compile(r'\b[A-Za-z]{2,8}[-_]?\d{3,5}\b|\bFC2[-_ ]?PPV[-_ ]?\d+\b', re.IGNORECASE)
+
+
+def _find_nyaa_text(item: ET.Element, tag: str, default: str = "") -> str:
+    for ns in NYAA_NS_LIST:
+        elem = item.find(f"nyaa:{tag}", ns)
+        if elem is not None and elem.text:
+            return elem.text.strip()
+    return default
 
 
 def _safe_timeout(config: dict) -> int:
@@ -136,23 +148,19 @@ def _parse_rss(rss_content: str) -> list[dict]:
         title_elem = item.find("title")
         link_elem = item.find("link")
         guid_elem = item.find("guid")
-        info_hash_elem = item.find("nyaa:infoHash", NYAA_NS)
-        seeders_elem = item.find("nyaa:seeders", NYAA_NS)
-        leechers_elem = item.find("nyaa:leechers", NYAA_NS)
-        size_elem = item.find("nyaa:size", NYAA_NS)
 
         title = title_elem.text.strip() if title_elem is not None and title_elem.text else ""
         link = link_elem.text.strip() if link_elem is not None and link_elem.text else ""
-        if not link and guid_elem is not None and guid_elem.text:
-            link = guid_elem.text.strip()
+        guid = guid_elem.text.strip() if guid_elem is not None and guid_elem.text else ""
+        details_url = guid if "/view/" in guid else (link or guid)
 
-        info_hash = info_hash_elem.text.strip() if info_hash_elem is not None and info_hash_elem.text else ""
-        seeders = seeders_elem.text.strip() if seeders_elem is not None and seeders_elem.text else "0"
-        leechers = leechers_elem.text.strip() if leechers_elem is not None and leechers_elem.text else "0"
-        size = size_elem.text.strip() if size_elem is not None and size_elem.text else ""
+        info_hash = _find_nyaa_text(item, "infoHash")
+        seeders = _find_nyaa_text(item, "seeders", "0")
+        leechers = _find_nyaa_text(item, "leechers", "0")
+        size = _find_nyaa_text(item, "size")
 
-        match = re.search(r'/view/(\d+)', link)
-        sukebei_id = match.group(1) if match else link.split("/")[-1]
+        match = re.search(r"/(?:view|download)/(\d+)", details_url) or re.search(r"/(?:view|download)/(\d+)", link)
+        sukebei_id = match.group(1) if match else details_url.split("/")[-1].removesuffix(".torrent")
         torrent_id = f"sukebei:{sukebei_id}"
 
         magnet_url = f"magnet:?xt=urn:btih:{info_hash}&dn={quote(title)}" if info_hash else ""
@@ -160,7 +168,7 @@ def _parse_rss(rss_content: str) -> list[dict]:
         items.append({
             "id": torrent_id,
             "title": title,
-            "details_url": link,
+            "details_url": details_url,
             "magnet_url": magnet_url,
             "info_hash": info_hash,
             "size": size,
