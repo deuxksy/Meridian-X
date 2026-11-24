@@ -219,4 +219,69 @@ def test_run_favorite_no_favorite_url_noop(mocker):
     assert tx.add_magnet.call_count == 0
 
 
+def test_filter_and_send_ranks_by_taste_and_preserves_ties(mocker):
+    from meridian_x.collect import _filter_and_send
+
+    resolved_ids = []
+    fake_src = mocker.MagicMock()
+    fake_src.resolve.side_effect = lambda item, cfg: (resolved_ids.append(item["id"]) or {"type": "magnet", "data": f"magnet:{item['id']}"})
+    tx = mocker.MagicMock()
+    tx.add_magnet.return_value = True
+    db = mocker.MagicMock()
+
+    items = [
+        {"id": "s:1", "title": "Random.First.1080p.mp4"},
+        {"id": "s:2", "title": "Random.Second.1080p.mp4"},
+        {"id": "s:3", "title": "Kubera.Fortuna.Scene.1080p.mp4"},
+    ]
+    cfg = {"classify": {"artists": {"WEST": ["Kubera Fortuna"]}}, "scoring": {"enabled": True, "min_score": 0.0}}
+    stats = {"actor": {"Kubera Fortuna": 25}, "studio": {}}
+
+    sent = _filter_and_send(fake_src, "s", cfg, items, tx, db, set(), {}, None, remaining=2, dry_run=False, retention_stats=stats)
+    assert sent == 2
+    assert resolved_ids == ["s:3", "s:1"]
+
+
+def test_filter_and_send_min_score_cutoff(mocker):
+    from meridian_x.collect import _filter_and_send
+
+    resolved_ids = []
+    fake_src = mocker.MagicMock()
+    fake_src.resolve.side_effect = lambda item, cfg: (resolved_ids.append(item["id"]) or {"type": "magnet", "data": f"magnet:{item['id']}"})
+    tx = mocker.MagicMock()
+    tx.add_magnet.return_value = True
+    db = mocker.MagicMock()
+
+    items = [
+        {"id": "s:1", "title": "Random.Unknown.1080p.mp4"},
+        {"id": "s:2", "title": "Kubera.Fortuna.Scene.1080p.mp4"},
+    ]
+    cfg = {"classify": {"artists": {"WEST": ["Kubera Fortuna"]}}, "scoring": {"enabled": True, "min_score": 20.0}}
+
+    sent = _filter_and_send(fake_src, "s", cfg, items, tx, db, set(), {}, None, remaining=5, dry_run=False, retention_stats={})
+    assert sent == 1
+    assert resolved_ids == ["s:2"]
+
+
+def test_filter_and_send_scoring_disabled(mocker):
+    from meridian_x.collect import _filter_and_send
+
+    resolved_ids = []
+    fake_src = mocker.MagicMock()
+    fake_src.resolve.side_effect = lambda item, cfg: (resolved_ids.append(item["id"]) or {"type": "magnet", "data": f"magnet:{item['id']}"})
+    tx = mocker.MagicMock()
+    tx.add_magnet.return_value = True
+    db = mocker.MagicMock()
+
+    items = [
+        {"id": "s:1", "title": "Random.First.1080p.mp4"},
+        {"id": "s:2", "title": "Kubera.Fortuna.Scene.1080p.mp4"},
+    ]
+    cfg = {"classify": {"artists": {"WEST": ["Kubera Fortuna"]}}, "scoring": {"enabled": False, "min_score": 50.0}}
+
+    sent = _filter_and_send(fake_src, "s", cfg, items, tx, db, set(), {}, None, remaining=1, dry_run=False, retention_stats={})
+    assert sent == 1
+    assert resolved_ids == ["s:1"]
+
+
 

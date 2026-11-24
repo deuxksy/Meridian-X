@@ -5,7 +5,7 @@ Multi-source RSS 수집 → Transmission RPC 전송
 import logging
 from pathlib import Path
 
-from .core import load_config
+from .core import load_config, score_taste
 from .db import MeridianDB
 from .sources import SOURCES
 from .transmission import TransmissionClient
@@ -60,6 +60,7 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
     if history_file and Path(history_file).exists():
         db.migrate_history_txt(history_file)
     history = db.get_download_history()
+    retention_stats = db.get_retention_stats()
 
     remaining = max_count
     total_count = 0
@@ -91,6 +92,7 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
                 src_module, src_name, effective_config, items,
                 client, db, history, filters, download_dir,
                 remaining=remaining, dry_run=dry_run,
+                retention_stats=retention_stats,
             )
 
             remaining -= count
@@ -117,8 +119,9 @@ def _filter_and_send(
     download_dir,
     remaining: int,
     dry_run: bool,
+    retention_stats: dict | None = None,
 ) -> int:
-    """history 필터링 → resolve → Transmission 전송. 전송 성공 수 반환."""
+    """history 필터링 → 취향 스코어 정렬/선택적 컷오프 → resolve → Transmission 전송. 전송 성공 수 반환."""
     if not items:
         logger.info("No items found")
         return 0
@@ -130,12 +133,32 @@ def _filter_and_send(
     if not new_items:
         return 0
 
+    scoring_cfg = effective_config.get("scoring", {})
+    scoring_enabled = scoring_cfg.get("enabled", True) if isinstance(scoring_cfg, dict) else True
+    min_score = float(scoring_cfg.get("min_score", 0.0)) if isinstance(scoring_cfg, dict) else 0.0
+
+    scored_map: dict[str, tuple[float, list[str]]] = {}
+    if scoring_enabled:
+        for item in new_items:
+            scored_map[item["id"]] = score_taste(item, effective_config, retention_stats)
+        new_items = sorted(new_items, key=lambda i: scored_map[i["id"]][0], reverse=True)
+        if min_score > 0:
+            before = len(new_items)
+            new_items = [i for i in new_items if scored_map[i["id"]][0] >= min_score]
+            skipped = before - len(new_items)
+            if skipped:
+                logger.info(f"  [Scoring] Skipped {skipped} items below min_score={min_score:.1f}")
+
     to_process = new_items[:remaining]
     logger.info(f"Will process {len(to_process)} items")
 
     count = 0
     for item in to_process:
         item_id = item["id"]
+        if item_id in scored_map:
+            sc, reasons = scored_map[item_id]
+            reason_str = ", ".join(reasons) if reasons else "unmatched"
+            logger.info(f"  [Score {sc:.1f}] {item_id} ({reason_str})")
 
         if dry_run:
             logger.info(f"  [Dry-run] {item_id}: {item.get('title', '')}")
