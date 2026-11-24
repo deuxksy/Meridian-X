@@ -11,9 +11,10 @@ Meridian-X의 설계 철학과 2단계 운영 아키텍처(수집 단계 및 8�
 ```mermaid
 graph TD
     subgraph Ingest[1. 수집 단계 - transmission/search/favorite]
-        SRC[4대 소스 - OneJAV/Sukebei/XXXClub/TGx] --> FETCH[사이트 접속 - proxy 우선 - lt SSH 폴백]
-        FETCH --> DEDUP[화질 필터 FHD/4K - 1080p 릴리스 우선순위 선별]
-        DEDUP --> TX_ADD[Transmission RPC 토렌트 큐잉]
+        SRC[멀티소스 - OneJAV/Sukebei/XXXClub] --> FETCH[사이트 접속 - proxy 우선 - lt SSH 폴백]
+        FETCH --> DEDUP[화질 필터 FHD/4K - 1080p 릴리스 선별]
+        DEDUP --> SCORE[글로벌 취향 스코어링 - score_taste 및 min_score 컷오프]
+        SCORE --> TX_ADD[Transmission RPC 토렌트 큐잉]
     end
 
     subgraph Pipeline[2. 큐레이션 파이프라인 - 8단계 일괄 자동화]
@@ -24,7 +25,8 @@ graph TD
         S4 --> S5[5. Tidy - SSH 정크삭제 - 폴더 Flatten - 파일명 정리]
         S5 --> S6[6. Classify - 하이브리드 메타데이터 조회 우선순위 분류]
         S6 --> S7[7. Refresh - Jellyfin 라이브러리 일괄 갱신]
-        S7 --> S8[8. Report - 스토리지 사용량 토렌트 상태 리포트]
+        S7 --> S8[8. Report - 스토리지/잔존율 스냅샷 및 토렌트 상태]
+        S8 -.-> SCORE
     end
 
     subgraph ClassifyPriority[분류 우선순위 - Classify Priority]
@@ -58,13 +60,14 @@ onejav는 추가로 사이트 전체에 Cloudflare JS challenge가 걸려 있어
 5. **Tidy**: SSH 원격 연결을 통해 부산물 정크를 삭제하고, 단일 영상 폴더를 Flatten하며, 파일명의 상업용 광고 접두사를 정중히 정화합니다.
 6. **Classify**: FANZA, JavBus, OneJAV, StashDB GraphQL API를 하이브리드로 조회하여 배우 폴더(`Actors/{배우}/`)를 최우선으로 스튜디오, 장르, JPN, FC2, West 폴더로 안전하게 분류 이동합니다.
 7. **Jellyfin Refresh**: 파일 이동 사항을 Jellyfin 미디어 라이브러리에 일괄 반영합니다.
-8. **System Report**: 최종 스토리지 용량 및 토렌트 데몬 상태를 브리핑합니다.
+8. **System Report**: 최종 스토리지 용량, 이력 대비 실제 잔존율(`retention_stats` DB 스냅샷 갱신) 및 토렌트 데몬 상태를 브리핑합니다.
 
 ---
 
-## 3. 스마트 릴리스 선별 (`deduplicate_releases`)
+## 3. 스마트 릴리스 선별 및 글로벌 취향 스코어링
 
-동일한 에피소드가 여러 화질 및 릴 그룹으로 배포될 때, 다음과 같은 우선순위 가중치를 기반으로 최고 품질의 단일 릴리스만 선별합니다:
+동일한 에피소드가 여러 화질 및 릴 그룹으로 배포될 때 `deduplicate_releases`가 최고 품질 단일 릴리스를 선별하고, 이후 `score_taste`가 전 소스 후보를 글로벌 정렬합니다:
 
 - **해상도 우선순위**: 1080p(FHD, +1000점) > 2160p(4K, +500점) > 720p/SD (제외 대상)
 - **릴 그룹 안정성**: WRB / XC (+300점) > TRB (+200점) > P2P (+100점)
+- **잔존율 기반 취향 스코어링 (`score_taste`)**: `retention_stats`(실제 디스크 잔존 파일 수) + 메타데이터 캐시(`jav_metadata`/`west_metadata`)를 결합해 배우(`+30 + log2(1+kept)*10`), 스튜디오/`FC2`(`+10 + log2(1+kept)*5`), JAV 메이커 프리픽스(`log2(1+kept)*4`) 점수를 산출하며 `collection.scoring.min_score` 미만 항목은 자동 스킵합니다(`meridian favorite` 제외).

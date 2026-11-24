@@ -6,7 +6,5 @@
 
 ## Claude-specific workflow
 
-- 구현 전 변경 범위를 먼저 좁히고, 가능한 한 작은 diff로 작업한다.
-- 원격 파일 이동, Transmission/Jellyfin 조작, 외부 API 조회는 dry-run 또는 읽기 전용 확인을 먼저 수행한다.
-- 새로운 CLI 기능 또는 동작 변경은 관련 단위 테스트를 먼저 추가/수정한 뒤 구현한다.
-- Secret, API key, token, DB 연결 정보는 평문으로 작성하지 않는다. 설정 복원/암호화는 `.ai/RULES.md`의 sops 흐름을 따른다.
+- 비대화형(`claude -p`) 실행 시에는 승인 프롬프트에 의존하지 않고, transmission, favorite, tidy, classify, pipeline 등 원격·외부 변경은 `--dry-run` 결과를 먼저 제시한 뒤 사용자 명령을 기다린다.
+- 서브에이전트 위임 시에도 `.ai/RULES.md`의 SOPS/원격 SSH(`media` 계정) 제약을 프롬프트에 명시해 전달한다.

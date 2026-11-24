@@ -17,7 +17,7 @@ Meridian-X의 모든 서브커맨드와 지원 옵션에 대한 상세 명세서
 | `sync` | Transmission 라벨 ➔ Jellyfin 태그 동기화 | - |
 | `tidy` | SSH 원격 정크 삭제, 폴더 Flatten, 파일명 정리 | `--dry-run` |
 | `classify` | SSH 원격 파일 분류 (하이브리드 메타데이터 조회) | `--dry-run`, `--lookup-jav` |
-| `report` | 스토리지 용량 및 Transmission 토렌트 상태 리포트 | - |
+| `report` | 스토리지 용량, 이력 대비 실제 잔존율(`retention_stats` 스냅샷 저장) 및 토렌트 상태 리포트 | - |
 
 ---
 

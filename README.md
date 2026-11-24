@@ -4,7 +4,7 @@
 
 *품격 있는 디지털 수집가를 위한 우아한 솔루션*
 
-**Meridian-X**는 프라이빗 미디어 컬렉션을 자동 수집·정리·분류·동기화하는 Python 자동화 스위트입니다. 4대 미디어 소스 기반 고화질(FHD/4K) 수집, 광고 파일 정리, 메타데이터 조회, Jellyfin 태그 동기화 및 SSH 원격 분류를 하나의 운영 흐름으로 제공합니다.
+**Meridian-X**는 프라이빗 미디어 컬렉션을 자동 수집·정리·분류·동기화하는 Python 자동화 스위트입니다. 고화질(FHD/4K) 멀티소스 수집과 실제 디스크 잔존율 기반 취향 스코어링, 광고 정크 정리, 메타데이터 조회, Jellyfin 태그 동기화 및 SSH 원격 분류를 하나의 운영 흐름으로 제공합니다.
 
 ---
 
@@ -39,7 +39,7 @@ Meridian-X/
 │   ├── okf/                   # 공식 지식 프레임워크 (Tutorials, How-To, Reference, Explanation)
 │   ├── archive/               # 비관리형 과거 기획 및 외부 참조 자료
 │   └── superpowers/           # AI 에이전트 설계/계획서
-├── tests/                     # pytest 회귀 테스트 스위트 (19개 모듈)
+├── tests/                     # pytest 회귀 테스트 스위트 (21개 모듈)
 └── src/meridian_x/
     ├── cli.py                 # CLI 진입점
     ├── collect.py             # Multi-source 수집 오케스트레이터
@@ -48,14 +48,14 @@ Meridian-X/
     ├── jellyfin.py            # Jellyfin REST API 클라이언트
     ├── tidy.py                # 원격 파일 정리 (SSH)
     ├── classify.py            # 원격 파일 분류 (SSH)
-    ├── report.py              # disk/토렌트 상태 리포트
-    ├── db.py                  # SQLite 저장소 (download_history, jav_metadata, west_metadata)
+    ├── report.py              # disk/잔존율(retention)/토렌트 상태 리포트
+    ├── db.py                  # SQLite 저장소 (download_history, jav_metadata, west_metadata, actresses, retention_stats)
     ├── fanza.py               # FANZA API 클라이언트
     ├── jav_lookup.py          # 배우 2차 분류 조회
     ├── jav_metadata.py        # 메타데이터 통합 Resolver
     ├── west_metadata.py       # StashDB GraphQL API West 메타데이터 Resolver
     ├── remote.py              # SSH 원격 명령, 원격 curl, 프록시 fetch 헬퍼 모듈
-    └── core.py                # 공통 함수 (설정/화질필터/중복선별)
+    └── core.py                # 공통 함수 (설정/화질필터/중복선별/취향스코어링)
 ```
 
 ---
@@ -88,6 +88,7 @@ uv run meridian pipeline                          # stop→filter→label→sync
 | :--- | :--- | :--- |
 | **Docs Hub** | [Documentation Hub](./docs/README.md) | docs/ 전체 구조 안내 (OKF, archive, superpowers) |
 | **Framework** | [OKF Hub](./docs/okf/README.md) | 사람 중심 공식 지식 프레임워크 허브 |
+| **Tutorials** | [입문 튜토리얼](./docs/okf/tutorials/README.md) | 설치, 초기 설정 복원 및 첫 Dry-run 실습 안내 |
 | **How-To** | [CLI 운영 가이드](./docs/okf/how-to/cli-usage.md) | 수집, 검색, 8단계 파이프라인 등 전체 명령어 상세 가이드 |
 | **How-To** | [Security Scan 구축](./docs/okf/how-to/security-scan-implementation.md) | GitHub Actions 보안 스캔 파이프라인 구축 절차 |
 | **Reference** | [설정 명세 (Configuration)](./docs/okf/reference/configuration.md) | `settings.json` 전체 키 스키마 및 SOPS 암호화 명세 |
