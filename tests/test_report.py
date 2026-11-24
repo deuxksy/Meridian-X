@@ -87,3 +87,41 @@ def test_transmission_status(caplog):
     assert "총 토렌트: 2" in caplog.text
     assert "downloading" in caplog.text
     assert "seeding" in caplog.text
+
+
+def test_retention_status(tmp_path, caplog):
+    import logging
+    from meridian_x.db import MeridianDB
+
+    caplog.set_level(logging.INFO)
+    db = MeridianDB(tmp_path / "test.db")
+    db.add_download_history([
+        "onejav:FC2PPV4900001",
+        "onejav:SONE001",
+        "xxxclub:hash1",
+        "xxxclub:hash2",
+    ])
+    config = {
+        "classify": {
+            "artists": {"JPN": ["MINAMO"], "WEST": ["Dakota Doll"]},
+            "studios": {"WEST": {"Wowgirls": ["wowgirls"]}},
+        }
+    }
+    remote = {"host": "nas.local", "user": "media", "path": "/volume1/Media/complete"}
+    sample_files = "\n".join([
+        "FC2/fc2-ppv-4900001/fc2-ppv-4900001.mp4",
+        "Actors/MINAMO/SONE-001.mp4",
+        "Wowgirls/scene1.mp4",
+        "WowGirls/scene2.mp4",
+        "Actors/UnlistedActor/x.mp4",
+    ])
+
+    with patch("meridian_x.report._ssh", return_value=(True, sample_files)):
+        report.retention_status(remote, config, db)
+
+    assert "전체 생존율 : 5 / 4" in caplog.text
+    assert "FC2  생존율 : 1 / 1 (100.0%)" in caplog.text
+    assert "JPN  생존율 : 1 / 1 (100.0%)" in caplog.text
+    assert "WEST 생존율 : 2 / 2 (100.0%)" in caplog.text
+    assert "대소문자 중복 폴더" in caplog.text
+    assert "UnlistedActor" in caplog.text

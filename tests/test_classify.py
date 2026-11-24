@@ -108,11 +108,12 @@ def test_japanese_artists_classification():
     config = load_config("config/settings.json")
     artists = [
         "MINAMO", "Rena Miyashita", "Rima Arai", "Umi Yatsugake",
-        "佐野葉月", "博多彩葉", "川越にこ", "日向由奈", "白花にあ", "雛形みくる"
+        "Hazuki Sano", "Iroha Hakata", "Niko Kawagoe", "Yuna Hinata", "Nia Shirahana", "Mikuru Hinagata"
     ]
     for artist in artists:
         assert artist in get_artist_folders(config)
     assert classify_filename("MINAMO_special_01.mp4", config) == "Actors/MINAMO"
+    assert classify_filename("川越にこ_01.mp4", config) == "Actors/Niko Kawagoe"
 
 
 def test_japanese_artists_favorite_list():
@@ -383,6 +384,18 @@ def test_classify_ssh_calls_run_remote_ssh():
             user="media",
             timeout=60,
         )
+
+
+def test_artist_aliases_normalization():
+    config = {
+        "classify": {
+            "artists": {"JPN": ["Rena Miyashita"]},
+            "artist_aliases": {"Rena Miyashita": ["宮下玲奈"]},
+        }
+    }
+    assert classify_filename("MIDA-559.宮下玲奈.mp4", config) == "Actors/Rena Miyashita"
+    assert classify_folder("宮下玲奈.collection", config) == "Actors/Rena Miyashita"
+    assert classify_by_actress_lookup("MIDA-559.mp4", config, actresses=["宮下玲奈"]) == "Actors/Rena Miyashita"
 
 
 

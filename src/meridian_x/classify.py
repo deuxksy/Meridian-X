@@ -126,6 +126,23 @@ def get_studio_mappings(config: dict, region: str | None = None) -> dict[str, li
     return {}
 
 
+def _match_artist(text: str, config: dict) -> str | None:
+    """텍스트에서 등록된 배우(또는 artist_aliases) 매칭 시 Actors/<canonical> 반환."""
+    t_norm = _normalize_name(text)
+    if not t_norm:
+        return None
+    for folder in get_artist_folders(config):
+        if _normalize_name(folder) in t_norm:
+            return f"Actors/{folder}"
+    aliases_map = config.get("classify", {}).get("artist_aliases", {})
+    if isinstance(aliases_map, dict):
+        for canonical, aliases in aliases_map.items():
+            alias_list = aliases if isinstance(aliases, list) else [aliases]
+            if any(_normalize_name(a) in t_norm for a in alias_list):
+                return f"Actors/{canonical}"
+    return None
+
+
 def compute_exclude_folders(config: dict) -> list[str]:
     """분류 대상 스캔 시 제외할 폴더 집합 (분류 목적지 보호). artists/studios dict 구조 지원."""
     exclude = {"Actors", "JPN", "FC2", "West"}
@@ -150,9 +167,9 @@ def classify_filename(filename: str, config: dict) -> str:
     f_norm = _normalize_name(filename)
 
     # 1. 배우
-    for folder in get_artist_folders(config):
-        if _normalize_name(folder) in f_norm:
-            return f"Actors/{folder}"
+    matched_artist = _match_artist(filename, config)
+    if matched_artist:
+        return matched_artist
 
     # 2. 스튜디오
     for studio, aliases in get_studio_mappings(config).items():
@@ -193,9 +210,9 @@ def classify_folder(folder_name: str, config: dict) -> str | None:
     f_norm = _normalize_name(folder_name)
 
     # 1. 배우
-    for folder in get_artist_folders(config):
-        if _normalize_name(folder) in f_norm:
-            return f"Actors/{folder}"
+    matched_artist = _match_artist(folder_name, config)
+    if matched_artist:
+        return matched_artist
 
     # 2. 스튜디오
     for studio, aliases in get_studio_mappings(config).items():
@@ -247,9 +264,9 @@ def classify_filename_with_metadata(filename: str, config: dict, use_metadata: b
 
                 # 1. 즐겨찾기 배우 확인
                 for actress in actresses:
-                    for folder in artist_folders:
-                        if _normalize_name(folder) in _normalize_name(actress):
-                            return f"Actors/{folder}"
+                    matched = _match_artist(actress, config)
+                    if matched:
+                        return matched
 
                 # 2. 등록 스튜디오 확인
                 for maker in makers:
@@ -265,9 +282,9 @@ def classify_filename_with_metadata(filename: str, config: dict, use_metadata: b
 
             # 1. 즐겨찾기 배우 확인
             for performer in performers:
-                for folder in artist_folders:
-                    if _normalize_name(folder) in _normalize_name(performer):
-                        return f"Actors/{folder}"
+                matched = _match_artist(performer, config)
+                if matched:
+                    return matched
 
             # 2. 등록 스튜디오 확인
             if studio:
@@ -293,9 +310,9 @@ def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str]
         actresses = meta.get("actresses", [])
 
     for actress in actresses:
-        for folder in artist_folders:
-            if _normalize_name(folder) in _normalize_name(actress):
-                return f"Actors/{folder}"
+        matched = _match_artist(actress, config)
+        if matched:
+            return matched
     return None
 
 

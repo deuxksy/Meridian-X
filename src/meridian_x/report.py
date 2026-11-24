@@ -9,6 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 from .core import load_config
+from .db import MeridianDB
 from .remote import run_remote_ssh
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,87 @@ def disk_status(remote: dict) -> None:
         logger.info(f"  TOTAL: {_humanize(total_bytes)}")
 
 
+def retention_status(remote: dict, config: dict, db: MeridianDB) -> None:
+    """download_history 대비 원격 실제 잔존 영상 생존율 및 Top 배우/스튜디오 리포트."""
+    path = remote["path"]
+    cmd = (
+        f'find "{path}" -maxdepth 4 -type f '
+        '\\( -iname "*.mp4" -o -iname "*.mkv" -o -iname "*.avi" -o -iname "*.wmv" -o -iname "*.ts" \\) '
+        '-printf "%P\\n"'
+    )
+    ok, output = _ssh(remote, cmd)
+    if not ok:
+        logger.error(f"생존율 조회 실패: {output[:200]}")
+        return
+
+    rel_paths = [line.strip() for line in output.splitlines() if line.strip()]
+    studio_counts: Counter[str] = Counter()
+    actor_counts: Counter[str] = Counter()
+    top_dirs: set[str] = set()
+    jpn_actors = set(config.get("classify", {}).get("artists", {}).get("JPN", []))
+    west_actors = set(config.get("classify", {}).get("artists", {}).get("WEST", []))
+    all_actors = jpn_actors | west_actors
+    west_studios = set(config.get("classify", {}).get("studios", {}).get("WEST", {}).keys())
+
+    for rel in rel_paths:
+        parts = rel.split("/")
+        top = parts[0]
+        if len(parts) > 1:
+            top_dirs.add(top)
+        if top == "Actors" and len(parts) >= 3:
+            actor_counts[parts[1]] += 1
+        elif len(parts) >= 2:
+            studio_counts[top] += 1
+        else:
+            studio_counts["(unclassified)"] += 1
+
+    history_ids = db.get_download_history()
+    src_counts = Counter(hid.split(":", 1)[0] for hid in history_ids if ":" in hid)
+    fc2_hist = sum(1 for hid in history_ids if hid.lower().startswith("onejav:fc2"))
+    jav_hist = src_counts["onejav"] - fc2_hist + src_counts["sukebei"]
+    west_hist = src_counts["xxxclub"] + src_counts["tgx"]
+
+    fc2_kept = studio_counts["FC2"]
+    jpn_kept = studio_counts["JPN"] + sum(c for a, c in actor_counts.items() if a in jpn_actors)
+    west_kept = (
+        studio_counts["West"]
+        + sum(c for s, c in studio_counts.items() if s in west_studios or s.lower() in {w.lower() for w in west_studios})
+        + sum(c for a, c in actor_counts.items() if a in west_actors)
+    )
+    total_kept = len(rel_paths)
+    total_hist = len(history_ids)
+
+    def _pct(kept: int, hist: int) -> str:
+        return f"{(kept / hist * 100):.1f}%" if hist > 0 else "N/A"
+
+    logger.info(f"  전체 생존율 : {total_kept} / {total_hist} ({_pct(total_kept, total_hist)})")
+    logger.info(f"  FC2  생존율 : {fc2_kept} / {fc2_hist} ({_pct(fc2_kept, fc2_hist)})")
+    logger.info(f"  JPN  생존율 : {jpn_kept} / {jav_hist} ({_pct(jpn_kept, jav_hist)})")
+    logger.info(f"  WEST 생존율 : {west_kept} / {west_hist} ({_pct(west_kept, west_hist)})")
+
+    if studio_counts:
+        logger.info("  잔존 Top 스튜디오/카테고리:")
+        for name, cnt in studio_counts.most_common(10):
+            logger.info(f"    {cnt:>4} files  {name}")
+
+    if actor_counts:
+        logger.info("  잔존 Top 배우:")
+        for name, cnt in actor_counts.most_common(10):
+            logger.info(f"    {cnt:>4} files  {name}")
+
+    # 대소문자 중복 폴더 및 미등록 배우 경고
+    lower_map: dict[str, list[str]] = {}
+    for d in sorted(top_dirs):
+        lower_map.setdefault(d.lower(), []).append(d)
+    dup_dirs = [names for names in lower_map.values() if len(names) > 1]
+    if dup_dirs:
+        logger.warning(f"  대소문자 중복 폴더: {dup_dirs}")
+
+    unlisted_actors = sorted(a for a in actor_counts if a not in all_actors)
+    if unlisted_actors:
+        logger.warning(f"  미등록 Actors 폴더 ({len(unlisted_actors)}): {unlisted_actors}")
+
+
 def transmission_status(client) -> None:
     """Transmission 토렌트 상태 집계."""
     torrents = client.get_torrents_status()
@@ -133,6 +215,9 @@ def run() -> None:
 
     logger.info("[Disk] 원격 disk 사용량")
     disk_status(remote)
+
+    logger.info("[Retention] 이력 대비 실제 잔존율")
+    retention_status(remote, config, MeridianDB())
 
     logger.info("[Transmission] 토렌트 상태")
     if not tx_config.get("rpc_url"):
