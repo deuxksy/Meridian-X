@@ -28,13 +28,15 @@ uv run meridian pipeline --lookup-jav
 
 ### 정기 RSS 수집 (`transmission`)
 ```bash
-# 전체 소스(OneJAV, Sukebei, XXXClub, TorrentGalaxy) RSS 수집
+# 활성 소스(OneJAV, Sukebei, XXXClub) RSS 수집 및 글로벌 취향 스코어링 정렬
 uv run meridian transmission
+
+# 변경 없이 스코어링·선별 결과 미리보기
+uv run meridian transmission --dry-run
 
 # 특정 소스만 선택 수집
 uv run meridian transmission --source onejav
 uv run meridian transmission --source sukebei
-uv run meridian transmission --source tgx
 
 # 수집 최대 개수 지정
 uv run meridian transmission --max-downloads 50
@@ -54,9 +56,6 @@ uv run meridian search "Dakota Doll"
 
 # Sukebei JAV 검색
 uv run meridian search "MINAMO" --source sukebei
-
-# TorrentGalaxy 서양 고화질 검색
-uv run meridian search "Angela White" --source tgx
 
 # 자동 전체 수집 (요청 간격 3초 delay로 차단 방지)
 uv run meridian search "Dakota Doll" --auto --delay 3

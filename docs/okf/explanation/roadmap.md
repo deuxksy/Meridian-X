@@ -15,7 +15,9 @@
 | **v0.5** | ✅ Done | SQLite3 데이터베이스 (`meridian.db`) 통합 & 레거시 캐시 마이그레이션 | `2026-08-09-sqlite-metadata-store` |
 | **v0.6** | ✅ Done | Sukebei & TorrentGalaxy 4대 소스 통합, 다중 미러 복원력 & 원격 프록시 우회 | `2026-08-20-sukebei-source`<br>`2026-08-20-torrentgalaxy-source` |
 | **v0.7** | ✅ Done | 엄격한 FHD/4K 화질 필터링, 안정 릴 그룹(WRB/XC) 우선순위 선별 & URL Resolver 독립 프로젝트(Vesper-X) 분리 | - |
-| **v0.8** | 🛠️ Planned | Dry-Run 미리보기 강화 & Stalled 토렌트 정리 자동화 | - |
+| **v0.9** | ✅ Done | OneJAV FlareSolverr 연동, 즐겨찾기(`meridian favorite`) 분리 & XDG `credentials.json` 지원 | `2026-11-14-onejav-favorite-and-cleanup` |
+| **v0.10** | ✅ Done | 잔존율 리포트(`retention_stats`), 메타데이터 캐시 연동 글로벌 취향 스코어링(`score_taste`), 영문 배우 표준화(`artist_aliases`) | `2026-11-25-taste-scoring-design` |
+| **v1.0** | 🛠️ Planned | Dry-Run 상세 미리보기 강화 & Stalled 토렌트 자동 정리 | - |
 
 ---
 
@@ -69,12 +71,24 @@
 
 - [x] **엄격한 FHD/4K 화질 선별 (`is_fhd_or_higher`)**: 8K/VR 및 720p/SD/DVD를 배제하고 표준 2D FHD(1080p) 및 4K(2160p)만 수신
 - [x] **스마트 릴리스 랭킹 & 중복 선별 (`deduplicate_releases`)**: 동일 에피소드 다중 릴리스 중 1080p(FHD) 최우선 + 안정적인 릴 그룹(`WRB`/`XC` > `TRB` > `P2P`) 자동 선별
-- [x] **Vesper-X 독립 프로젝트 분리**: URL Resolver(MissKon, CosplayTele, ouo 우회, aria2 RPC)를 독립 레포지토리(`/Users/crong/git/Vesper-X`)로 분리하고 Playwright 등 무거운 의존성을 제거하여 Meridian-X 경량화 및 테스트 0.4초대 달성
-- [x] **전체 회귀 테스트 스위트 (166개 테스트) 100% 통과**
+- [x] **Vesper-X 독립 프로젝트 분리**: URL Resolver(MissKon, CosplayTele, ouo 우회, aria2 RPC)를 자매 저장소(`Vesper-X`)로 분리하고 Playwright 등 무거운 의존성을 제거하여 Meridian-X 경량화 및 테스트 0.4초대 달성
+- [x] **전체 회귀 테스트 스위트 100% 통과**
+
+### 8. FlareSolverr & Favorite Separation (v0.9)
+
+- [x] **즐겨찾기 수동 수집 분리 (`meridian favorite`)**: RSS 정기 수집(`transmission`)과 사용자 명시적 선택(`favorite_url`) 경로 분리
+- [x] **원격 우회 일원화 (`remote.py`)**: `gluetun` HTTP 프록시 + `FlareSolverr`(`cf_clearance` 바인딩) + `lt` 원격 SSH curl 체인 통합
+- [x] **XDG 사용자 인증 분리**: `~/.config/meridian-x/credentials.json` deep merge override 지원
+
+### 9. Retention Analytics & Global Taste Scoring (v0.10)
+
+- [x] **실제 디스크 잔존율 리포트 (`report.py` / `db.py`)**: `download_history` 대비 원격 잔존율 산출 및 배우·스튜디오·JAV 프리픽스별 `retention_stats` DB 스냅샷 자동 적재
+- [x] **메타데이터 캐시 연동 글로벌 취향 스코어링 (`core.py` / `collect.py`)**: 전 소스 후보를 `score_taste()`로 글로벌 정렬하고 `collection.scoring.min_score` 미만 항목 자동 스킵
+- [x] **영문 배우 표준화 (`classify.artist_aliases`)**: JPN/WEST 배우 폴더명을 영문(`First Last`)으로 통일하고 한자·가나 표기를 별칭 매핑으로 통합 (`222 passed`)
 
 ---
 
-## 🔮 Future Roadmap (v0.8+)
+## 🔮 Future Roadmap (v1.0+)
 
 ### 🎯 Short-Term (다음 단계)
 
