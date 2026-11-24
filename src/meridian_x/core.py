@@ -252,3 +252,93 @@ def deduplicate_releases(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     best_items.sort(key=lambda item: orig_indices.get(id(item), 0))
     return best_items
 
+
+def _norm_key(text: str) -> str:
+    return re.sub(r"[\._\-\s]+", "", text).lower()
+
+
+def score_taste(
+    item: dict[str, Any],
+    config: dict[str, Any],
+    retention_stats: dict[str, dict[str, int]] | None = None,
+) -> tuple[float, list[str]]:
+    """등록 배우/스튜디오 바닥 점수 + 실제 잔존 수(log2) 보너스 계산."""
+    import math
+
+    title = item.get("title") or ""
+    t_norm = _norm_key(title)
+    if not t_norm:
+        return 0.0, []
+
+    stats = retention_stats or {}
+    actor_stats = stats.get("actor", {})
+    studio_stats = stats.get("studio", {})
+    classify_cfg = config.get("classify", {})
+
+    total = 0.0
+    reasons: list[str] = []
+
+    # 1. 배우 매칭 (artists + artist_aliases)
+    matched_actor: str | None = None
+    artists_cfg = classify_cfg.get("artists", {})
+    artist_list: list[str] = []
+    if isinstance(artists_cfg, dict):
+        for reg_list in artists_cfg.values():
+            if isinstance(reg_list, list):
+                artist_list.extend(reg_list)
+    elif isinstance(artists_cfg, list):
+        artist_list.extend(artists_cfg)
+
+    for actor in artist_list:
+        if _norm_key(actor) and _norm_key(actor) in t_norm:
+            matched_actor = actor
+            break
+
+    if not matched_actor:
+        aliases_map = classify_cfg.get("artist_aliases", {})
+        if isinstance(aliases_map, dict):
+            for canonical, aliases in aliases_map.items():
+                alias_list = aliases if isinstance(aliases, list) else [aliases]
+                if any(_norm_key(a) and _norm_key(a) in t_norm for a in alias_list):
+                    matched_actor = canonical
+                    break
+
+    if matched_actor:
+        kept = int(actor_stats.get(matched_actor, 0))
+        pts = round(30.0 + round(math.log2(1 + kept) * 10, 1), 1)
+        total += pts
+        reasons.append(f"actor:{matched_actor}(+{pts},kept={kept})")
+
+    # 2. 스튜디오 매칭 (studios + FC2 패턴)
+    matched_studio: str | None = None
+    studios_cfg = classify_cfg.get("studios", {})
+    studio_map: dict[str, list[str]] = {}
+    if isinstance(studios_cfg, dict):
+        for val in studios_cfg.values():
+            if isinstance(val, dict):
+                for st_name, aliases in val.items():
+                    studio_map[st_name] = list(aliases) if isinstance(aliases, list) else [aliases]
+            elif isinstance(val, list):
+                # flat {Studio: [aliases]} fallback
+                for st_name, aliases in studios_cfg.items():
+                    studio_map[st_name] = list(aliases) if isinstance(aliases, list) else [aliases]
+                break
+
+    for st_name, aliases in studio_map.items():
+        if (_norm_key(st_name) and _norm_key(st_name) in t_norm) or any(
+            _norm_key(a) and _norm_key(a) in t_norm for a in aliases
+        ):
+            matched_studio = st_name
+            break
+
+    if not matched_studio and re.search(r"(^fc2|fc2ppv)", t_norm):
+        matched_studio = "FC2"
+
+    if matched_studio:
+        kept = int(studio_stats.get(matched_studio, 0))
+        pts = round(10.0 + round(math.log2(1 + kept) * 5, 1), 1)
+        total += pts
+        reasons.append(f"studio:{matched_studio}(+{pts},kept={kept})")
+
+    return round(total, 1), reasons
+

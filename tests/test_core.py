@@ -203,4 +203,38 @@ def test_deduplicate_releases_1080p_and_release_group_priority():
     assert deduped[2]["id"] == "sukebei:11"
 
 
+def test_score_taste_actor_and_studio_with_retention():
+    import math
+    from meridian_x.core import score_taste
+
+    config = {
+        "classify": {
+            "artists": {"WEST": ["Kubera Fortuna"], "JPN": ["Rena Miyashita"]},
+            "artist_aliases": {"Rena Miyashita": ["宮下玲奈"]},
+            "studios": {"WEST": {"Wowgirls": ["wowgirls", "ultrafilms"]}},
+        }
+    }
+    stats = {"actor": {"Kubera Fortuna": 25, "Rena Miyashita": 6}, "studio": {"Wowgirls": 58, "FC2": 62}}
+
+    score, reasons = score_taste({"title": "UltraFilms.26.11.01.Kubera.Fortuna.1080p.mp4"}, config, stats)
+    expected = round(30.0 + round(math.log2(26) * 10, 1) + 10.0 + round(math.log2(59) * 5, 1), 1)
+    assert score == expected
+    assert any("actor:Kubera Fortuna" in r for r in reasons)
+    assert any("studio:Wowgirls" in r for r in reasons)
+
+    score_jp, reasons_jp = score_taste({"title": "MIDA-559 宮下玲奈"}, config, stats)
+    assert score_jp == round(30.0 + round(math.log2(7) * 10, 1), 1)
+    assert any("actor:Rena Miyashita" in r for r in reasons_jp)
+
+    score_fc2, reasons_fc2 = score_taste({"title": "FC2-PPV-4996405"}, config, stats)
+    assert score_fc2 == round(10.0 + round(math.log2(63) * 5, 1), 1)
+    assert any("studio:FC2" in r for r in reasons_fc2)
+
+    score_cold, _ = score_taste({"title": "Kubera.Fortuna.scene.mp4"}, config, None)
+    assert score_cold == 30.0
+
+    score_none, reasons_none = score_taste({"title": "Random.Unknown.1080p.mp4"}, config, stats)
+    assert score_none == 0.0 and reasons_none == []
+
+
 
