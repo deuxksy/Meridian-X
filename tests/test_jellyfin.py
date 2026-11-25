@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 import pytest
 
-from meridian_x.jellyfin import JellyfinClient, JellyfinAuthError, sync_tags
+from meridian_x.jellyfin import JellyfinClient, JellyfinAuthError, _match_name, sync_tags
 import requests
 
 
@@ -233,6 +233,27 @@ def test_jellyfin_auth_error_on_401():
             client.get_videos()
         assert "Jellyfin API 키 인증 실패 (HTTP 401)" in str(exc_info.value)
         assert "API 키가 만료되었거나 유효하지 않습니다" in str(exc_info.value)
+
+
+def test_match_name_exact_and_valid_partial():
+    assert _match_name("SONE-446", "/data/JPN/SONE-446.mp4") is True
+    assert _match_name("SONE-446.mp4", "/data/JPN/SONE-446.mp4") is True
+    assert _match_name("4k688.com@SONE-446", "/data/JPN/SONE-446.mp4") is True
+    assert _match_name(
+        "Anal-Angels.26.02.03.Molly.Cute.XXX.2160p.MP4-WRB[XC]",
+        "/data/West/Anal-Angels.26.02.03.Molly.Cute.XXX.2160p.MP4-WRB.mp4",
+    ) is True
+
+
+def test_match_name_blocks_short_false_positives():
+    torrent = "Anal-Angels.26.02.03.Molly.Cute.XXX.2160p.MP4-WRB[XC]"
+    assert _match_name(torrent, "/data/West/2160.mp4") is False
+    assert _match_name(torrent, "/data/West/a.mp4") is False
+    assert _match_name(torrent, "/data/West/Molly.mp4") is False
+    assert _match_name(torrent, "/data/West/Anal-Angels.mp4") is False
+    assert _match_name("", "/data/West/2160.mp4") is False
+    assert _match_name(torrent, "") is False
+
 
 
 

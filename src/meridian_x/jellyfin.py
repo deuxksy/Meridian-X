@@ -180,10 +180,19 @@ class JellyfinClient:
 def _match_name(torrent_name: str, jellyfin_path: str) -> bool:
     """토렌트 이름과 Jellyfin 파일 경로 매칭.
 
-    토렌트 이름이 파일 경로에 포함되면 매칭.
+    정확 일치하거나, 짧은 파일명('2160', 'a' 등)에 의한 오탐을 방지하기 위해
+    충분한 길이와 비율을 만족하는 부분 일치만 허용.
     """
     filename = Path(jellyfin_path).stem
-    return torrent_name in filename or filename in torrent_name
+    if not filename or not torrent_name:
+        return False
+    if torrent_name == filename:
+        return True
+    if torrent_name in filename:
+        return len(torrent_name) >= 5 and len(torrent_name) / len(filename) >= 0.4
+    if filename in torrent_name:
+        return len(filename) >= 6 and len(filename) / len(torrent_name) >= 0.4
+    return False
 
 
 def sync_tags(jellyfin: JellyfinClient, transmission_client, config: dict | None = None) -> int:
