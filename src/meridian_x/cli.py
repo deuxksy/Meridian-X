@@ -225,11 +225,11 @@ Examples:
   %(prog)s tidy                   # 원격 파일 정리 (정크삭제→Flatten→파일명정리→갱신)
   %(prog)s classify              # 미디어 파일 분류
   %(prog)s classify --dry-run    # 분류 미리보기
-  %(prog)s pipeline              # filter → label → sync → tidy → classify 한 번에
+  %(prog)s pipeline              # stop → filter → label → sync → tidy → classify → refresh → report
   %(prog)s pipeline --dry-run    # 미리보기
   %(prog)s report                # disk 사용량 + Transmission 상태 리포트
   %(prog)s search "MINAMO" --source sukebei # Sukebei 검색
-  %(prog)s search "Angela White" --source tgx # TorrentGalaxy 검색
+  %(prog)s search "Anal" --source xxxclub   # XXXClub 검색
         """
     )
     
@@ -269,7 +269,7 @@ Examples:
         "--source",
         type=str,
         default=None,
-        help="수집/검색 source 지정 (onejav, xxxclub, sukebei, torrentgalaxy/tgx). transmission은 미지정 시 전체 실행, search는 기본: xxxclub"
+        help="수집/검색 source 지정. transmission: onejav, xxxclub, sukebei, torrentgalaxy/tgx (미지정 시 전체). search: xxxclub, sukebei, torrentgalaxy/tgx (기본: xxxclub)"
     )
 
     parser.add_argument(
