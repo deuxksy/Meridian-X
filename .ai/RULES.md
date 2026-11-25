@@ -35,6 +35,7 @@ uv pip compile --upgrade pyproject.toml -o requirements.txt
 - `~/.config/meridian-x/credentials.json`: 선택 사용자 인증 override (XDG). `load_config()`가 deep merge로 우선 적용한다.
 - `.env`: 선택 환경변수. gitignored. API key/토큰 평문 커밋 금지.
 - `data/meridian.db`: SQLite 저장소. `download_history`, `jav_metadata`, `west_metadata`, `actresses`, `retention_stats` 테이블 사용.
+- JAV 메타데이터 조회는 `db_path`가 없으면 `logs/jav_metadata_cache.db`를 사용한다. `jav_metadata_cache` 설정에 따라 경로가 달라질 수 있다.
 
 ## Key Patterns
 
