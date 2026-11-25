@@ -166,7 +166,11 @@ class MeridianDB:
     def get_jav_metadata(self, code: str) -> dict | None:
         code_upper = code.upper()
         with self.get_connection() as conn:
-            row = conn.execute("SELECT * FROM jav_metadata WHERE code = ?", (code_upper,)).fetchone()
+            row = conn.execute(
+                """SELECT *, json_extract(raw_json, '$.cast_checked') AS cast_checked
+                   FROM jav_metadata WHERE code = ?""",
+                (code_upper,),
+            ).fetchone()
             if not row:
                 return None
             return {
@@ -177,6 +181,7 @@ class MeridianDB:
                 "genres": json.loads(row["genres"]) if row["genres"] else [],
                 "cover_url": row["cover_url"],
                 "source": row["source_api"],
+                "cast_checked": bool(row["cast_checked"]),
             }
 
     def save_jav_metadata(self, code: str, metadata: dict) -> None:

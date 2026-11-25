@@ -48,6 +48,7 @@ def test_fanza_client_fetch_metadata():
         "result": {
             "items": [
                 {
+                    "content_id": "sone00446",
                     "title": "Sample Title",
                     "iteminfo": {
                         "actress": [{"name": "MINAMO"}],
@@ -66,6 +67,7 @@ def test_fanza_client_fetch_metadata():
             "genres": ["単체作品"],
         }
         mock_get.assert_called_once()
+        assert client.fetch_metadata("SONE-44") is None
 
 
 def test_fanza_client_fetch_metadata_fc2_skipped():

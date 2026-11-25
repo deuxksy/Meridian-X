@@ -116,7 +116,7 @@ class FanzaClient:
         if not data:
             return None
 
-        metadata = self._parse_response(data)
+        metadata = self._parse_response(data, jav_code)
         if metadata:
             self._cache[jav_code] = metadata
 
@@ -155,13 +155,22 @@ class FanzaClient:
 
         return None
 
-    def _parse_response(self, data: dict) -> dict | None:
+    def _parse_response(self, data: dict, jav_code: str) -> dict | None:
         """API 응답에서 배우/메이커/장르 추출"""
         items = data.get("result", {}).get("items", [])
         if not items:
             return None
 
-        iteminfo = items[0].get("iteminfo", {})
+        prefix, sep, number = jav_code.lower().rpartition("-")
+        if not sep or not number.isascii() or not number.isdecimal():
+            return None
+        ids = {jav_code.lower(), prefix + number, prefix + number.zfill(5)}
+        for item in items:
+            if any(str(item.get(key, "")).lower() in ids for key in ("content_id", "product_id")):
+                iteminfo = item.get("iteminfo", {})
+                break
+        else:
+            return None
         return {
             "actresses": [a["name"] for a in iteminfo.get("actress", [])],
             "makers": [m["name"] for m in iteminfo.get("maker", [])],

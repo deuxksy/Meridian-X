@@ -3,6 +3,28 @@ from unittest.mock import MagicMock, patch
 from meridian_x.jav_metadata import get_jav_metadata, load_cache, save_cache
 
 
+def test_recheck_legacy_cast_on_lookup(tmp_path, mocker, monkeypatch):
+    from meridian_x.db import MeridianDB
+
+    monkeypatch.delenv("FANZA_API_ID", raising=False)
+    config = {"db_path": str(tmp_path / "cache.db")}
+    db = MeridianDB(config["db_path"])
+    db.save_jav_metadata("SNOS-187", {
+        "actresses": ["博多彩葉", "白花にあ"], "source": "web_db+onejav", "title": "Existing title"
+    })
+    web = mocker.patch("meridian_x.jav_metadata.lookup_web_jav_metadata", return_value={})
+    mocker.patch("meridian_x.jav_metadata.lookup_jav_actresses", return_value=[])
+    result = get_jav_metadata("SNOS-187", config)
+    assert result["actresses"] == []
+    assert result["title"] == "Existing title"
+    web.return_value = {"actresses": ["白花にあ"]}
+    assert get_jav_metadata("SNOS-187", config)["actresses"] == ["白花にあ"]
+    assert get_jav_metadata("SNOS-187", config)["actresses"] == ["白花にあ"]
+    assert web.call_count == 2
+    db.save_jav_metadata("SNOS-367", {"actresses": ["manual"], "source": "manual_fix"})
+    assert get_jav_metadata("SNOS-367", config)["actresses"] == ["manual"]
+
+
 def test_jav_metadata_cache(tmp_path):
     cache_file = tmp_path / "cache.json"
     cache_data = {

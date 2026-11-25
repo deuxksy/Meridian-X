@@ -75,7 +75,7 @@ def get_jav_metadata(
     code_upper = code.upper()
 
     cached = db.get_jav_metadata(code_upper)
-    if cached:
+    if cached and (cached.get("cast_checked") or cached.get("source") == "manual_fix"):
         logger.debug(f"[JAV Metadata Cache Hit] {code_upper}")
         return cached
 
@@ -152,7 +152,17 @@ def get_jav_metadata(
         "source": source,
     }
 
-    db.save_jav_metadata(code_upper, metadata)
+    if cached:
+        for field in ("title", "makers", "genres", "cover_url"):
+            if not metadata[field]:
+                metadata[field] = cached.get(field)
+
+    # Inconclusive lookups stay retryable. Never return a legacy unverified cast.
+    if actresses:
+        metadata["cast_checked"] = True
+        db.save_jav_metadata(code_upper, metadata)
+    elif not cached and sources_used:
+        db.save_jav_metadata(code_upper, metadata)
     return metadata
 
 

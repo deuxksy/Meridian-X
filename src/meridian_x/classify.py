@@ -126,19 +126,25 @@ def get_studio_mappings(config: dict, region: str | None = None) -> dict[str, li
     return {}
 
 
-def _match_artist(text: str, config: dict) -> str | None:
+def _match_artist(text: str, config: dict, exact: bool = False) -> str | None:
     """텍스트에서 등록된 배우(또는 artist_aliases) 매칭 시 Actors/<canonical> 반환."""
     t_norm = _normalize_name(text)
     if not t_norm:
         return None
+    def matches(name: str) -> bool:
+        normalized = _normalize_name(name)
+        if not normalized:
+            return False
+        return normalized == t_norm if exact else normalized in t_norm
+
     for folder in get_artist_folders(config):
-        if _normalize_name(folder) in t_norm:
+        if matches(folder):
             return f"Actors/{folder}"
     aliases_map = config.get("classify", {}).get("artist_aliases", {})
     if isinstance(aliases_map, dict):
         for canonical, aliases in aliases_map.items():
             alias_list = aliases if isinstance(aliases, list) else [aliases]
-            if any(_normalize_name(a) in t_norm for a in alias_list):
+            if any(matches(alias) for alias in alias_list):
                 return f"Actors/{canonical}"
     return None
 
@@ -264,7 +270,7 @@ def classify_filename_with_metadata(filename: str, config: dict, use_metadata: b
 
                 # 1. 즐겨찾기 배우 확인
                 for actress in actresses:
-                    matched = _match_artist(actress, config)
+                    matched = _match_artist(actress, config, exact=True)
                     if matched:
                         return matched
 
@@ -310,7 +316,7 @@ def classify_by_actress_lookup(filename: str, config: dict, actresses: list[str]
         actresses = meta.get("actresses", [])
 
     for actress in actresses:
-        matched = _match_artist(actress, config)
+        matched = _match_artist(actress, config, exact=True)
         if matched:
             return matched
     return None

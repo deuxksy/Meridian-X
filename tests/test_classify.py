@@ -130,6 +130,7 @@ def test_classify_by_actress_lookup():
     }
     assert classify_by_actress_lookup("FNS-237.mp4", config, ["MINAMO"]) == "Actors/MINAMO"
     assert classify_by_actress_lookup("ABF-364.mp4", config, ["Unknown"]) is None
+    assert classify_by_actress_lookup("ABF-364.mp4", config, ["MINAMOTO"]) is None
 
 
 def test_structured_artists_and_studios_classification():
