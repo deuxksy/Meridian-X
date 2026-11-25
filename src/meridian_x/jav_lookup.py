@@ -26,7 +26,9 @@ def _ssh_curl(url: str, config: dict | None = None, timeout: int = 15) -> str:
 
 
 def extract_jav_code(filename: str) -> str | None:
-    """Extract JAV code pattern from filename."""
+    """Extract JAV code pattern from filename (excluding FC2-PPV releases)."""
+    if re.search(r"(?:^|[^A-Z0-9])FC2[-\s_]*(?:PPV[-\s_]*)?\d+", filename, re.IGNORECASE):
+        return None
     match = re.search(r"([A-Z0-9]{3,7}-\d{2,5})", filename, re.IGNORECASE)
     return match.group(1).upper() if match else None
 

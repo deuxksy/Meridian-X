@@ -61,8 +61,8 @@ onejav는 추가로 사이트 전체에 Cloudflare JS challenge가 걸려 있어
 2. **Filter**: 불필요한 텍스트 파일, URL 바로가기, 샘플 영상 등 광고 파일을 `unwanted` 처리합니다.
 3. **Label**: 토렌트 이름에서 메이커 코드나 배우명을 추출하여 Transmission 라벨을 부여합니다.
 4. **Sync**: 부여된 라벨을 Jellyfin 태그로 동기화하여 미디어 서버 검색성을 높입니다.
-5. **Tidy**: SSH 원격 연결을 통해 부산물 정크를 삭제하고, 단일 영상 폴더를 Flatten하며, 파일명의 상업용 광고 접두사를 정중히 정화합니다.
-6. **Classify**: FANZA, JavBus, OneJAV, StashDB GraphQL API를 하이브리드로 조회하여 배우 폴더(`Actors/{배우}/`)를 최우선으로 스튜디오, 장르, JPN, FC2, West 폴더로 안전하게 분류 이동합니다.
+5. **Tidy**: SSH 원격 연결을 통해 부산물 정크를 삭제하고, 루트 영상 폴더 및 `FC2/` 내 미지정 하위 폴더를 Flatten하며, 파일명의 상업용 광고 접두사를 정중히 정화합니다.
+6. **Classify**: Jav321/JavBus, OneJAV, StashDB GraphQL API를 하이브리드로 조회하여 배우 폴더(`Actors/{배우}/`)를 최우선으로 스튜디오, 장르, JPN, FC2, West 폴더로 안전하게 분류 이동합니다.
 7. **Jellyfin Refresh**: 파일 이동 사항을 Jellyfin 미디어 라이브러리에 일괄 반영합니다.
 8. **System Report**: 최종 스토리지 용량, 이력 대비 실제 잔존율(`retention_stats` DB 스냅샷 갱신) 및 토렌트 데몬 상태를 브리핑합니다.
 

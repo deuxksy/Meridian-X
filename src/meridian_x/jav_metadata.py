@@ -1,20 +1,18 @@
 """
 Meridian-X JAV Metadata Unified Resolver
-FANZA API (1차) + OneJAV SSH Lookup (2차) 하이브리드 수집 및 캐싱 모듈
+Jav321/JavBus Web DB (1차) + OneJAV Lookup (2차) 하이브리드 수집 및 캐싱 모듈
 """
 
 import json
 import logging
-import os
 from pathlib import Path
 
 from .core import load_config
-from .fanza import FanzaClient
 from .jav_lookup import lookup_jav_actresses, lookup_web_jav_metadata
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CACHE_PATH = "logs/jav_metadata_cache.json"
+DEFAULT_CACHE_PATH = "data/jav_metadata_cache.json"
 
 
 def _get_db_from_config_or_cache_path(config: dict | None = None, cache_path: str = DEFAULT_CACHE_PATH):
@@ -54,12 +52,10 @@ def save_cache(cache_path: str, cache: dict) -> None:
 def get_jav_metadata(
     code: str,
     config: dict | None = None,
-    api_id: str | None = None,
-    affiliate_id: str | None = None,
 ) -> dict:
     """
-    품번(code)으로 FANZA 표준 데이터 수집.
-    필드 단위 병합: FANZA API (1차) -> 비어있는 필드 JavBus/Jav321 (2차) -> 비어있는 필드 OneJAV (3차)
+    품번(code)으로 JAV 메타데이터 수집.
+    필드 단위 병합: JavBus/Jav321 Web DB (1차) -> 비어있는 배우 정보 OneJAV (2차)
     """
     if config is None:
         try:
@@ -73,6 +69,16 @@ def get_jav_metadata(
         db.migrate_json_caches(jav_json=cache_path)
 
     code_upper = code.upper()
+    if code_upper.startswith("FC2"):
+        return {
+            "code": code_upper,
+            "actresses": [],
+            "makers": [],
+            "genres": [],
+            "title": None,
+            "cover_url": None,
+            "source": "none",
+        }
 
     cached = db.get_jav_metadata(code_upper)
     if cached and (cached.get("cast_checked") or cached.get("source") == "manual_fix"):
@@ -86,51 +92,31 @@ def get_jav_metadata(
     title = None
     cover_url = None
 
-    # 1. FANZA API 시도
-    api_id = api_id or os.getenv("FANZA_API_ID")
-    affiliate_id = affiliate_id or os.getenv("FANZA_AFFILIATE_ID")
+    # 1. Web DB (JavBus/Jav321) SSH Lookup
+    try:
+        web_data = lookup_web_jav_metadata(code_upper, config)
+        if web_data:
+            used = False
+            if web_data.get("actresses"):
+                actresses = web_data.get("actresses", [])
+                used = True
+            if web_data.get("makers"):
+                makers = web_data.get("makers", [])
+                used = True
+            if web_data.get("title"):
+                title = web_data.get("title")
+                used = True
+            if web_data.get("genres"):
+                for g in web_data.get("genres", []):
+                    if g not in genres:
+                        genres.append(g)
+                        used = True
+            if used:
+                sources_used.append("web_db")
+    except Exception as e:
+        logger.warning(f"[Web DB Lookup Error] {code_upper}: {e}")
 
-    if api_id and affiliate_id and not code_upper.startswith("FC2"):
-        try:
-            client = FanzaClient(api_id, affiliate_id)
-            fanza_data = client.fetch_metadata(code_upper)
-            if fanza_data:
-                actresses = fanza_data.get("actresses", [])
-                makers = fanza_data.get("makers", [])
-                genres = fanza_data.get("genres", [])
-                title = fanza_data.get("title")
-                cover_url = fanza_data.get("cover_url")
-                if actresses or makers:
-                    sources_used.append("fanza")
-        except Exception as e:
-            logger.warning(f"[FANZA API Error] {code_upper}: {e}")
-
-    # 2. Web DB (JavBus/Jav321) SSH Lookup: 비어있는 항목 보완
-    if not actresses or not makers or not title or not genres:
-        try:
-            web_data = lookup_web_jav_metadata(code_upper, config)
-            if web_data:
-                used = False
-                if not actresses and web_data.get("actresses"):
-                    actresses = web_data.get("actresses", [])
-                    used = True
-                if not makers and web_data.get("makers"):
-                    makers = web_data.get("makers", [])
-                    used = True
-                if not title and web_data.get("title"):
-                    title = web_data.get("title")
-                    used = True
-                if web_data.get("genres"):
-                    for g in web_data.get("genres", []):
-                        if g not in genres:
-                            genres.append(g)
-                            used = True
-                if used:
-                    sources_used.append("web_db")
-        except Exception as e:
-            logger.warning(f"[Web DB Lookup Error] {code_upper}: {e}")
-
-    # 3. OneJAV SSH Lookup Fallback: 여전히 배우 정보가 없는 경우 보완
+    # 2. OneJAV Lookup Fallback: 여전히 배우 정보가 없는 경우 보완
     if not actresses:
         try:
             onejav_actresses = lookup_jav_actresses(code_upper, config)

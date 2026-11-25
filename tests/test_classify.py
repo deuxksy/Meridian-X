@@ -184,7 +184,7 @@ def test_classify_filename_with_metadata_actress(mock_get_meta):
         "actresses": ["MINAMO"],
         "makers": ["S1 NO.1 STYLE"],
         "genres": [],
-        "source": "fanza",
+        "source": "web_db",
     }
 
     config = {
@@ -205,7 +205,7 @@ def test_classify_filename_with_metadata_maker_fallback(mock_get_meta):
         "actresses": [],
         "makers": ["S1 NO.1 STYLE"],
         "genres": [],
-        "source": "fanza",
+        "source": "web_db",
     }
 
     config = {
@@ -397,6 +397,56 @@ def test_artist_aliases_normalization():
     assert classify_filename("MIDA-559.宮下玲奈.mp4", config) == "Actors/Rena Miyashita"
     assert classify_folder("宮下玲奈.collection", config) == "Actors/Rena Miyashita"
     assert classify_by_actress_lookup("MIDA-559.mp4", config, actresses=["宮下玲奈"]) == "Actors/Rena Miyashita"
+
+
+def test_list_folders_script_skips_empty_and_undersized_folders(tmp_path):
+    """유효 영상(min_size_mb 초과)이 없는 빈 폴더·0바이트·소용량 폴더는 분류 대상에서 제외된다."""
+    import subprocess
+    from meridian_x.classify import _build_list_folders_script
+
+    # 1. 빈 폴더
+    (tmp_path / "fc2-ppv-empty").mkdir()
+
+    # 2. 0바이트 mp4 + nfo만 있는 폴더
+    stub_dir = tmp_path / "clubsweethearts.stub"
+    stub_dir.mkdir()
+    (stub_dir / "video.mp4").write_bytes(b"")
+    (stub_dir / "info.nfo").write_text("nfo")
+
+    # 3. min_size_mb(1MB) 미만 소용량 mp4 폴더
+    small_dir = tmp_path / "metartx.small"
+    small_dir.mkdir()
+    (small_dir / "video.mp4").write_bytes(b"x" * (512 * 1024))
+
+    # 4. 유효 영상(2MB > 1MB) 폴더
+    valid_dir = tmp_path / "metartx.valid"
+    valid_dir.mkdir()
+    (valid_dir / "video.mp4").write_bytes(b"x" * (2 * 1024 * 1024))
+
+    script = _build_list_folders_script(str(tmp_path), video_extensions=(".mp4", ".mkv"), min_size_mb=1)
+    res = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30)
+    assert res.returncode == 0
+    assert res.stdout.splitlines() == ["metartx.valid"]
+
+
+def test_list_folders_script_skips_zero_byte_when_min_size_zero(tmp_path):
+    """min_size_mb=0이어도 0바이트 stub 영상만 있는 폴더는 제외된다."""
+    import subprocess
+    from meridian_x.classify import _build_list_folders_script
+
+    stub_dir = tmp_path / "stub.only"
+    stub_dir.mkdir()
+    (stub_dir / "video.mp4").write_bytes(b"")
+
+    valid_dir = tmp_path / "nonempty"
+    valid_dir.mkdir()
+    (valid_dir / "video.mp4").write_bytes(b"x")
+
+    script = _build_list_folders_script(str(tmp_path), video_extensions=(".mp4",), min_size_mb=0)
+    res = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=30)
+    assert res.returncode == 0
+    assert res.stdout.splitlines() == ["nonempty"]
+
 
 
 

@@ -14,7 +14,7 @@ from .core import load_config
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CACHE_PATH = "logs/stashdb_metadata_cache.json"
+DEFAULT_CACHE_PATH = "data/stashdb_metadata_cache.json"
 STASHDB_GRAPHQL_URL = "https://stashdb.org/graphql"
 
 

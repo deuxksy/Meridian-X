@@ -38,14 +38,14 @@ def test_load_config_user_credentials_override(tmp_path, monkeypatch):
     creds_dir = tmp_path / "meridian-x"
     creds_dir.mkdir()
     (creds_dir / "credentials.json").write_text(
-        '{"jellyfin": {"api_key": "creds-key"}, "fanza": {"api_id": "creds-id"}}',
+        '{"jellyfin": {"api_key": "creds-key"}, "transmission": {"rpc_password": "creds-pw"}}',
         encoding="utf-8",
     )
     loaded = load_config(config_file)
     assert loaded["jellyfin"]["api_key"] == "creds-key"
     assert loaded["jellyfin"]["url"] == "http://media"
     assert loaded["stashdb"]["api_key"] == "settings-key"
-    assert loaded["fanza"]["api_id"] == "creds-id"
+    assert loaded["transmission"]["rpc_password"] == "creds-pw"
 
 
 def test_load_config_without_credentials_file(tmp_path, monkeypatch):

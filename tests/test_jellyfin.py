@@ -255,5 +255,35 @@ def test_match_name_blocks_short_false_positives():
     assert _match_name(torrent, "") is False
 
 
+@patch("meridian_x.jellyfin.get_west_metadata")
+@patch("meridian_x.jellyfin.get_jav_metadata")
+@patch.object(JellyfinClient, "update_metadata")
+@patch.object(JellyfinClient, "update_tags")
+@patch.object(JellyfinClient, "get_videos")
+def test_sync_tags_skips_external_lookup_for_fc2(
+    mock_get_videos, mock_update_tags, mock_update_metadata, mock_get_jav_meta, mock_get_west_meta
+):
+    mock_get_videos.return_value = [
+        {
+            "Id": "fc2_item",
+            "Name": "FC2-PPV-5000059_1",
+            "Path": "/data/FC2/FC2-PPV-5000059_1.mp4",
+            "Tags": [],
+        }
+    ]
+    mock_update_tags.return_value = True
+    tx_client = MagicMock()
+    tx_client.get_labeled_completed.return_value = {"FC2-PPV-5000059": ["fc2"]}
+
+    client = JellyfinClient("http://localhost:8096", "test_key")
+    updated = sync_tags(client, tx_client)
+
+    assert updated == 1
+    mock_get_jav_meta.assert_not_called()
+    mock_get_west_meta.assert_not_called()
+    mock_update_metadata.assert_not_called()
+    mock_update_tags.assert_called_once_with("fc2_item", ["fc2"])
+
+
 
 

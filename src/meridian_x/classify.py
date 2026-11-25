@@ -50,10 +50,34 @@ def _list_files(remote: dict, video_extensions: tuple, simulation_files: list[st
     return [f for f in output.splitlines() if f]
 
 
-def _list_folders(remote: dict, exclude: set) -> list[str]:
-    """원격 path 하위 폴더 목록 (분류 목적지 폴더 제외, 대소문자 무시). 멀티파트 폴더 분류용."""
+def _build_list_folders_script(
+    path: str,
+    video_extensions: tuple[str, ...] = (),
+    min_size_mb: int = 0,
+) -> str:
+    """유효 영상(min_size_mb 초과, 최소 1바이트 이상)을 포함한 최상위 폴더만 나열하는 셸 스크립트."""
+    exts = video_extensions or (".mp4", ".mkv", ".avi", ".wmv")
+    ext_pattern = " -o ".join(f'-iname "*{ext}"' for ext in exts)
+    size_filter = f"-size +{min_size_mb}M" if min_size_mb > 0 else "-size +0c"
+    return f'''
+cd "{path}"
+find . -maxdepth 1 -mindepth 1 -type d | sort | while IFS= read -r dir; do
+    if find "$dir" -type f \\( {ext_pattern} \\) {size_filter} 2>/dev/null | grep -q .; then
+        basename "$dir"
+    fi
+done
+'''
+
+
+def _list_folders(
+    remote: dict,
+    exclude: set,
+    video_extensions: tuple[str, ...] = (),
+    min_size_mb: int = 0,
+) -> list[str]:
+    """원격 path 하위 폴더 목록 (분류 목적지 폴더 제외, 대소문자 무시, 유효 영상 포함 폴더만)."""
     path = remote["path"]
-    cmd = f'find "{path}" -maxdepth 1 -mindepth 1 -type d -printf "%f\\n" | sort'
+    cmd = _build_list_folders_script(path, video_extensions=video_extensions, min_size_mb=min_size_mb)
     ok, output = _ssh(remote, cmd)
     if not ok:
         logger.error(f"폴더 목록 조회 실패: {output[:200]}")
@@ -463,10 +487,16 @@ def run(
             if result == "moved":
                 counts[dest] = counts.get(dest, 0) + 1
 
-    # 폴더 분류 (멀티파트 폴더 통째로 이동)
+    # 폴더 분류 (유효 영상이 남아 있는 폴더만 이동 — 빈 폴더·미완성 소용량 폴더 제외)
     exclude_folders = set(compute_exclude_folders(config))
+    min_size_mb = config.get("transmission", {}).get("filters", {}).get("min_file_size_mb", 0)
 
-    folders = _list_folders(remote, exclude_folders)
+    folders = _list_folders(
+        remote,
+        exclude_folders,
+        video_extensions=video_extensions,
+        min_size_mb=min_size_mb,
+    )
     if folders:
         logger.info(f"대상 폴더: {len(folders)}개")
         folder_counts = {}

@@ -156,7 +156,7 @@ class TestProbeReachable:
 
     def test_reachable_host_constructs(self, mocker):
         # 로컬 리스너가 있으면 probe 통과. Client 생성 자체는 lib 영역이라 mock.
-        mocker.patch("meridian_x.transmission.Client")
+        mock_cls = mocker.patch("meridian_x.transmission.Client")
         listener = socket.socket()
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
@@ -164,5 +164,6 @@ class TestProbeReachable:
         try:
             client = TransmissionClient(rpc_url=f"http://127.0.0.1:{port}/transmission/rpc")
             assert client._client is not None
+            assert mock_cls.call_args.kwargs["timeout"] == 30
         finally:
             listener.close()

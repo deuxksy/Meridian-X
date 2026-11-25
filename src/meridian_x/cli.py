@@ -115,7 +115,7 @@ def run_search(
             rpc_url=tx_config["rpc_url"],
             user=tx_config.get("rpc_user"),
             password=tx_config.get("rpc_password"),
-            timeout=tx_config.get("timeout", 10),
+            timeout=tx_config.get("timeout", 30),
         )
 
     def _get_magnet(item: dict) -> str | None:
@@ -344,7 +344,7 @@ Examples:
             rpc_url=tx_config["rpc_url"],
             user=tx_config.get("rpc_user"),
             password=tx_config.get("rpc_password"),
-            timeout=tx_config.get("timeout", 10),
+            timeout=tx_config.get("timeout", 30),
         )
         jf_client = JellyfinClient(
             base_url=jf_config["url"],
@@ -383,7 +383,7 @@ Examples:
             rpc_url=tx_config["rpc_url"],
             user=tx_config.get("rpc_user"),
             password=tx_config.get("rpc_password"),
-            timeout=tx_config.get("timeout", 10),
+            timeout=tx_config.get("timeout", 30),
             stop_after_download=stop_after,
         )
         jf_client = JellyfinClient(
@@ -479,7 +479,7 @@ Examples:
             rpc_url=tx_config["rpc_url"],
             user=tx_config.get("rpc_user"),
             password=tx_config.get("rpc_password"),
-            timeout=tx_config.get("timeout", 10)
+            timeout=tx_config.get("timeout", 30)
         )
         logger.info("=== Filter Existing Torrents ===")
         if args.dry_run:
@@ -500,7 +500,7 @@ Examples:
             rpc_url=tx_config["rpc_url"],
             user=tx_config.get("rpc_user"),
             password=tx_config.get("rpc_password"),
-            timeout=tx_config.get("timeout", 10)
+            timeout=tx_config.get("timeout", 30)
         )
         logger.info("=== Label Existing Torrents ===")
         if args.dry_run:

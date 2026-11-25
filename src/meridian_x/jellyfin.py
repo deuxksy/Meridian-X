@@ -4,6 +4,7 @@ Transmission labels → Jellyfin Tags 동기화 및 JAV 메타데이터 동기�
 """
 
 import logging
+import re
 from pathlib import Path
 
 import requests
@@ -228,9 +229,15 @@ def sync_tags(jellyfin: JellyfinClient, transmission_client, config: dict | None
             if not _match_name(torrent_name, info["path"]):
                 continue
 
-            # JAV / West 메타데이터 업데이트 시도
-            code = extract_jav_code(info["path"]) or extract_jav_code(torrent_name)
-            if code:
+            # JAV / West 메타데이터 업데이트 시도 (FC2는 외부 메타데이터 조회 제외)
+            is_fc2 = (
+                any(lbl.lower() == "fc2" for lbl in labels)
+                or bool(re.search(r"(?:^|[^A-Z0-9])FC2[-\s_]*(?:PPV[-\s_]*)?\d+", f"{info['path']} {torrent_name}", re.IGNORECASE))
+            )
+            code = None if is_fc2 else (extract_jav_code(info["path"]) or extract_jav_code(torrent_name))
+            if is_fc2:
+                pass
+            elif code:
                 try:
                     meta = get_jav_metadata(code, config)
                     if meta and (meta.get("actresses") or meta.get("makers") or meta.get("genres")):

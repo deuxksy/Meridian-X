@@ -5,6 +5,8 @@ def test_extract_jav_code():
     assert extract_jav_code("ABF-364.mp4") == "ABF-364"
     assert extract_jav_code("FNS-158-{FALENO star}-[None].mp4") == "FNS-158"
     assert extract_jav_code("random_western_video.mp4") is None
+    assert extract_jav_code("FC2-PPV-5000059.mp4") is None
+    assert extract_jav_code("/data/FC2/4k688.com@FC2-PPV-4993186_1.mp4") is None
 
 def test_lookup_jav_actresses_mock(mocker):
     html = """

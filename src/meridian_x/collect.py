@@ -29,7 +29,7 @@ def run_transmission(max_count: int = 30, source: str = None, dry_run: bool = Fa
         rpc_url=transmission_config["rpc_url"],
         user=transmission_config.get("rpc_user"),
         password=transmission_config.get("rpc_password"),
-        timeout=transmission_config.get("timeout", 10),
+        timeout=transmission_config.get("timeout", 30),
         stop_after_download=transmission_config.get("stop_after_download", False)
     )
     filters = transmission_config.get("filters", {})
@@ -276,7 +276,7 @@ def run_favorite(dry_run: bool = False) -> None:
         rpc_url=transmission_config["rpc_url"],
         user=transmission_config.get("rpc_user"),
         password=transmission_config.get("rpc_password"),
-        timeout=transmission_config.get("timeout", 10),
+        timeout=transmission_config.get("timeout", 30),
         stop_after_download=transmission_config.get("stop_after_download", False)
     )
     filters = transmission_config.get("filters", {})

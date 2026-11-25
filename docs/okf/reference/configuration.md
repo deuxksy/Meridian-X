@@ -29,7 +29,6 @@ Meridian-X의 설정 파일 구조, 필수/선택 키 및 보안 관리(SOPS 암
 | `remote` | 필수 | SSH 대상 원격 미디어 서버 (`host`, `user`, `path`) |
 | `proxy` | 선택 | 사이트 접속 우회 HTTP 프록시 URL (gluetun). 설정 시 소스 fetch가 `proxy → lt SSH → 직접` 순서로 시도된다 |
 | `flaresolverr` | 선택 | Cloudflare JS challenge 우회용 FlareSolverr (`url`: `.../v1` endpoint, `proxy`: FlareSolverr 컨테이너 기준 egress 프록시). OneJAV 전용 |
-| `fanza` | 선택 | 공식 JAV 메타데이터 조회용 FANZA API (`api_id`, `affiliate_id`) |
 | `stashdb` | 선택 | 서양 미디어 메타데이터 조회용 StashDB GraphQL API (`api_key`) |
 | `classify` | 필수 | 미디어 자동 분류 규칙 (`artists`, `artist_aliases`, `studios`, `delete_keywords`, `delete_extensions`, `clean_prefixes`) |
 | `genres` | 선택 | 장르별 키워드 및 접두사 매핑 규칙 |
@@ -120,7 +119,7 @@ Meridian-X의 설정 파일 구조, 필수/선택 키 및 보안 관리(SOPS 암
     "rpc_user": "media",
     "rpc_password": "YOUR_PASSWORD",
     "download_dir": null,
-    "timeout": 10,
+    "timeout": 30,
     "stop_after_download": true,
     "filters": {
       "exclude_extensions": [".html", ".url", ".txt", ".nfo"],
@@ -146,7 +145,6 @@ API key·비밀번호 등 인증 값은 repo 밖 사용자 파일로 분리할 �
 {
   "jellyfin": { "api_key": "..." },
   "stashdb": { "api_key": "..." },
-  "fanza": { "api_id": "...", "affiliate_id": "..." },
   "transmission": { "rpc_user": "...", "rpc_password": "..." }
 }
 ```

@@ -237,7 +237,7 @@ def run() -> None:
             rpc_url=tx_config["rpc_url"],
             user=tx_config.get("rpc_user"),
             password=tx_config.get("rpc_password"),
-            timeout=tx_config.get("timeout", 10),
+            timeout=tx_config.get("timeout", 30),
         )
         try:
             transmission_status(client)

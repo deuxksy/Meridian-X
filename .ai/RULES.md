@@ -18,6 +18,10 @@ sops --encrypt --input-type binary --output-type binary config/settings.json > c
 # Tests
 uv run pytest tests/ -v
 
+# Security / Static Analysis (CI 동일)
+bandit -r src -ll
+pip-audit -r requirements.txt
+
 # 의존성 업그레이드 시 requirements.txt 동기화 (CI pip-audit / Dependabot 스캔 대상)
 uv pip compile --upgrade pyproject.toml -o requirements.txt
 ```
@@ -35,7 +39,7 @@ uv pip compile --upgrade pyproject.toml -o requirements.txt
 - `~/.config/meridian-x/credentials.json`: 선택 사용자 인증 override (XDG). `load_config()`가 deep merge로 우선 적용한다.
 - `.env`: 선택 환경변수. gitignored. API key/토큰 평문 커밋 금지.
 - `data/meridian.db`: SQLite 저장소. `download_history`, `jav_metadata`, `west_metadata`, `actresses`, `retention_stats` 테이블 사용.
-- JAV 메타데이터 조회는 `db_path`가 없으면 `logs/jav_metadata_cache.db`를 사용한다. `jav_metadata_cache` 설정에 따라 경로가 달라질 수 있다.
+- 메타데이터 조회는 `db_path`가 없으면 `data/jav_metadata_cache.db`와 `data/stashdb_metadata_cache.db`를 사용한다. 캐시 경로 설정에 따라 경로가 달라질 수 있다.
 
 ## Key Patterns
 
@@ -43,23 +47,23 @@ uv pip compile --upgrade pyproject.toml -o requirements.txt
 - **History 관리**: `MeridianDB`가 `{source}:{id}` 형식으로 중복 수집을 방지한다.
 - **Transmission RPC**: `TransmissionClient`가 add/filter/label/stop-after-download 흐름을 관리한다.
 - **Pipeline 순서**: `stop → filter → label → sync → tidy → classify → Jellyfin refresh → report`.
-- **tidy → classify 순서 유지**: tidy가 flatten/파일명 정리 후 classify가 배우/스튜디오/장르/JPN/FC2/West로 분류한다. 배우 폴더명은 영문(`First Last`)을 표준으로 하고 한자·가나 표기는 `classify.artist_aliases`로 매핑한다.
-- **JAV 메타데이터**: FANZA → JavBus/Jav321 → OneJAV 순서로 필드 단위 병합 후 DB 캐시.
+- **tidy → classify 순서 유지**: tidy가 루트 단일·다중 영상 폴더와 `FC2/` 내 미지정 하위 폴더를 평탄화 및 광고 접두사 정리한 뒤, classify가 배우/스튜디오/장르/JPN/FC2/West로 분류한다(유효 영상 없는 빈·소용량 폴더는 이동 제외). 배우 폴더명은 영문(`First Last`)을 표준으로 하고 한자·가나 표기는 `classify.artist_aliases`로 매핑한다.
+- **JAV 메타데이터**: JavBus/Jav321 → OneJAV 순서로 필드 단위 병합 후 DB 캐시 (FC2 제외).
 - **West 메타데이터**: StashDB GraphQL API 조회 후 배우/스튜디오/태그를 Jellyfin 및 분류에 사용.
 - **화질 필터링 & 취향 스코어링**: 모든 미디어 소스는 `is_fhd_or_higher()` 및 `deduplicate_releases()`로 FHD(1080p) 및 `WRB`/`XC`를 선별한 뒤, `run_transmission()`에서 전 소스 후보를 `score_taste()`(`retention_stats` 잔존 스냅샷 + 캐시 메타데이터 + 등록 배우/스튜디오/프리픽스)로 글로벌 정렬하고 `collection.scoring.min_score` 미만은 스킵한다. 단, `meridian favorite`는 필터·스코어링 없이 무조건 수집한다.
 - **즐겨찾기 수집**: `meridian favorite` 서브커맨드는 `discover_favorite()` 보유 소스의 `favorite_url`(token URL)만 수동 수집하며 `transmission`(RSS) 수집과 분리돼 있다.
-- **원격 SSH 및 프록시 실행**: `meridian_x.remote` 모듈(`run_remote_ssh`, `fetch_remote_curl`, `get_proxies`, `fetch_via_proxy`, `download_via_proxy`)이 원격 SSH 실행과 사이트 접속 우회를 일원화 관리한다. 소스 fetch는 `proxy(brla gluetun) → lt SSH curl → 직접` 순서로 시도한다.
+- **원격 SSH 및 프록시 실행**: `meridian_x.remote` 모듈(`run_remote_ssh`, `fetch_remote_curl`, `get_proxies`, `fetch_via_proxy`, `download_via_proxy`, `fetch_via_flaresolverr`)이 원격 SSH 실행과 사이트 접속 우회를 일원화 관리한다. 소스 fetch는 `proxy(brla gluetun) → lt SSH curl → 직접` 순서로 시도한다.
 - **문서 구조**: README와 문서 구조는 `docs/README.md`의 Diátaxis 인덱스를 기준으로 유지한다.
 
 ## Verification
 
 - 변경 후 우선 관련 테스트를 좁게 실행하고, 필요하면 전체 회귀를 실행한다.
-- 원격/외부 시스템 변경 전에는 가능한 dry-run을 먼저 사용한다.
+- 원격/외부 시스템 변경(`transmission`, `favorite`, `tidy`, `classify`, `pipeline` 등) 전에는 가능한 `--dry-run`을 먼저 사용하며, 승인 프롬프트가 없는 비대화형(headless) 실행에서는 `--dry-run` 결과만 제시하고 실제 실행은 사용자 명령을 기다린다.
 
 ## Gotchas
 
 - `config/settings.json`이 없으면 실행 시 `FileNotFoundError`가 발생한다.
-- Transmission RPC는 생성 시점에 세션 핸드셰이크를 수행한다. tailnet 장애 시 timeout이 길어질 수 있어 `_probe_reachable` 경로를 고려한다.
+- Transmission RPC는 생성 시점에 세션 핸드셰이크를 수행한다. tailnet 장애는 `_probe_reachable`(3초 TCP 체크)로 조기 감지하고, 디스크 간(`/mnt/data2` → `/mnt/data1`) 완료 파일 이동 중 데몬 I/O 블로킹을 견디도록 RPC `timeout`은 기본 `30`초를 사용한다.
 - `filter`/`label --dry-run`은 영향 항목 상세를 나열하지 않고 요약만 출력한다.
 - 모든 meridian 명령은 import 시점에 `logs/YYMMDD/hhmmss.log`를 생성할 수 있다.
 - Jellyfin 204 응답은 body가 없다. REST helper에서 content 존재 여부를 확인해야 한다.

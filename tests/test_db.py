@@ -55,7 +55,7 @@ def test_jav_metadata_crud(tmp_path: Path):
         "actresses": ["Actress A"],
         "genres": ["Genre B"],
         "cover_url": "http://example.com/cover.jpg",
-        "source": "fanza",
+        "source": "web_db",
     }
     assert db.get_jav_metadata("SNOS-125") is None
     db.save_jav_metadata("SNOS-125", meta)

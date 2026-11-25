@@ -1,12 +1,10 @@
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from meridian_x.jav_metadata import get_jav_metadata, load_cache, save_cache
 
 
-def test_recheck_legacy_cast_on_lookup(tmp_path, mocker, monkeypatch):
+def test_recheck_legacy_cast_on_lookup(tmp_path, mocker):
     from meridian_x.db import MeridianDB
 
-    monkeypatch.delenv("FANZA_API_ID", raising=False)
     config = {"db_path": str(tmp_path / "cache.db")}
     db = MeridianDB(config["db_path"])
     db.save_jav_metadata("SNOS-187", {
@@ -44,106 +42,71 @@ def test_jav_metadata_cache(tmp_path):
     assert loaded["SONE-446"]["actresses"] == ["MINAMO"]
 
 
+@patch("meridian_x.jav_metadata.lookup_jav_actresses")
 @patch("meridian_x.jav_metadata.lookup_web_jav_metadata")
-@patch("meridian_x.jav_metadata.FanzaClient")
-def test_get_jav_metadata_fanza_success(mock_fanza_cls, mock_web_db, tmp_path):
-    mock_client = MagicMock()
-    mock_client.fetch_metadata.return_value = {
-        "actresses": ["MINAMO"],
-        "makers": ["S1 NO.1 STYLE"],
-        "genres": ["単体作品"],
-        "title": "Sample FANZA Title",
-    }
-    mock_fanza_cls.return_value = mock_client
-    mock_web_db.return_value = {"actresses": [], "makers": [], "genres": [], "title": None}
-
-    cache_file = tmp_path / "cache.json"
-    config = {
-        "jav_metadata_cache": str(cache_file),
-    }
-
-    meta = get_jav_metadata("SONE-446", config=config, api_id="test_id", affiliate_id="test_aff")
-    assert meta["code"] == "SONE-446"
-    assert meta["actresses"] == ["MINAMO"]
-    assert meta["makers"] == ["S1 NO.1 STYLE"]
-    assert meta["genres"] == ["単体作品"]
-    assert meta["title"] == "Sample FANZA Title"
-    assert meta["cover_url"] is None
-    assert meta["source"] == "fanza"
-
-
-    # Verify cached
-    loaded_cache = load_cache(str(cache_file))
-    assert "SONE-446" in loaded_cache
-
-
-@patch("meridian_x.jav_metadata.lookup_web_jav_metadata")
-@patch("meridian_x.jav_metadata.FanzaClient")
-def test_get_jav_metadata_field_merging(mock_fanza_cls, mock_web_db, tmp_path):
-    mock_client = MagicMock()
-    mock_client.fetch_metadata.return_value = {
-        "actresses": ["MINAMO"],
-        "makers": [],
-        "genres": ["単体作品"],
-        "title": None,
-    }
-    mock_fanza_cls.return_value = mock_client
-    mock_web_db.return_value = {
-        "actresses": [],
-        "makers": ["S1 NO.1 STYLE"],
-        "genres": ["ハイビジョン"],
-        "title": "Merged Title",
-    }
-
-    cache_file = tmp_path / "cache.json"
-    config = {"jav_metadata_cache": str(cache_file)}
-
-    meta = get_jav_metadata("SONE-446", config=config, api_id="test_id", affiliate_id="test_aff")
-    assert meta["actresses"] == ["MINAMO"]  # from FANZA
-    assert meta["makers"] == ["S1 NO.1 STYLE"]  # merged from Web DB
-    assert meta["title"] == "Merged Title"  # merged from Web DB
-    assert meta["source"] == "fanza+web_db"
-
-
-@patch("meridian_x.jav_metadata.lookup_web_jav_metadata")
-@patch("meridian_x.jav_metadata.FanzaClient")
-def test_get_jav_metadata_web_db_fallback(mock_fanza_cls, mock_web_db, tmp_path):
-    mock_client = MagicMock()
-    mock_client.fetch_metadata.return_value = None
-    mock_fanza_cls.return_value = mock_client
+def test_get_jav_metadata_web_db_success(mock_web_db, mock_onejav, tmp_path):
     mock_web_db.return_value = {
         "actresses": ["川越にこ"],
         "makers": ["S1 NO.1 STYLE"],
-        "genres": [],
+        "genres": ["単体作品"],
         "title": "Title",
     }
 
     cache_file = tmp_path / "cache.json"
     config = {"jav_metadata_cache": str(cache_file)}
 
-    meta = get_jav_metadata("SNOS-125", config=config, api_id="test_id", affiliate_id="test_aff")
+    meta = get_jav_metadata("SNOS-125", config=config)
     assert meta["actresses"] == ["川越にこ"]
     assert meta["makers"] == ["S1 NO.1 STYLE"]
+    assert meta["genres"] == ["単体作品"]
+    assert meta["title"] == "Title"
     assert meta["source"] == "web_db"
-
+    mock_onejav.assert_not_called()
+    assert "SNOS-125" in load_cache(str(cache_file))
 
 
 @patch("meridian_x.jav_metadata.lookup_jav_actresses")
 @patch("meridian_x.jav_metadata.lookup_web_jav_metadata")
-@patch("meridian_x.jav_metadata.FanzaClient")
-def test_get_jav_metadata_onejav_fallback(mock_fanza_cls, mock_web_db, mock_onejav, tmp_path):
-    mock_client = MagicMock()
-    mock_client.fetch_metadata.return_value = None
-    mock_fanza_cls.return_value = mock_client
+def test_get_jav_metadata_web_db_and_onejav_merging(mock_web_db, mock_onejav, tmp_path):
+    mock_web_db.return_value = {
+        "actresses": [],
+        "makers": ["S1 NO.1 STYLE"],
+        "genres": ["ハイビジョン"],
+        "title": "Merged Title",
+    }
+    mock_onejav.return_value = ["MINAMO"]
+
+    cache_file = tmp_path / "cache.json"
+    config = {"jav_metadata_cache": str(cache_file)}
+
+    meta = get_jav_metadata("SONE-446", config=config)
+    assert meta["actresses"] == ["MINAMO"]
+    assert meta["makers"] == ["S1 NO.1 STYLE"]
+    assert meta["title"] == "Merged Title"
+    assert meta["source"] == "web_db+onejav"
+
+
+@patch("meridian_x.jav_metadata.lookup_jav_actresses")
+@patch("meridian_x.jav_metadata.lookup_web_jav_metadata")
+def test_get_jav_metadata_onejav_fallback(mock_web_db, mock_onejav, tmp_path):
     mock_web_db.return_value = {"actresses": [], "makers": [], "genres": [], "title": None}
     mock_onejav.return_value = ["MINAMO"]
 
     cache_file = tmp_path / "cache.json"
-    config = {
-        "jav_metadata_cache": str(cache_file),
-    }
+    config = {"jav_metadata_cache": str(cache_file)}
 
-    meta = get_jav_metadata("SONE-446", config=config, api_id="test_id", affiliate_id="test_aff")
+    meta = get_jav_metadata("SONE-446", config=config)
     assert meta["actresses"] == ["MINAMO"]
     assert meta["source"] == "onejav"
+
+
+@patch("meridian_x.jav_metadata.lookup_jav_actresses")
+@patch("meridian_x.jav_metadata.lookup_web_jav_metadata")
+def test_get_jav_metadata_skips_fc2(mock_web_db, mock_onejav, tmp_path):
+    config = {"jav_metadata_cache": str(tmp_path / "cache.json")}
+    meta = get_jav_metadata("FC2-PPV-5000059", config=config)
+    assert meta["source"] == "none"
+    assert meta["actresses"] == []
+    mock_web_db.assert_not_called()
+    mock_onejav.assert_not_called()
 

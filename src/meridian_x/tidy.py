@@ -105,91 +105,151 @@ def _video_expr() -> str:
     return " -o ".join(f'-iname "*{ext}"' for ext in (".mp4", ".mkv", ".avi", ".wmv"))
 
 
-def _build_flatten_script(path: str, exclude_args: str = "", size_filter: str = "") -> str:
-    """flatten 셸 스크립트 생성 (로컬 테스트 가능하도록 분리)."""
+DEFAULT_NESTED_FLATTEN_TARGETS: tuple[str, ...] = ("FC2",)
+
+
+def _build_flatten_script(
+    path: str,
+    exclude_args: str = "",
+    size_filter: str = "",
+    nested_targets: tuple[str, ...] = DEFAULT_NESTED_FLATTEN_TARGETS,
+) -> str:
+    """flatten 셸 스크립트 생성 (로컬 테스트 가능하도록 분리).
+    루트 및 nested_targets(기본: FC2) 내부에서 지정되지 않은 하위 폴더를 해당 상위 폴더로 평탄화한다."""
     vexpr = _video_expr()
+    nested_guard = " ".join(f'-not -iname "{t}"' for t in nested_targets)
+    root_exclude = f"{exclude_args} {nested_guard}".strip()
+    nested_calls = "\n".join(
+        f"flatten_in_dir '{t}' '{t}/' '{exclude_args}'\nclean_empty_in_dir '{t}' '{exclude_args}'"
+        for t in nested_targets
+    )
     return f'''
 cd "{path}"
-find . -maxdepth 1 -type d -not -name "." -not -name ".." {exclude_args} | sort | while read dir; do
-    videos=$(find "$dir" -type f \\( {vexpr} \\) {size_filter} 2>/dev/null)
-    video_count=$(echo "$videos" | grep -c .)
-    if [ "$video_count" -eq 0 ]; then
-        continue
-    fi
-    # 대소문자 중복 폴더 확인 (자기 자신 제외: 2개 이상 매칭 시 중복)
-    folder_name_lower=$(basename "$dir" | tr '[:upper:]' '[:lower:]')
-    dup_count=$(ls ./ | grep -icFx "$folder_name_lower")
-    if [ "$dup_count" -ge 2 ]; then
-        # 중복 폴더는 모든 영상을 루트로 병합. 남은 영상이 있으면 폴더 보존
-        echo "$videos" | while read video_file; do
-            video_name=$(basename "$video_file")
-            if [ ! -f "./$video_name" ]; then
-                mv "$video_file" "./$video_name" 2>/dev/null
+total_cleaned=0
+
+flatten_in_dir() {{
+    local target_dir="$1"
+    local prefix="$2"
+    local ex_args="$3"
+    [ -d "$target_dir" ] || return 0
+    (
+        cd "$target_dir" || exit 0
+        eval "find . -maxdepth 1 -type d -not -name '.' -not -name '..' $ex_args" | sort | while IFS= read -r dir; do
+            videos=$(find "$dir" -type f \\( {vexpr} \\) {size_filter} 2>/dev/null)
+            video_count=$(echo "$videos" | grep -c .)
+            if [ "$video_count" -eq 0 ]; then
+                continue
+            fi
+            # 대소문자 중복 폴더 확인 (자기 자신 제외: 2개 이상 매칭 시 중복)
+            folder_name_lower=$(basename "$dir" | tr '[:upper:]' '[:lower:]')
+            dup_count=$(ls ./ | grep -icFx "$folder_name_lower")
+            if [ "$dup_count" -ge 2 ]; then
+                # 중복 폴더는 모든 영상을 상위로 병합. 남은 영상이 있으면 폴더 보존
+                echo "$videos" | while IFS= read -r video_file; do
+                    video_name=$(basename "$video_file")
+                    if [ ! -f "./$video_name" ]; then
+                        mv "$video_file" "./$video_name" 2>/dev/null
+                    fi
+                done
+                remaining=$(find "$dir" -type f \\( {vexpr} \\) {size_filter} 2>/dev/null | wc -l | tr -d ' ')
+                if [ "$remaining" -eq 0 ]; then
+                    rm -rf "$dir"
+                    echo "FLATTEN_DUP ${{prefix}}$(basename "$dir")"
+                else
+                    echo "FLATTEN_DUP_PARTIAL ${{prefix}}$(basename "$dir")"
+                fi
+                continue
+            fi
+            # 단일/다중 영상 폴더 모두 모든 영상을 안전하게 상위로 이동 (충돌/실패로 남은 영상이 있으면 폴더 보존)
+            echo "$videos" | while IFS= read -r video_file; do
+                video_name=$(basename "$video_file")
+                if [ ! -f "./$video_name" ]; then
+                    mv "$video_file" "./$video_name" 2>/dev/null
+                fi
+            done
+            remaining=$(find "$dir" -type f \\( {vexpr} \\) {size_filter} 2>/dev/null | wc -l | tr -d ' ')
+            if [ "$remaining" -eq 0 ]; then
+                rm -rf "$dir"
+                echo "FLATTEN ${{prefix}}$(basename "$dir")"
+            else
+                echo "FLATTEN_PARTIAL ${{prefix}}$(basename "$dir")"
             fi
         done
-        remaining=$(find "$dir" -type f \\( {vexpr} \\) {size_filter} 2>/dev/null | wc -l | tr -d ' ')
-        if [ "$remaining" -eq 0 ]; then
-            rm -rf "$dir"
-            echo "FLATTEN_DUP $(basename "$dir")"
-        else
-            echo "FLATTEN_DUP_PARTIAL $(basename "$dir")"
-        fi
-        continue
-    fi
-    if [ "$video_count" -eq 1 ]; then
-        video_file=$(echo "$videos" | head -1)
-        video_name=$(basename "$video_file")
-        if [ ! -f "./$video_name" ]; then
-            if mv "$video_file" "./$video_name" 2>/dev/null; then
-                rm -rf "$dir"
-                echo "FLATTEN $(basename "$dir")"
-            else
-                echo "FLATTEN_FAIL $(basename "$dir")"
-            fi
-        fi
-    else
-        # 다중 영상 폴더는 classify 폴더 분류가 처리 (삭제 금지)
-        echo "SKIP_MULTIVIDEO $(basename "$dir")"
-    fi
-done
-# 실패 다운로드 잔해 정리: 분류 폴더가 아닌 각 폴더에서 0바이트 stub 파일과 빈 폴더(재귀) 삭제
-cleaned_before=$(find . -maxdepth 1 -mindepth 1 -type d {exclude_args} | wc -l)
-find . -maxdepth 1 -mindepth 1 -type d {exclude_args} | while read dir; do
-    find "$dir" -type f -size 0 -delete 2>/dev/null
-    find "$dir" -type d -empty -delete 2>/dev/null
-done
-cleaned_after=$(find . -maxdepth 1 -mindepth 1 -type d {exclude_args} | wc -l)
-echo "FOLDERS_CLEANED=$((cleaned_before - cleaned_after))"
+    )
+}}
+
+clean_empty_in_dir() {{
+    local target_dir="$1"
+    local ex_args="$2"
+    [ -d "$target_dir" ] || return 0
+    local before after
+    before=$(eval "find \\"$target_dir\\" -maxdepth 1 -mindepth 1 -type d $ex_args" | wc -l)
+    eval "find \\"$target_dir\\" -maxdepth 1 -mindepth 1 -type d $ex_args" | while IFS= read -r dir; do
+        find "$dir" -type f -size 0 -delete 2>/dev/null
+        find "$dir" -type d -empty -delete 2>/dev/null
+    done
+    after=$(eval "find \\"$target_dir\\" -maxdepth 1 -mindepth 1 -type d $ex_args" | wc -l)
+    total_cleaned=$((total_cleaned + before - after))
+}}
+
+flatten_in_dir "." "" '{root_exclude}'
+clean_empty_in_dir "." '{root_exclude}'
+{nested_calls}
+echo "FOLDERS_CLEANED=$total_cleaned"
 '''
 
 
-def _build_flatten_probe_script(path: str, exclude_args: str = "", size_filter: str = "") -> str:
-    """dry-run용 읽기 전용 프로브: flatten 대상 후보 집계 (변경 없음)."""
+def _build_flatten_probe_script(
+    path: str,
+    exclude_args: str = "",
+    size_filter: str = "",
+    nested_targets: tuple[str, ...] = DEFAULT_NESTED_FLATTEN_TARGETS,
+) -> str:
+    """dry-run용 읽기 전용 프로브: 루트 및 nested_targets 내 flatten 대상 후보 집계 (변경 없음)."""
     vexpr = _video_expr()
+    nested_guard = " ".join(f'-not -iname "{t}"' for t in nested_targets)
+    root_exclude = f"{exclude_args} {nested_guard}".strip()
+    nested_calls = "\n".join(
+        f"probe_in_dir '{t}' '{t}/' '{exclude_args}'"
+        for t in nested_targets
+    )
     return f'''
 cd "{path}"
-find . -maxdepth 1 -type d -not -name "." -not -name ".." {exclude_args} | sort | while read dir; do
-    videos=$(find "$dir" -type f \\( {vexpr} \\) {size_filter} 2>/dev/null)
-    video_count=$(echo "$videos" | grep -c .)
-    if [ "$video_count" -eq 0 ]; then
-        continue
-    fi
-    folder_name_lower=$(basename "$dir" | tr '[:upper:]' '[:lower:]')
-    dup_count=$(ls ./ | grep -icFx "$folder_name_lower")
-    if [ "$dup_count" -ge 2 ]; then
-        echo "CANDIDATE_DUP $(basename "$dir") ($video_count videos)"
-    elif [ "$video_count" -eq 1 ]; then
-        echo "CANDIDATE $(basename "$dir")"
-    else
-        echo "SKIP_MULTIVIDEO $(basename "$dir") ($video_count videos)"
-    fi
-done
+
+probe_in_dir() {{
+    local target_dir="$1"
+    local prefix="$2"
+    local ex_args="$3"
+    [ -d "$target_dir" ] || return 0
+    (
+        cd "$target_dir" || exit 0
+        eval "find . -maxdepth 1 -type d -not -name '.' -not -name '..' $ex_args" | sort | while IFS= read -r dir; do
+            videos=$(find "$dir" -type f \\( {vexpr} \\) {size_filter} 2>/dev/null)
+            video_count=$(echo "$videos" | grep -c .)
+            if [ "$video_count" -eq 0 ]; then
+                continue
+            fi
+            folder_name_lower=$(basename "$dir" | tr '[:upper:]' '[:lower:]')
+            dup_count=$(ls ./ | grep -icFx "$folder_name_lower")
+            if [ "$dup_count" -ge 2 ]; then
+                echo "CANDIDATE_DUP ${{prefix}}$(basename "$dir") ($video_count videos)"
+            elif [ "$video_count" -eq 1 ]; then
+                echo "CANDIDATE ${{prefix}}$(basename "$dir")"
+            else
+                echo "CANDIDATE ${{prefix}}$(basename "$dir") ($video_count videos)"
+            fi
+        done
+    )
+}}
+
+probe_in_dir "." "" '{root_exclude}'
+{nested_calls}
 '''
 
 
 def flatten_folders(remote: dict, exclude_folders: list = None, min_size_mb: int = 0, dry_run: bool = False) -> int:
-    """SSH로 비디오 1개 폴더를 상위로 이동하고 폴더 삭제. classify 분류 폴더 제외, min_size 미만 광고 mp4는 영상 카운트에서 제외.
-    대소문자 중복 폴더는 모든 영상을 루트로 병합 (남은 영상 있으면 보존). 다중 영상 폴더는 건드리지 않음 (classify 폴더 분류가 처리).
+    """SSH로 비디오 폴더를 상위로 이동하고 폴더 삭제. classify 분류 폴더 제외, min_size 미만 광고 mp4는 영상 카운트에서 제외.
+    단일/다중 영상 및 대소문자 중복 폴더 모두 모든 영상을 루트로 이동 (충돌 등으로 남은 영상 있으면 폴더 보존).
     flatten 후 0바이트 stub 파일과 빈 폴더(실패 다운로드 잔해)도 함께 정리."""
     path = remote["path"]
     exclude_args = _build_exclude_args(exclude_folders)
@@ -202,7 +262,7 @@ def flatten_folders(remote: dict, exclude_folders: list = None, min_size_mb: int
             return 0
         count = 0
         for line in output.splitlines():
-            if line.startswith(("CANDIDATE", "SKIP_MULTIVIDEO")):
+            if line.startswith("CANDIDATE"):
                 logger.info(f"  [Dry-run] {line}")
             if line.startswith("CANDIDATE "):
                 count += 1
@@ -217,15 +277,15 @@ def flatten_folders(remote: dict, exclude_folders: list = None, min_size_mb: int
     for line in output.splitlines():
         if line.startswith("FLATTEN_FAIL "):
             logger.error(f"  [Flatten 실패] {line[13:]}")
-        elif line.startswith("SKIP_MULTIVIDEO "):
-            logger.info(f"  [다중 영상 스킵 - classify 폴더 분류 대상] {line[16:]}")
+        elif line.startswith("FLATTEN_PARTIAL "):
+            logger.warning(f"  [Flatten 부분 완료 - 이름 충돌로 원본 보존] {line[16:]}")
         elif line.startswith("FLATTEN_DUP_PARTIAL "):
             logger.warning(f"  [중복 병합 부분 완료 - 이름 충돌로 원본 보존] {line[20:]}")
 
     count = output.count("FLATTEN ")
     dup = output.count("FLATTEN_DUP ")
-    skipped = output.count("SKIP_MULTIVIDEO ")
-    logger.info(f"[Tidy-2] Flatten: {count}개 폴더 (중복 병합 {dup}, 다중 영상 스킵 {skipped})")
+    partial = output.count("FLATTEN_PARTIAL ")
+    logger.info(f"[Tidy-2] Flatten: {count}개 폴더 (중복 병합 {dup}, 부분 보존 {partial})")
 
     cleaned = 0
     for line in output.splitlines():
@@ -235,79 +295,81 @@ def flatten_folders(remote: dict, exclude_folders: list = None, min_size_mb: int
     return count
 
 
-def clean_filenames(remote: dict, prefixes: list, dry_run: bool = False) -> int:
-    """SSH로 파일명 광고 접두사 제거."""
+def _build_clean_filenames_script(
+    path: str,
+    prefixes: list[str],
+    nested_targets: tuple[str, ...] = DEFAULT_NESTED_FLATTEN_TARGETS,
+    dry_run: bool = False,
+) -> str:
+    """루트 및 nested_targets(기본: FC2) 내 파일명 광고 접두사 제거 셸 스크립트 (POSIX 호환)."""
+    prefix_checks = " || ".join(
+        f'echo "$f" | grep -q "^{prefix}"' for prefix in prefixes
+    )
+    dirs_str = " ".join(['"."'] + [f'"{t}"' for t in nested_targets])
+    if dry_run:
+        action = 'echo "RENAME ${label}${f} -> ${label}${new_name}"'
+    else:
+        action = '''if mv "$f" "$new_name" 2>/dev/null; then
+                    echo "RENAME ${label}${f} -> ${label}${new_name}"
+                else
+                    echo "MV_FAIL ${label}${f} -> ${label}${new_name}"
+                fi'''
+    return f'''
+cd "{path}"
+for target_dir in {dirs_str}; do
+    [ -d "$target_dir" ] || continue
+    label=""
+    [ "$target_dir" != "." ] && label="${{target_dir}}/"
+    (
+        cd "$target_dir" || exit 0
+        for f in *; do
+            [ ! -f "$f" ] && continue
+            {prefix_checks} || continue
+            new_name=$(echo "$f" | sed "s/^[^@]*@//")
+            if [ "$f" != "$new_name" ] && [ ! -f "$new_name" ]; then
+                {action}
+            fi
+        done
+    )
+done
+'''
+
+
+def clean_filenames(
+    remote: dict,
+    prefixes: list,
+    dry_run: bool = False,
+    nested_targets: tuple[str, ...] = DEFAULT_NESTED_FLATTEN_TARGETS,
+) -> int:
+    """SSH로 루트 및 nested_targets(기본: FC2) 내 파일명 광고 접두사 제거."""
     if not prefixes:
         logger.info("[Tidy-3] 파일명 정리: 설정된 prefix 없음, 스킵")
         return 0
 
-    path = remote["path"]
-    # 각 prefix에 대해 rename 명령 생성
-    prefix_checks = " || ".join(
-        f'echo "$f" | grep -q "^{prefix}"' for prefix in prefixes
+    cmd = _build_clean_filenames_script(
+        remote["path"], prefixes, nested_targets=nested_targets, dry_run=dry_run
     )
-
-    if dry_run:
-        cmd = f'''
-cd "{path}"
-count=0
-for f in *; do
-    [ ! -f "$f" ] && continue
-    {prefix_checks} || continue
-    new_name=$(echo "$f" | sed "s/^[^@]*@//")
-    if [ "$f" != "$new_name" ] && [ ! -f "$new_name" ]; then
-        echo "RENAME $f -> $new_name"
-        count=$((count+1))
-    fi
-done
-echo "COUNT=$count"
-'''
-        ok, output = _ssh(remote, cmd)
-        if not ok:
-            logger.error(f"[Tidy-3] 파일명 정리 프로브 실패: {output[:200]}")
-            return 0
-        count = 0
-        for line in output.splitlines():
-            if line.startswith("RENAME "):
-                logger.info(f"  [Dry-run] {line[7:]}")
-            if line.startswith("COUNT="):
-                count = int(line.split("=")[1])
-        logger.info(f"[Tidy-3] 파일명 정리 후보: {count}개 (dry-run)")
-        return count
-
-    cmd = f'''
-cd "{path}"
-count=0
-for f in *; do
-    [ ! -f "$f" ] && continue
-    {prefix_checks} || continue
-    new_name=$(echo "$f" | sed "s/^[^@]*@//")
-    if [ "$f" != "$new_name" ] && [ ! -f "$new_name" ]; then
-        if mv "$f" "$new_name" 2>/dev/null; then
-            echo "RENAME $f -> $new_name"
-            count=$((count+1))
-        else
-            echo "MV_FAIL $f -> $new_name"
-        fi
-    fi
-done
-echo "COUNT=$count"
-'''
     ok, output = _ssh(remote, cmd)
     if not ok:
-        logger.error(f"[Tidy-3] 파일명 정리 실패: {output[:200]}")
+        tag = "프로브 실패" if dry_run else "실패"
+        logger.error(f"[Tidy-3] 파일명 정리 {tag}: {output[:200]}")
         return 0
 
     count = 0
     for line in output.splitlines():
         if line.startswith("RENAME "):
-            logger.info(f"  [정리] {line[7:]}")
+            count += 1
+            if dry_run:
+                logger.info(f"  [Dry-run] {line[7:]}")
+            else:
+                logger.info(f"  [정리] {line[7:]}")
         elif line.startswith("MV_FAIL "):
             logger.error(f"  [이동 실패] {line[8:]}")
-        if line.startswith("COUNT="):
-            count = int(line.split("=")[1])
 
-    logger.info(f"[Tidy-3] 파일명 정리: {count}개")
+    if dry_run:
+        logger.info(f"[Tidy-3] 파일명 정리 후보: {count}개 (dry-run)")
+    else:
+        logger.info(f"[Tidy-3] 파일명 정리: {count}개")
     return count
 
 

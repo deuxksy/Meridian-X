@@ -50,8 +50,7 @@ Meridian-X/
     ├── classify.py            # 원격 파일 분류 (SSH)
     ├── report.py              # disk/잔존율(retention)/토렌트 상태 리포트
     ├── db.py                  # SQLite 저장소 (download_history, jav_metadata, west_metadata, actresses, retention_stats)
-    ├── fanza.py               # FANZA API 클라이언트
-    ├── jav_lookup.py          # 배우 2차 분류 조회
+    ├── jav_lookup.py          # JAV Web DB (Jav321/JavBus) 및 OneJAV 조회
     ├── jav_metadata.py        # 메타데이터 통합 Resolver
     ├── west_metadata.py       # StashDB GraphQL API West 메타데이터 Resolver
     ├── remote.py              # SSH 원격 명령, 원격 curl, 프록시 fetch 헬퍼 모듈

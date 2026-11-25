@@ -91,15 +91,33 @@ class TestFlattenScript:
         assert not d.exists()
         assert "FLATTEN SONE-446" in r.stdout
 
-    def test_multi_video_folder_skipped_untouched(self, tmp_path):
-        """회귀: 다중 영상 폴더의 파일이 삭제되면 안 된다."""
+    def test_multi_video_folder_flattened_all_videos_preserved(self, tmp_path):
+        """다중 영상 폴더의 모든 영상을 루트로 이동하고 하나도 삭제되지 않아야 한다."""
+        d = tmp_path / "FC2-PPV-4968567"
+        d.mkdir()
+        names = [f"FC2-PPV-4968567_{i}.mp4" for i in range(1, 4)]
+        for name in names:
+            _make_video(d, name)
+        r = _run_script(tmp_path, tidy._build_flatten_script(str(tmp_path)))
+        assert not d.exists()
+        assert all((tmp_path / name).exists() for name in names)
+        assert "FLATTEN FC2-PPV-4968567" in r.stdout
+
+    def test_multi_video_folder_name_collision_keeps_remaining_videos(self, tmp_path):
+        """회귀: 다중 영상 폴더 flatten 중 이름 충돌이 있으면 기존 파일과 원본 폴더 내 남은 영상을 보존한다."""
+        (tmp_path / "part1.mp4").write_text("root")
         d = tmp_path / "MultiPart"
         d.mkdir()
-        files = [_make_video(d, f"part{i}.mp4") for i in range(3)]
+        _make_video(d, "part0.mp4")
+        _make_video(d, "part1.mp4")
+        _make_video(d, "part2.mp4")
         r = _run_script(tmp_path, tidy._build_flatten_script(str(tmp_path)))
+        assert (tmp_path / "part0.mp4").exists()
+        assert (tmp_path / "part1.mp4").read_text() == "root"
+        assert (tmp_path / "part2.mp4").exists()
         assert d.exists()
-        assert all(f.exists() for f in files)
-        assert "SKIP_MULTIVIDEO MultiPart" in r.stdout
+        assert (d / "part1.mp4").exists()
+        assert "FLATTEN_PARTIAL MultiPart" in r.stdout
 
     def test_case_duplicate_folder_merged_to_root(self, tmp_path):
         _require_case_sensitive_fs(tmp_path)
@@ -174,6 +192,39 @@ class TestFlattenScript:
         ))
         assert (d / "x.mp4").exists()
 
+    def test_fc2_unconfigured_subdirs_flattened_into_fc2_while_configured_kept(self, tmp_path):
+        """FC2 내부의 미지정 하위 폴더는 FC2/ 바로 아래로 평탄화하고, 지정된 group/label 폴더와 타 스튜디오는 유지한다."""
+        fc2 = tmp_path / "FC2"
+        sub1 = fc2 / "fc2-ppv-4968567"
+        sub1.mkdir(parents=True)
+        _make_video(sub1, "FC2-PPV-4968567_1.mp4")
+        _make_video(sub1, "FC2-PPV-4968567_2.mp4")
+        (sub1 / "FC2-PPV-4968567_1.nfo").write_text("nfo")
+
+        empty_sub = fc2 / "fc2-ppv-5002714"
+        empty_sub.mkdir()
+
+        # 지정된 group/label 폴더가 FC2 아래에 있으면 보호
+        configured_group = fc2 / "SpecialLabel"
+        configured_group.mkdir()
+        _make_video(configured_group, "keep.mp4")
+
+        # 다른 스튜디오 폴더 내부는 건드리지 않음 (FC2만 대상)
+        wow = tmp_path / "Wowgirls" / "WowGirls.23.01.03"
+        wow.mkdir(parents=True)
+        _make_video(wow, "wow.mp4")
+
+        exclude_args = tidy._build_exclude_args(["FC2", "Wowgirls", "SpecialLabel"])
+        r = _run_script(tmp_path, tidy._build_flatten_script(str(tmp_path), exclude_args))
+        assert r.returncode == 0
+        assert (fc2 / "FC2-PPV-4968567_1.mp4").exists()
+        assert (fc2 / "FC2-PPV-4968567_2.mp4").exists()
+        assert not sub1.exists()
+        assert not empty_sub.exists()
+        assert (configured_group / "keep.mp4").exists()
+        assert (wow / "wow.mp4").exists()
+        assert "FLATTEN FC2/fc2-ppv-4968567" in r.stdout
+
 
 class TestFlattenProbeScript:
     """_build_flatten_probe_script: dry-run 읽기 전용 후보 집계."""
@@ -190,7 +241,7 @@ class TestFlattenProbeScript:
             tmp_path, tidy._build_flatten_probe_script(str(tmp_path))
         )
         assert "CANDIDATE One" in r.stdout
-        assert "SKIP_MULTIVIDEO Multi" in r.stdout
+        assert "CANDIDATE Multi (2 videos)" in r.stdout
         assert (single / "a.mp4").exists()
         assert multi.exists()
         assert len(list(multi.iterdir())) == 2
@@ -289,26 +340,22 @@ def test_clean_prefixes_includes_configured_domains():
 
 
 def test_clean_filenames_strip_gg5_co_prefix(tmp_path):
-    """gg5.co@ 접두사가 tidy의 파일명 정리 셸 로직을 통해 정상 제거되는지 검증."""
+    """gg5.co@ 및 4k688.com@ 접두사가 루트와 FC2/ 모두에서 정상 제거되는지 검증."""
     video = tmp_path / "gg5.co@START-302_UNC.mp4"
     video.write_text("dummy")
 
+    fc2 = tmp_path / "FC2"
+    fc2.mkdir()
+    fc2_video = fc2 / "4k688.com@FC2-PPV-4993186_1.mp4"
+    fc2_video.write_text("dummy")
+
     prefixes = ["hhd800.com@", "4k688.com@", "gg5.co@"]
-    prefix_checks = " || ".join(f'echo "$f" | grep -q "^{p}"' for p in prefixes)
-    script = f'''
-cd "{tmp_path}"
-for f in *; do
-    [ ! -f "$f" ] && continue
-    {prefix_checks} || continue
-    new_name=$(echo "$f" | sed "s/^[^@]*@//")
-    if [ "$f" != "$new_name" ] && [ ! -f "$new_name" ]; then
-        mv "$f" "$new_name"
-    fi
-done
-'''
+    script = tidy._build_clean_filenames_script(str(tmp_path), prefixes)
     res = _run_script(tmp_path, script)
     assert res.returncode == 0
-    assert not (tmp_path / "gg5.co@START-302_UNC.mp4").exists()
+    assert not video.exists()
     assert (tmp_path / "START-302_UNC.mp4").exists()
+    assert not fc2_video.exists()
+    assert (fc2 / "FC2-PPV-4993186_1.mp4").exists()
 
 

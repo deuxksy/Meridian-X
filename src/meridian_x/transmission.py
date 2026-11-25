@@ -12,7 +12,7 @@ class TransmissionClient:
     """Proxmox Transmission RPC 클라이언트 (transmission-rpc 기반)"""
 
     def __init__(self, rpc_url: str, user: str = None, password: str = None,
-                 timeout: int = 10, stop_after_download: bool = False):
+                 timeout: int = 30, stop_after_download: bool = False):
         """RPC 클라이언트 초기화. rpc_url을 protocol/host/port/path로 분리하여
         transmission-rpc Client 생성. 409 세션 ID / Basic Auth는 lib가 처리."""
         parsed = urlparse(rpc_url)

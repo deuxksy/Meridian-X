@@ -45,7 +45,7 @@
     "rpc_user": null,
     "rpc_password": null,
     "download_dir": null,
-    "timeout": 10,
+    "timeout": 30,
     "stop_after_download": true,
     "filters": {
       "exclude_extensions": [".html", ".url", ".txt", ".nfo"],
@@ -67,10 +67,6 @@
   "flaresolverr": {
     "url": null,
     "proxy": "http://gluetun:8888"
-  },
-  "fanza": {
-    "api_id": null,
-    "affiliate_id": null
   },
   "stashdb": {
     "api_key": null
